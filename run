@@ -1,0 +1,11 @@
+#!/bin/sh
+
+while true; do
+  ruby /usr/app/parser.rb
+  
+  aws s3 cp iptv-sports.xml "s3://maddox/channels/iptv/iptv-sports.xml"
+  aws s3api put-object-acl --bucket "maddox" --key channels/iptv/iptv-sports.xml --acl public-read
+
+  echo "Waiting ${60} minutes..."
+  sleep 3600
+done
