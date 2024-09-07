@@ -94,8 +94,8 @@ matches.each do |match|
 
   time = Time.new(Date.today.year, month, day, hour, minute)
 
-  start_time = time.getutc
-  end_time = Time.at((time.to_i + league[:duration])).getutc
+  start_time = time.utc
+  end_time = Time.at((time.to_i + league[:duration])).utc
 
   channel_number = league[:starting_channel_number] + channel_id.gsub(league[:prefix], '').to_i
   channels << { channel_id: channel_id, 
