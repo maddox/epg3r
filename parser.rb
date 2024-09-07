@@ -78,7 +78,7 @@ matches.each do |match|
   end
 
   puts title
-  puts title_match.inspect
+  puts title_match
   puts
   next unless title_match
 
@@ -94,8 +94,8 @@ matches.each do |match|
 
   time = Time.new(Date.today.year, month, day, hour, minute)
 
-  start_time = time
-  end_time = Time.at((time.to_i + league[:duration]))
+  start_time = time.getutc
+  end_time = Time.at((time.to_i + league[:duration])).getutc
 
   channel_number = league[:starting_channel_number] + channel_id.gsub(league[:prefix], '').to_i
   channels << { channel_id: channel_id, 
