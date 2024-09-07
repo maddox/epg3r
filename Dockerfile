@@ -1,4 +1,4 @@
-FROM ruby:latest
+FROM mfenniak/ruby-awscli
 
 RUN apt-get update -qq && \
   apt-get install -y --no-install-recommends unzip python-dev && \
