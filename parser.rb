@@ -78,7 +78,7 @@ matches.each do |match|
   end
 
   puts title
-  puts title_match
+  puts title_match.inspect
   puts
   next unless title_match
 
