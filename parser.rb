@@ -50,6 +50,16 @@ leagues = {
               airing_title: "MLS Soccer",
               duration: (60*60*2),
               genres: ["Soccer"]
+            },
+            "NBA":  {
+              prefix: "NBA",
+              starting_channel_number: 8800,
+              series_id: "191276",
+              channel_logo_url: "http://static.maddox.casa/channels/clearart/nba-clearart.png",
+              airing_placard_url: "http://static.maddox.casa/channels/placard/nba-basketball.jpg",
+              airing_title: "NBA Basketball",
+              duration: (60*60*3.5),
+              genres: ["Basketball"]
             }
           }
 
