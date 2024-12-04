@@ -107,6 +107,10 @@ matches.each do |match|
   start_time = time.utc
   end_time = Time.at((time.to_i + league[:duration])).utc
 
+  puts time
+  puts start_time
+  puts end_time
+
   channel_number = league[:starting_channel_number] + channel_id.gsub(league[:prefix], '').to_i
   channels << { channel_id: channel_id, 
                 channel_number: channel_number,
