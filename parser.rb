@@ -81,7 +81,7 @@ matches.each do |match|
   regex1 = Regexp.new(/(\w+ \d+):? ?\|? (.*) \((\d\d).(\d\d) (.*):(.*)(AM|PM) ET\)/)
   # NFL 15: Los Angeles Chargers vs Chicago Bears Oct 29 08:20 PM
   regex2 = Regexp.new(/(\w+ \d+): (.*) (\w+) (\d+) (.*):(.*) (AM|PM)/)
-  
+
   title_match = title.match(regex1)
   if !title_match
     title_match = title.match(regex2)
@@ -100,7 +100,7 @@ matches.each do |match|
   minute = title_match[6].to_i
   ampm = title_match[7]
 
-  hour = hour + 12 if ampm == "PM"
+  # hour = hour + 12 if ampm == "PM"
 
   time = Time.new(Date.today.year, month, day, hour, minute)
 
