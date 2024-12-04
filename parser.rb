@@ -100,7 +100,7 @@ matches.each do |match|
   minute = title_match[6].to_i
   ampm = title_match[7]
 
-  # hour = hour + 12 if ampm == "PM"
+  hour = hour + 12 if hour > 12
 
   time = Time.new(Date.today.year, month, day, hour, minute)
 
