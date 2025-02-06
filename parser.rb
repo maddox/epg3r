@@ -71,8 +71,9 @@ matches.sort_by! { |match| match[1] } # Sort by channel id
 
 matches.each do |match|
   title = match[1]
-  group = match[2].gsub("#EXTGRP:", '')
-  stream_url = match[3]
+  stream_url = match[2]
+  group_matches = match[3].match(/group-title="([^"]+)/)
+  group = group_matches[1]
 
   league = leagues[group.to_sym]
   next unless league
