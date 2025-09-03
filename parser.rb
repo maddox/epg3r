@@ -16,9 +16,7 @@ FileUtils.rm(output_epg_path) if File.exist?(output_epg_path)
 iptv_m3u_data = URI.open(iptv_m3u_url).read
 File.write(input_m3u_path, iptv_m3u_data)
 
-
-
-epg_matcher = Regexp.new(/^(#\S+(?:\s+[^\s="]+=".*")+),(.*)\s*(.*)\s*(.*)/)
+epg_matcher = Regexp.new(/^(#\S+(?:\s+[^\s="]+=".*")+),(.*)\s*(.*)\s*(http.*)/)
 
 leagues = {
             "NFL": {
@@ -71,8 +69,10 @@ matches.sort_by! { |match| match[1] } # Sort by channel id
 
 matches.each do |match|
   title = match[1]
-  stream_url = match[2]
-  group_matches = match[3].match(/group-title="([^"]+)/)
+  stream_url = match[3]
+  group_matches = match[0].match(/group-title="([^"]+)/)
+
+  
   group = group_matches[1]
 
   league = leagues[group.to_sym]
