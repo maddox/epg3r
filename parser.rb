@@ -26,7 +26,7 @@ leagues = {
               channel_logo_url: "http://static.maddox.casa/channels/clearart/sunday-ticket-clearart.png",
               airing_placard_url: "http://static.maddox.casa/channels/placard/nfl-football-sunday-ticket.jpg",
               airing_title: "NFL Football",
-              duration: (60*60*3.5),
+              duration: (60*60*4),
               genres: ["Football"]
             },
             "MLB Baseball league":  {
@@ -36,7 +36,7 @@ leagues = {
               channel_logo_url: "http://static.maddox.casa/channels/clearart/mlb-clearart.png",
               airing_placard_url: "http://static.maddox.casa/channels/placard/mlb-baseball.jpg",
               airing_title: "MLB Baseball",
-              duration: (60*60*3.5),
+              duration: (60*60*4),
               genres: ["Baseball"]
             },
             "MLS":  {
@@ -46,7 +46,7 @@ leagues = {
               channel_logo_url: "http://static.maddox.casa/channels/clearart/mls-clearart.png",
               airing_placard_url: "http://static.maddox.casa/channels/placard/mls-soccer.jpg",
               airing_title: "MLS Soccer",
-              duration: (60*60*2),
+              duration: (60*60*2.5),
               genres: ["Soccer"]
             },
             "NBA":  {
@@ -56,7 +56,7 @@ leagues = {
               channel_logo_url: "http://static.maddox.casa/channels/clearart/nba-clearart.png",
               airing_placard_url: "http://static.maddox.casa/channels/placard/nba-basketball.jpg",
               airing_title: "NBA Basketball",
-              duration: (60*60*3.5),
+              duration: (60*60*4),
               genres: ["Basketball"]
             }
           }
