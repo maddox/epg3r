@@ -102,10 +102,11 @@ matches.each do |match|
   ampm = title_match[7]
 
   hour = hour + 12 if ampm == "PM" && hour != 12
-
+  date = Date.new(Date.today.year, month.to_i, day)
   time = Time.new(Date.today.year, month, day, hour, minute)
 
-  start_time = time.utc
+  # start 30 mins earlier if the date is not on sunday or monday
+  start_time = Time.at((time.to_i - ((date.wday != 0 && date.wday != 1) ? (60*30) : 0))).utc
   end_time = Time.at((time.to_i + league[:duration])).utc
 
   channel_number = league[:starting_channel_number] + channel_id.gsub(league[:prefix], '').to_i
