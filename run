@@ -3,8 +3,10 @@
 while true; do
   ruby parser.rb
   
-  aws s3 cp iptv-sports.xml "s3://maddox/channels/iptv/iptv-sports.xml"
-  aws s3api put-object-acl --bucket "maddox" --key channels/iptv/iptv-sports.xml --acl public-read
+  for file in iptv-sports.xml iptv-sports.m3u; do
+    aws s3 cp "$file" "s3://maddox/channels/iptv/$file"
+    aws s3api put-object-acl --bucket "maddox" --key "channels/iptv/$file" --acl public-read
+  done
 
   echo "Waiting 60 minutes..."
   sleep 3600
