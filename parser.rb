@@ -128,7 +128,9 @@ end
 
 
 m3u_output = "#EXTM3U\n\n"
-epg_doc = REXML::Document.new('<?xml version="1.0" encoding="utf-8" ?><!DOCTYPE tv SYSTEM "xmltv.dtd">')
+epg_doc = REXML::Document.new
+epg_doc << REXML::XMLDecl.new('1.0', 'utf-8')
+epg_doc << REXML::DocType.new('tv SYSTEM "xmltv.dtd"')
 tv = epg_doc.add_element 'tv'
 
 channels.each do |channel|
