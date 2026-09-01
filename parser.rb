@@ -94,7 +94,7 @@ leagues = {
             }
           }
 
-m3u = open(input_m3u_path).read
+m3u = File.read(input_m3u_path)
 matches = m3u.scan(epg_matcher)
 channels = []
 
@@ -235,6 +235,5 @@ channels.each do |channel|
 
 end
 
-
-  File.write(output_m3u_path, m3u_output)
-  File.write(output_epg_path, epg_doc.to_s)
+File.write(output_m3u_path, m3u_output)
+File.write(output_epg_path, epg_doc.to_s)
