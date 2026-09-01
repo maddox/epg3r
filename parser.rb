@@ -1,4 +1,5 @@
 require 'date'
+require 'digest'
 require 'open-uri'
 require 'rexml/document'
 require 'fileutils'
@@ -116,7 +117,7 @@ matches.each do |match|
                           airing_placard_url: league[:airing_placard_url], 
                           airing_title: league[:airing_title],
                           series_id: league[:series_id], 
-                          episode_id: "#{league[:series_id]}-#{event_title.hash}", 
+                          episode_id: "#{league[:series_id]}-#{Digest::MD5.hexdigest(event_title)[0, 12]}", 
                           genres: league[:genres],
                           event_title: event_title, 
                           start_time: start_time,
