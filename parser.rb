@@ -139,7 +139,7 @@ channels.each do |channel|
   program = channel[:program]
 
   # write to m3u
-  m3u_output += "#EXTINF:-1 channel-id=\"#{channel_id}\" tvg-id=\"#{channel_id}\" channel-number=\"#{channel[:channel_number]}\" tvg-name=\"#{channel_id}\" tvg-logo=\"#{channel[:tv_logo]}\",#{channel_id}\n"
+  m3u_output += "#EXTINF:-1 channel-id=\"#{channel_id}\" tvg-id=\"#{channel_id}\" channel-number=\"#{channel[:channel_number]}\" tvg-name=\"#{channel_id}\" tvg-logo=\"#{channel[:channel_logo_url]}\",#{channel_id}\n"
   m3u_output += "#{channel[:stream_url]}\n\n"
 
   # write to xmltv EPG
