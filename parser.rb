@@ -4,6 +4,38 @@ require 'open-uri'
 require 'rexml/document'
 require 'fileutils'
 
+# Game times in the playlist are always Eastern Time. Compute the ET offset for a
+# given wall-clock time without depending on the container's TZ or tzdata.
+# US DST runs from 2:00 AM on the second Sunday in March to 2:00 AM on the first
+# Sunday in November.
+def eastern_offset(year, month, day, hour)
+  march = Date.new(year, 3, 1)
+  dst_start = march + ((7 - march.wday) % 7) + 7
+  november = Date.new(year, 11, 1)
+  dst_end = november + ((7 - november.wday) % 7)
+
+  date = Date.new(year, month, day)
+  in_dst = (date > dst_start || (date == dst_start && hour >= 2)) &&
+           (date < dst_end || (date == dst_end && hour < 2))
+  in_dst ? "-04:00" : "-05:00"
+end
+
+# Month arrives as "09" from the first title format or "Oct" from the second.
+def parse_month(text)
+  return text.to_i if text =~ /\A\d+\z/
+  Date::ABBR_MONTHNAMES.index { |name| name && name.casecmp?(text[0, 3]) }
+end
+
+# The playlist only lists month and day. Pick the year that puts the game closest
+# to today so December runs handle January games and vice versa.
+def infer_year(month, day)
+  today = Date.today
+  candidates = [today.year - 1, today.year, today.year + 1].map do |year|
+    Date.valid_date?(year, month, day) ? Date.new(year, month, day) : nil
+  end.compact
+  candidates.min_by { |date| (date - today).abs }.year
+end
+
 input_m3u_path = "iptv.m3u"
 output_m3u_path = "iptv-sports.m3u"
 output_epg_path = "iptv-sports.xml"
@@ -96,14 +128,16 @@ matches.each do |match|
 
   channel_id = title_match[1]
   event_title = title_match[2]
-  month = title_match[3]
+  month = parse_month(title_match[3])
   day = title_match[4].to_i
   hour = title_match[5].to_i
   minute = title_match[6].to_i
   ampm = title_match[7]
 
   hour = hour + 12 if ampm == "PM" && hour != 12
-  time = Time.new(Date.today.year, month, day, hour, minute)
+  hour = 0 if ampm == "AM" && hour == 12
+  year = infer_year(month, day)
+  time = Time.new(year, month, day, hour, minute, 0, eastern_offset(year, month, day, hour))
 
   start_time = (time - 15*60).utc
   end_time = Time.at((time.to_i + league[:duration])).utc
