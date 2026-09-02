@@ -92,11 +92,11 @@ CREATE TABLE slot_families (
 CREATE TABLE channel_alloc (
     source_id  INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
     league_key TEXT NOT NULL,
-    tvg_name   TEXT NOT NULL,
+    feed_key   TEXT NOT NULL,   -- what the provider keeps stable for the feed, usually its title
     channel_id TEXT NOT NULL,
     number     INTEGER NOT NULL,
     created_at TEXT NOT NULL,
-    PRIMARY KEY (source_id, league_key, tvg_name),
+    PRIMARY KEY (source_id, league_key, feed_key),
     UNIQUE (channel_id),
     UNIQUE (number)
 );

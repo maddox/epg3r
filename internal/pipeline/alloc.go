@@ -79,12 +79,12 @@ func (a *allocator) newFamily(lg *catalog.League, labelShape, schedShape, title 
 }
 
 // team returns the sticky identity for a team channel feed.
-func (a *allocator) team(lg *catalog.League, tvgName, preferredID string) (store.ChannelAlloc, error) {
-	k := [2]string{lg.Key, tvgName}
+func (a *allocator) team(lg *catalog.League, feedKey, preferredID string) (store.ChannelAlloc, error) {
+	k := [2]string{lg.Key, feedKey}
 	if al, ok := a.allocs[k]; ok {
 		return al, nil
 	}
-	al, err := a.store.AllocateChannel(a.ctx, a.sourceID, lg.Key, tvgName, preferredID, lg.TeamChannelBase())
+	al, err := a.store.AllocateChannel(a.ctx, a.sourceID, lg.Key, feedKey, preferredID, lg.TeamChannelBase())
 	if err != nil {
 		return al, err
 	}

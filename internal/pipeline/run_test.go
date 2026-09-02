@@ -275,3 +275,57 @@ func TestFetcherCacheFallback(t *testing.T) {
 		t.Errorf("expected the cached copy with a warning: %+v %v", second, err)
 	}
 }
+
+// serveM3U serves an inline playlist and returns its URL.
+func serveM3U(t *testing.T, body string) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(body)) }))
+	t.Cleanup(srv.Close)
+	return srv.URL + "/list.m3u"
+}
+
+func TestTeamChannelsWithoutTvgNameStayDistinct(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Houston Texans (HD)\nhttp://x/2\n"+
+		"#EXTINF:-1 tvg-name=\"NFL Team\" group-title=\"NFL\",(NFL) Pittsburgh Steelers (P)\nhttp://x/3\n"+
+		"#EXTINF:-1 tvg-name=\"NFL Team\" group-title=\"NFL\",(NFL) Chicago Bears (P)\nhttp://x/4\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 04\" group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/5\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 04\" group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/6\n")
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: url})
+	snap, rep, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]int{}
+	nums := map[int]int{}
+	for _, ch := range snap.Channels {
+		ids[ch.ID]++
+		nums[ch.Number]++
+	}
+	for id, n := range ids {
+		if n > 1 {
+			t.Errorf("channel id %q exported %d times", id, n)
+		}
+	}
+	for num, n := range nums {
+		if n > 1 {
+			t.Errorf("channel number %d exported %d times", num, n)
+		}
+	}
+	teams := 0
+	for _, ch := range snap.Channels {
+		if ch.Kind == model.KindTeam {
+			teams++
+		}
+	}
+	if teams != 4 {
+		t.Errorf("expected 4 distinct team channels, got %d", teams)
+	}
+	// The repeated slot entry is a duplicate, not a second channel.
+	if rep.Counts[store.OutcomeDuplicate] != 1 {
+		t.Errorf("duplicates = %d, want 1", rep.Counts[store.OutcomeDuplicate])
+	}
+}

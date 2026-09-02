@@ -16,10 +16,10 @@ type ChannelAlloc struct {
 // AllocateChannel returns the id and number already assigned to this feed, or assigns
 // new ones: the first free number at or above base, and the preferred id with a
 // numeric suffix if another feed already holds it ("NFL Bills", "NFL Bills 2").
-func (s *Store) AllocateChannel(ctx context.Context, sourceID int64, leagueKey, tvgName, preferredID string, base int) (ChannelAlloc, error) {
+func (s *Store) AllocateChannel(ctx context.Context, sourceID int64, leagueKey, feedKey, preferredID string, base int) (ChannelAlloc, error) {
 	var a ChannelAlloc
-	err := s.r.QueryRowContext(ctx, `SELECT channel_id, number FROM channel_alloc WHERE source_id = ? AND league_key = ? AND tvg_name = ?`,
-		sourceID, leagueKey, tvgName).Scan(&a.ChannelID, &a.Number)
+	err := s.r.QueryRowContext(ctx, `SELECT channel_id, number FROM channel_alloc WHERE source_id = ? AND league_key = ? AND feed_key = ?`,
+		sourceID, leagueKey, feedKey).Scan(&a.ChannelID, &a.Number)
 	if err == nil {
 		return a, nil
 	}
@@ -56,17 +56,17 @@ func (s *Store) AllocateChannel(ctx context.Context, sourceID int64, leagueKey, 
 		a.ChannelID = fmt.Sprintf("%s %d", preferredID, n)
 	}
 
-	if _, err := tx.ExecContext(ctx, `INSERT INTO channel_alloc (source_id, league_key, tvg_name, channel_id, number, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)`, sourceID, leagueKey, tvgName, a.ChannelID, a.Number, s.stamp()); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO channel_alloc (source_id, league_key, feed_key, channel_id, number, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)`, sourceID, leagueKey, feedKey, a.ChannelID, a.Number, s.stamp()); err != nil {
 		return a, err
 	}
 	return a, tx.Commit()
 }
 
-// ChannelAllocs returns every allocation for a source keyed by league key and tvg-name,
+// ChannelAllocs returns every allocation for a source keyed by league key and feed key,
 // so a run can resolve known feeds without a query per entry.
 func (s *Store) ChannelAllocs(ctx context.Context, sourceID int64) (map[[2]string]ChannelAlloc, error) {
-	rows, err := s.r.QueryContext(ctx, `SELECT league_key, tvg_name, channel_id, number FROM channel_alloc WHERE source_id = ?`, sourceID)
+	rows, err := s.r.QueryContext(ctx, `SELECT league_key, feed_key, channel_id, number FROM channel_alloc WHERE source_id = ?`, sourceID)
 	if err != nil {
 		return nil, err
 	}

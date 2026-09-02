@@ -326,7 +326,10 @@ func (r *Runner) classify(cfg runConfig, src store.Source, e m3u.Entry, loc *tim
 
 	case model.KindTeam:
 		preferred := withPrefix(lg.LabelPrefix + " " + r.Catalog.Teams(lg, false).ShortName(res.Team))
-		al, err := alloc.team(lg, e.Attr("tvg-name"), preferred)
+		// A feed's sticky identity is whatever the provider keeps stable for it. The
+		// title is the most reliable; tvg-name is optional and sometimes shared.
+		feedKey := cmp.Or(e.Title, e.Attr("tvg-name"), e.Attr("tvg-id"), e.URL)
+		al, err := alloc.team(lg, feedKey, preferred)
 		if err != nil {
 			return nil, fmt.Errorf("allocate team channel: %w", err)
 		}
@@ -335,14 +338,14 @@ func (r *Runner) classify(cfg runConfig, src store.Source, e m3u.Entry, loc *tim
 		en.ch.Team, en.ch.FeedNote = &ref, res.Team.Name+" broadcast"
 		en.teamKey = res.Team.Key
 		en.row.ChannelID, en.row.ChannelNumber, en.row.Team1, en.row.Status = al.ChannelID, al.Number, res.Team.Name, store.OutcomeExported
-		byID[al.ChannelID] = en
+		claim(en, byID)
 	}
 	return en, nil
 }
 
-// claim registers a slot channel's id. Within one provider family a slot should appear
-// once; if it repeats, an entry with a game beats a placeholder, otherwise the first one
-// keeps the id and the other is recorded as a duplicate.
+// claim registers a channel id. A channel id should appear once per run; if it
+// repeats, an entry with a game beats one without, otherwise the first one keeps the
+// id and the other is recorded as a duplicate.
 func claim(en *entry, byID map[string]*entry) {
 	prev, dup := byID[en.ch.ID]
 	if !dup {
@@ -350,12 +353,12 @@ func claim(en *entry, byID map[string]*entry) {
 		return
 	}
 	if prev.eventKey == "" && en.eventKey != "" {
-		prev.row.Status, prev.row.Reason = store.OutcomeDuplicate, "slot also carried by "+en.row.RawTitle
+		prev.row.Status, prev.row.Reason = store.OutcomeDuplicate, "channel id also carried by "+en.row.RawTitle
 		prev.ch = nil
 		byID[en.ch.ID] = en
 		return
 	}
-	en.row.Status, en.row.Reason = store.OutcomeDuplicate, "slot already used by "+prev.row.RawTitle
+	en.row.Status, en.row.Reason = store.OutcomeDuplicate, "channel id already used by "+prev.row.RawTitle
 	en.ch = nil
 }
 
