@@ -72,7 +72,7 @@ func sampleSnapshot() *model.Snapshot {
 	texans := model.TeamRef{LeagueKey: "nfl", Key: "houston-texans", Name: "Houston Texans", Abbr: "HOU", TMSBrandID: "43"}
 	ev := model.Event{
 		ID: "191277-abc123def456", SeriesID: "191277", LeagueKey: "nfl", Title: "NFL Football", SubTitle: "Buffalo Bills vs Houston Texans",
-		Teams: []model.TeamRef{bills, texans}, Kickoff: kick, Start: kick.Add(-15 * time.Minute).UTC(), Stop: kick.Add(210 * time.Minute).UTC(),
+		Teams: [2]*model.TeamRef{&bills, &texans}, Kickoff: kick, Start: kick.Add(-15 * time.Minute).UTC(), Stop: kick.Add(210 * time.Minute).UTC(),
 		TimeKnown: true, Genre: "Football", Categories: []string{"Sports event", "Sports"}, PlacardURL: "http://epg3r.test/art/league/nfl.png",
 		Confidence: 0.95, Source: model.OriginTitle,
 	}

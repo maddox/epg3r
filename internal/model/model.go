@@ -36,9 +36,9 @@ type Event struct {
 	Title       string      `json:"title"`     // airing title, e.g. "NFL Football"
 	SubTitle    string      `json:"sub_title"` // matchup, e.g. "Chicago Bears vs Green Bay Packers"
 	Description string      `json:"description,omitempty"`
-	Teams       []TeamRef   `json:"teams,omitempty"` // resolved teams, 0 to 2
-	TeamsRaw    [2]string   `json:"teams_raw"`       // as written in the source
-	Home        *TeamRef    `json:"home,omitempty"`  // set when orientation is known
+	Teams       [2]*TeamRef `json:"teams"`          // resolved team per side, nil when unmatched; aligned with TeamsRaw
+	TeamsRaw    [2]string   `json:"teams_raw"`      // each side as written in the source
+	Home        *TeamRef    `json:"home,omitempty"` // set when orientation is known
 	Away        *TeamRef    `json:"away,omitempty"`
 	Kickoff     time.Time   `json:"kickoff"` // scheduled start, in the event's local zone
 	Start       time.Time   `json:"start"`   // padded start, UTC
@@ -91,6 +91,25 @@ type Snapshot struct {
 	RunID       int64     `json:"run_id"`
 	GeneratedAt time.Time `json:"generated_at"`
 	Channels    []Channel `json:"channels"`
+}
+
+// ResolvedTeams returns the sides that matched a roster, in the order written.
+func (e Event) ResolvedTeams() []TeamRef {
+	var out []TeamRef
+	for _, t := range e.Teams {
+		if t != nil {
+			out = append(out, *t)
+		}
+	}
+	return out
+}
+
+// SideName is what to call a side: the roster name when resolved, else as written.
+func (e Event) SideName(i int) string {
+	if e.Teams[i] != nil {
+		return e.Teams[i].Name
+	}
+	return e.TeamsRaw[i]
 }
 
 // SortChannels orders channels by number, in place.

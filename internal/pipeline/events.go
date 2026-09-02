@@ -50,9 +50,10 @@ func identity(ev *model.Event) []string {
 func teamKeys(ev *model.Event) []string {
 	var keys []string
 	for i, raw := range ev.TeamsRaw {
-		if i < len(ev.Teams) && ev.Teams[i].Key != "" {
+		switch {
+		case ev.Teams[i] != nil:
 			keys = append(keys, ev.Teams[i].Key)
-		} else if raw != "" {
+		case raw != "":
 			keys = append(keys, catalog.Normalize(raw))
 		}
 	}
@@ -93,8 +94,10 @@ func (ix *eventIndex) add(ev model.Event) *model.Event {
 	if rank(ev.Source) > rank(cur.Source) {
 		cur.Kickoff, cur.Start, cur.Stop, cur.TimeKnown, cur.DateAssumed, cur.Source = ev.Kickoff, ev.Start, ev.Stop, ev.TimeKnown, ev.DateAssumed, ev.Source
 	}
-	if len(cur.Teams) < len(ev.Teams) {
-		cur.Teams = ev.Teams
+	for i := range cur.Teams {
+		if cur.Teams[i] == nil && ev.Teams[i] != nil {
+			cur.Teams[i] = ev.Teams[i]
+		}
 	}
 	cur.Network = cmp.Or(cur.Network, ev.Network)
 	cur.Description = cmp.Or(cur.Description, ev.Description)
@@ -119,7 +122,7 @@ func (ix *eventIndex) finalize() {
 	for _, key := range ix.order {
 		ev := ix.byKey[key]
 		ev.ID = episodeID(ev)
-		for _, t := range ev.Teams {
+		for _, t := range ev.ResolvedTeams() {
 			k := ev.LeagueKey + "|" + t.Key
 			ix.byTeam[k] = append(ix.byTeam[k], ev)
 		}
@@ -145,20 +148,17 @@ func eventFromTitle(lg *catalog.League, res titleparse.Result) model.Event {
 	case res.TeamARaw == "":
 		ev.SubTitle = res.EventTitle
 	default:
-		nameA, nameB := res.TeamARaw, res.TeamBRaw
-		if res.TeamA != nil {
-			ev.Teams = append(ev.Teams, teamRef(lg, res.TeamA))
-			nameA = res.TeamA.Name
-		}
-		if res.TeamB != nil {
-			ev.Teams = append(ev.Teams, teamRef(lg, res.TeamB))
-			nameB = res.TeamB.Name
+		for i, t := range []*catalog.Team{res.TeamA, res.TeamB} {
+			if t != nil {
+				ref := teamRef(lg, t)
+				ev.Teams[i] = &ref
+			}
 		}
 		sep := "vs"
 		if res.Sep == "@" {
 			sep = "at"
 		}
-		ev.SubTitle = nameA + " " + sep + " " + nameB
+		ev.SubTitle = ev.SideName(0) + " " + sep + " " + ev.SideName(1)
 	}
 
 	ev.Start = ev.Kickoff.Add(-lg.StartPad).UTC()
@@ -228,7 +228,8 @@ func guideEvent(lg *catalog.League, teams *catalog.TeamIndex, away, home string,
 	}
 	ev := newLeagueEvent(lg, false, model.OriginXMLTV)
 	ev.SubTitle = a.Name + " at " + h.Name
-	ev.Teams = []model.TeamRef{teamRef(lg, a), teamRef(lg, h)}
+	ra, rh := teamRef(lg, a), teamRef(lg, h)
+	ev.Teams = [2]*model.TeamRef{&ra, &rh}
 	ev.TeamsRaw = [2]string{a.Name, h.Name}
 	ev.Kickoff = kickoff.In(lg.Location(loc))
 	ev.Start, ev.Stop = start.UTC(), stop.UTC()

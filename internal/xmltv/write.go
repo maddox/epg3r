@@ -83,7 +83,7 @@ func programme(ch model.Channel, p model.Programme) xProgramme {
 		seen[c] = true
 		xp.Categories = append(xp.Categories, xLang{Lang: "en", Text: c})
 	}
-	for _, t := range ev.Teams {
+	for _, t := range ev.ResolvedTeams() {
 		if t.TMSBrandID != "" {
 			xp.TeamIDs = append(xp.TeamIDs, xSystem{System: "tms", Text: t.TMSBrandID})
 		}

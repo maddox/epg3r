@@ -318,12 +318,7 @@ func (r *Runner) classify(cfg runConfig, src store.Source, e m3u.Entry, loc *tim
 			ev := eventFromTitle(lg, res)
 			en.eventKey = eventKey(ix.add(ev))
 			en.row.Status, en.row.Matchup = store.OutcomeExported, ev.SubTitle
-			if len(ev.Teams) > 0 {
-				en.row.Team1 = ev.Teams[0].Name
-			}
-			if len(ev.Teams) > 1 {
-				en.row.Team2 = ev.Teams[1].Name
-			}
+			en.row.Team1, en.row.Team2 = ev.SideName(0), ev.SideName(1)
 			st, sp := ev.Start, ev.Stop
 			en.row.StartAt, en.row.StopAt = &st, &sp
 		}

@@ -111,7 +111,7 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 		t.Errorf("first NFL family must use the plain numbering: %+v", first)
 	}
 	game := nfl04.Programmes[0].Event
-	if len(game.Teams) != 2 || game.Teams[0].TMSBrandID != "34" || game.Teams[1].TMSBrandID != "43" {
+	if game.Teams[0] == nil || game.Teams[1] == nil || game.Teams[0].TMSBrandID != "34" || game.Teams[1].TMSBrandID != "43" {
 		t.Errorf("NFL 04 game: %+v", game)
 	}
 	if !game.Kickoff.Equal(time.Date(2026, 9, 13, 13, 0, 0, 0, game.Kickoff.Location())) {
