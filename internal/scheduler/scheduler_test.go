@@ -1,0 +1,87 @@
+package scheduler
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/jonmaddox/epg3r/internal/store"
+)
+
+func TestTriggerAndSingleFlight(t *testing.T) {
+	var runs atomic.Int32
+	release := make(chan struct{})
+	s := New(func() time.Duration { return time.Hour }, func(ctx context.Context, trigger store.Trigger) (store.RunStatus, error) {
+		runs.Add(1)
+		if trigger == store.TriggerManual {
+			<-release
+		}
+		return store.RunOK, nil
+	}, slog.New(slog.DiscardHandler))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() { s.Start(ctx, false); close(done) }()
+
+	if err := s.Trigger(store.TriggerManual); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for !s.Status().Running && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if !s.Status().Running {
+		t.Fatal("run did not start")
+	}
+	if err := s.Trigger(store.TriggerManual); !errors.Is(err, ErrRunning) {
+		t.Errorf("second trigger while running: %v", err)
+	}
+	close(release)
+	deadline = time.Now().Add(2 * time.Second)
+	for s.Status().Running && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	st := s.Status()
+	if st.Running || st.LastStatus != store.RunOK || st.LastRunAt.IsZero() || st.NextAt.IsZero() {
+		t.Errorf("status after run: %+v", st)
+	}
+	if runs.Load() != 1 {
+		t.Errorf("runs = %d", runs.Load())
+	}
+	cancel()
+	<-done
+}
+
+func TestRunOnStartAndErrors(t *testing.T) {
+	s := New(func() time.Duration { return time.Hour }, func(context.Context, store.Trigger) (store.RunStatus, error) {
+		return "", errors.New("boom")
+	}, slog.New(slog.DiscardHandler))
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(50 * time.Millisecond); cancel() }()
+	s.Start(ctx, true)
+	st := s.Status()
+	if st.LastStatus != store.RunFailed || st.LastError != "boom" {
+		t.Errorf("status: %+v", st)
+	}
+}
+
+func TestFailedRunRetriesSooner(t *testing.T) {
+	s := New(func() time.Duration { return time.Hour }, func(context.Context, store.Trigger) (store.RunStatus, error) {
+		return "", errors.New("provider down")
+	}, slog.New(slog.DiscardHandler))
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(50 * time.Millisecond); cancel() }()
+	before := time.Now()
+	s.Start(ctx, true)
+	st := s.Status()
+	if st.LastStatus != store.RunFailed {
+		t.Fatalf("status %+v", st)
+	}
+	if wait := st.NextAt.Sub(before); wait > RetryAfterFailure+time.Second {
+		t.Errorf("after a failure the next attempt should be in about %s, got %s", RetryAfterFailure, wait)
+	}
+}
