@@ -11,8 +11,7 @@ set -e
 cd "$(dirname "$0")"
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "created .env from .env.example; edit EPG3R_M3U_URL and EPG3R_PORT, then run ./dev again"
-  exit 1
+  echo "created .env from .env.example; set EPG3R_M3U_URL there, or add a source in the UI"
 fi
 [ "$1" = "reset" ] && make reset-dev
 . ./.env

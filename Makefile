@@ -8,7 +8,7 @@ DEV     := $(COMPOSE) run --rm
 IMAGE   ?= epg3r:dev
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: help cache test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check
+.PHONY: help cache need-env test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-10s %s\n", $$1, $$2}'
@@ -34,7 +34,10 @@ css: cache ## Build internal/web/static/app.css from the Tailwind source (commit
 css-check: css ## Fail if the committed app.css is out of date
 	@git diff --quiet -- internal/web/static/app.css || (echo "internal/web/static/app.css is stale; run make css and commit" && exit 1)
 
-run: cache ## Run from source with hot reload, reading .env (see ./dev for the guided version)
+need-env:
+	@test -f .env || (echo "no .env file; run: cp .env.example .env  and edit it" && exit 1)
+
+run: cache ## Run from source with hot reload; seeds from .env when present (see ./dev)
 	$(DEV) --service-ports dev go run github.com/air-verse/air@v1.61.7 -c .air.toml
 
 reset-dev: ## Delete the dev database and caches under ./data
@@ -46,8 +49,7 @@ sh: cache ## Shell in the dev container
 build: ## Build the production image
 	docker build --build-arg VERSION=$(VERSION) -t $(IMAGE) .
 
-up: ## Build and boot the app with the values in .env (copy .env.example first)
-	@test -f .env || (echo "no .env file; run: cp .env.example .env  and edit it" && exit 1)
+up: need-env ## Build and boot the app with the values in .env (copy .env.example first)
 	docker compose up -d --build
 	@echo "epg3r is up: http://localhost:$$(grep -E '^EPG3R_PORT=' .env | cut -d= -f2 | grep . || echo 8080)/healthz"
 
