@@ -149,6 +149,8 @@ func (s *Server) storeErr(w http.ResponseWriter, r *http.Request, err error) (us
 	return "", true
 }
 
+// handleCreateSource re-renders the add form either way: with the error on failure, or
+// empty on success together with the refreshed list swapped out of band.
 func (s *Server) handleCreateSource(w http.ResponseWriter, r *http.Request) {
 	in := sourceForm(r, store.NewSource{})
 	if _, err := s.Store.CreateSource(r.Context(), in); err != nil {
@@ -163,7 +165,7 @@ func (s *Server) handleCreateSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	toast(w, "ok", "Source added. Refresh to build the guide.")
-	s.partial(w, r, "sources", "source_list", sourceView{Sources: list})
+	s.partial(w, r, "sources", "source_created", sourceView{Sources: list})
 }
 
 // sourceRow renders a source's row in the given block.
@@ -212,23 +214,19 @@ func (s *Server) handleDeleteSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTestSource(w http.ResponseWriter, r *http.Request) {
-	url := strings.TrimSpace(r.FormValue("url"))
-	if url == "" {
-		src, ok := pathID(s, w, r, s.Store.GetSource)
-		if !ok {
-			return
-		}
-		url = src.URL
-	}
 	type result struct {
 		OK    bool
 		Count int
 		Error string
 	}
 	res := result{}
-	if s.TestSource == nil {
+	url := strings.TrimSpace(r.FormValue("url"))
+	switch {
+	case url == "":
+		res.Error = "enter a playlist URL to test"
+	case s.TestSource == nil:
 		res.Error = "testing is not available"
-	} else {
+	default:
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		n, err := s.TestSource(ctx, url)

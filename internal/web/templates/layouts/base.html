@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · epg3r</title>
 <link rel="stylesheet" href="/static/app.css">
+{{/* HTMX drops 4xx bodies by default; validation errors come back as 422 with the form re-rendered. */}}
+<meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'>
 <script src="/static/htmx.min.js" defer></script>
 </head>
 <body class="min-h-full" hx-boost="true">

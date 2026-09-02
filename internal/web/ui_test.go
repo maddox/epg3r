@@ -205,20 +205,31 @@ func TestSourcesFlow(t *testing.T) {
 	h := s.Handler()
 	ctx := context.Background()
 
-	// Validation failure keeps the form with the error.
+	// Validation failure re-renders the form with the error and the submitted values.
 	rec := do(h, http.MethodPost, "/sources", url.Values{"name": {"X"}, "url": {"ftp://nope"}}, true)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "must start with http") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "must start with http") || !strings.Contains(rec.Body.String(), `value="ftp://nope"`) {
 		t.Errorf("bad url: %d %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "hx-swap-oob") {
+		t.Error("a failed create must not touch the list")
+	}
+	// Testing with no URL says so rather than failing silently.
+	if body := do(h, http.MethodPost, "/sources/test", url.Values{"url": {""}}, true).Body.String(); !strings.Contains(body, "enter a playlist URL") {
+		t.Errorf("empty test url: %s", body)
 	}
 	rec = do(h, http.MethodPost, "/sources", url.Values{"name": {"X"}, "url": {"http://p/1"}, "timezone": {"Mars/Base"}}, true)
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "unknown time zone") {
 		t.Errorf("bad tz: %d", rec.Code)
 	}
 
-	// Create, then the list partial shows it with a toast.
+	// Create: the response is an empty form plus the list swapped out of band, with a toast.
 	rec = do(h, http.MethodPost, "/sources", url.Values{"name": {"Provider"}, "url": {"http://p/1"}, "xmltv_url": {"http://p/g.xml"}}, true)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Provider") || !strings.Contains(rec.Header().Get("HX-Trigger"), "toast") {
-		t.Fatalf("create: %d %s %s", rec.Code, rec.Header().Get("HX-Trigger"), rec.Body.String())
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(body, "Provider") || !strings.Contains(rec.Header().Get("HX-Trigger"), "toast") {
+		t.Fatalf("create: %d %s %s", rec.Code, rec.Header().Get("HX-Trigger"), body)
+	}
+	if !strings.Contains(body, `id="source-list" hx-swap-oob="innerHTML"`) || strings.Contains(body, `value="http://p/1"`) {
+		t.Errorf("create should return an emptied form and the list out of band: %s", body)
 	}
 	list, _ := st.ListSources(ctx)
 	if len(list) != 1 || list[0].XMLTVURL != "http://p/g.xml" {
@@ -250,9 +261,6 @@ func TestSourcesFlow(t *testing.T) {
 	}
 	if body := do(h, http.MethodPost, "/sources/test", url.Values{"url": {"http://p/bad"}}, true).Body.String(); !strings.Contains(body, "HTTP 502") {
 		t.Errorf("test bad: %s", body)
-	}
-	if body := do(h, http.MethodPost, "/sources/1/test", nil, true).Body.String(); !strings.Contains(body, "42 channels") {
-		t.Errorf("test by id: %s", body)
 	}
 
 	// Delete removes the row.
@@ -331,5 +339,13 @@ func TestStaticAssetsServed(t *testing.T) {
 		if rec := do(h, http.MethodGet, p, nil, false); rec.Code != http.StatusOK || rec.Body.Len() < 1000 {
 			t.Errorf("%s: %d %d bytes", p, rec.Code, rec.Body.Len())
 		}
+	}
+}
+
+func TestLayoutLetsValidationBodiesSwap(t *testing.T) {
+	s, _, _ := uiServer(t)
+	body := do(s.Handler(), http.MethodGet, "/settings", nil, false).Body.String()
+	if !strings.Contains(body, `name="htmx-config"`) || !strings.Contains(body, `"code":"422","swap":true`) {
+		t.Error("layout must configure HTMX to swap 422 responses, or validation errors never show")
 	}
 }
