@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/jonmaddox/epg3r/internal/store"
@@ -36,7 +36,8 @@ type Scheduler struct {
 	Log      *slog.Logger
 
 	wake   chan store.Trigger
-	status atomic.Pointer[Status]
+	mu     sync.Mutex // guards status
+	status Status
 	now    func() time.Time
 }
 
@@ -45,37 +46,42 @@ func New(interval func() time.Duration, run func(ctx context.Context, trigger st
 	if log == nil {
 		log = slog.Default()
 	}
-	s := &Scheduler{Interval: interval, Run: run, Log: log, wake: make(chan store.Trigger, 1), now: time.Now}
-	s.status.Store(&Status{})
-	return s
+	return &Scheduler{Interval: interval, Run: run, Log: log, wake: make(chan store.Trigger, 1), now: time.Now}
 }
 
-// update publishes a modified copy of the status. Every update allocates a fresh
-// struct so readers holding the previous pointer never observe a write.
+// update applies a change to the status under the lock; callable from any goroutine.
 func (s *Scheduler) update(fn func(st *Status)) {
-	st := *s.status.Load()
-	fn(&st)
-	s.status.Store(&st)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	fn(&s.status)
 }
 
 // SetPhase updates the progress text shown while running.
 func (s *Scheduler) SetPhase(phase string) { s.update(func(st *Status) { st.Phase = phase }) }
 
 // Status returns a copy of the current state.
-func (s *Scheduler) Status() Status { return *s.status.Load() }
+func (s *Scheduler) Status() Status {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status
+}
 
-// Trigger requests a run now. It returns ErrRunning if one is in progress and does
-// not queue more than one pending request. Runs only ever happen on the Start
-// goroutine, so no lock is needed.
+// Trigger requests a run now. It returns ErrRunning if one is in progress. The check
+// and the "queued" status are one update, so two concurrent triggers cannot both pass.
 func (s *Scheduler) Trigger(trigger store.Trigger) error {
-	if s.Status().Running {
+	var was bool
+	s.update(func(st *Status) {
+		was = st.Running
+		if !was {
+			st.Running, st.Phase, st.StartedAt = true, "queued", s.now()
+		}
+	})
+	if was {
 		return ErrRunning
 	}
 	select {
 	case s.wake <- trigger:
-		// Show the run as underway right away so callers need not wait for the loop.
-		s.update(func(st *Status) { st.Running, st.Phase, st.StartedAt = true, "queued", s.now() })
-	default:
+	default: // a wake is already pending; the loop will run once regardless
 	}
 	return nil
 }
