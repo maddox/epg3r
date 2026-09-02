@@ -22,6 +22,7 @@ type Snapshots struct {
 
 	mu    sync.Mutex
 	runID int64
+	tags  bool // guide-tags flag the cached m3u was rendered with
 	xml   []byte
 	m3u   []byte
 }
@@ -33,24 +34,29 @@ func (s *Snapshots) Set(snap *model.Snapshot) { s.current.Store(snap) }
 func (s *Snapshots) Get() *model.Snapshot { return s.current.Load() }
 
 func (s *Snapshots) render(generator string) (xmlOut, m3uOut []byte, runID int64, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Read the current snapshot under the lock so a request that raced a newer Set
+	// cannot overwrite the cache with an older run.
 	snap := s.Get()
 	if snap == nil {
 		return nil, nil, 0, false
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.runID == snap.RunID && s.xml != nil {
+	tags := s.GuideTags != nil && s.GuideTags()
+	if s.runID == snap.RunID && s.tags == tags && s.xml != nil {
 		return s.xml, s.m3u, s.runID, true
 	}
 	var xb, mb bytes.Buffer
 	if err := xmltv.Write(&xb, snap, generator); err != nil {
 		return nil, nil, 0, false
 	}
-	tags := s.GuideTags != nil && s.GuideTags()
 	if err := m3u.Write(&mb, snap, m3u.WriteOptions{GuideTags: tags, Now: time.Now()}); err != nil {
 		return nil, nil, 0, false
 	}
-	s.runID, s.xml, s.m3u = snap.RunID, xb.Bytes(), mb.Bytes()
+	if snap.RunID < s.runID {
+		return xb.Bytes(), mb.Bytes(), snap.RunID, true // serve, but never move the cache backwards
+	}
+	s.runID, s.tags, s.xml, s.m3u = snap.RunID, tags, xb.Bytes(), mb.Bytes()
 	return s.xml, s.m3u, s.runID, true
 }
 

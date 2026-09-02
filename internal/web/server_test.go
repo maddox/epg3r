@@ -124,3 +124,45 @@ func TestOutputsBeforeAndAfterSnapshot(t *testing.T) {
 		t.Errorf("alias: %d", rec.Code)
 	}
 }
+
+func TestOutputCacheRespectsGuideTagsAndNeverRegresses(t *testing.T) {
+	s := newTestServer()
+	tags := false
+	s.Snapshots.GuideTags = func() bool { return tags }
+	kick := time.Date(2026, 9, 13, 17, 0, 0, 0, time.UTC)
+	mk := func(run int64) *model.Snapshot {
+		return &model.Snapshot{RunID: run, Channels: []model.Channel{{
+			ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", StreamURL: "http://x/1",
+			Programmes: []model.Programme{{Event: model.Event{ID: "191277-abc", SeriesID: "191277", Title: "NFL Football", SubTitle: "A vs B", Start: kick.Add(-time.Hour), Stop: kick.Add(time.Hour), Kickoff: kick}}},
+		}}}
+	}
+	h := s.Handler()
+	get := func(path string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		return rec
+	}
+
+	s.Snapshots.Set(mk(2))
+	if body := get(M3UPath).Body.String(); strings.Contains(body, "tvc-guide-title") {
+		t.Error("guide tags should be off")
+	}
+	// Flipping the setting must change the very next response, same run.
+	tags = true
+	if body := get(M3UPath).Body.String(); !strings.Contains(body, "tvc-guide-title") {
+		t.Error("guide tags setting change was not reflected")
+	}
+
+	// A request that observes an older snapshot is served it, but the cache keeps the newer run.
+	s.Snapshots.Set(mk(1))
+	if etag := get(XMLTVPath).Header().Get("ETag"); etag != `"run-1"` {
+		t.Errorf("older snapshot should be served as is: %s", etag)
+	}
+	if s.Snapshots.runID != 2 {
+		t.Errorf("cache regressed to run %d", s.Snapshots.runID)
+	}
+	s.Snapshots.Set(mk(3))
+	if etag := get(XMLTVPath).Header().Get("ETag"); etag != `"run-3"` {
+		t.Errorf("newer snapshot not served: %s", etag)
+	}
+}
