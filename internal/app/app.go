@@ -119,7 +119,11 @@ func Serve(ctx context.Context, cfg config.Config, version string, log *slog.Log
 	)
 	app.Runner.Phase = sched.SetPhase
 	runOnStart, _ := app.Store.SettingBool(ctx, store.SettingRefreshOnStart)
-	go sched.Start(ctx, runOnStart)
+	schedDone := make(chan struct{})
+	go func() {
+		defer close(schedDone)
+		sched.Start(ctx, runOnStart)
+	}()
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,
@@ -141,7 +145,14 @@ func Serve(ctx context.Context, cfg config.Config, version string, log *slog.Log
 	log.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return httpSrv.Shutdown(shutdownCtx)
+	err = httpSrv.Shutdown(shutdownCtx)
+	// Let an in-flight refresh unwind before the deferred Close drops the database.
+	select {
+	case <-schedDone:
+	case <-shutdownCtx.Done():
+		log.Warn("refresh still running at shutdown; closing anyway")
+	}
+	return err
 }
 
 // RunOnce performs a single refresh and prints the report.
