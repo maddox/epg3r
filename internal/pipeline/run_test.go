@@ -193,7 +193,7 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 	if _, ok, err := st.LatestSnapshot(ctx, &loaded); err != nil || !ok || len(loaded.Channels) != len(snap.Channels) {
 		t.Errorf("snapshot round trip: ok=%v err=%v n=%d", ok, err, len(loaded.Channels))
 	}
-	dups, _ := st.RunChannels(ctx, runs[0].ID, store.OutcomeDuplicate)
+	dups, _ := st.RunChannels(ctx, runs[0].ID, store.RunChannelFilter{Status: store.OutcomeDuplicate})
 	t.Logf("%d duplicate slot entries recorded", len(dups))
 
 	// Second run: the playlist is unchanged, so the ETag path is used and the output is identical.
@@ -352,5 +352,20 @@ func TestInterruptedRunIsMarkedFailed(t *testing.T) {
 	}
 	if runs[0].Status != store.RunFailed || runs[0].FinishedAt == nil || runs[0].Error == "" {
 		t.Errorf("run row should be finalized as failed: %+v", runs[0])
+	}
+}
+
+func TestProbe(t *testing.T) {
+	srv := fixtureServer(t)
+	r, _ := newRunner(t)
+	n, err := r.Probe(context.Background(), srv.URL+"/list.m3u")
+	if err != nil || n != 1338 {
+		t.Errorf("probe: %d %v", n, err)
+	}
+	if _, err := r.Probe(context.Background(), srv.URL+"/broken.m3u"); err == nil {
+		t.Error("probe of a failing URL should error")
+	}
+	if _, err := r.Probe(context.Background(), srv.URL+"/guide.xml"); err == nil || !strings.Contains(err.Error(), "not an M3U") {
+		t.Errorf("probe of a non-playlist should say so: %v", err)
 	}
 }

@@ -30,12 +30,12 @@ func TestTriggerAndSingleFlight(t *testing.T) {
 	if err := s.Trigger(store.TriggerManual); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for !s.Status().Running && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
+	if st := s.Status(); !st.Running || st.Phase != "queued" {
+		t.Fatalf("Trigger should report the run as underway immediately: %+v", st)
 	}
-	if !s.Status().Running {
-		t.Fatal("run did not start")
+	deadline := time.Now().Add(2 * time.Second)
+	for s.Status().Phase == "queued" && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
 	}
 	if err := s.Trigger(store.TriggerManual); !errors.Is(err, ErrRunning) {
 		t.Errorf("second trigger while running: %v", err)

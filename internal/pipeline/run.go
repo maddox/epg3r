@@ -202,6 +202,24 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Sn
 	return snap, rep, nil
 }
 
+// Probe fetches a playlist URL without caching and reports how many channels it holds,
+// for testing a source before saving it.
+func (r *Runner) Probe(ctx context.Context, url string) (int, error) {
+	f := &Fetcher{Client: r.Fetcher.Client, MaxBytes: r.Fetcher.MaxBytes}
+	res, err := f.Fetch(ctx, url, "probe")
+	if err != nil {
+		return 0, err
+	}
+	entries, err := m3u.Parse(bytes.NewReader(res.Body))
+	if err != nil {
+		return 0, err
+	}
+	if len(entries) == 0 {
+		return 0, fmt.Errorf("the response is not an M3U playlist (no channels found)")
+	}
+	return len(entries), nil
+}
+
 func (r *Runner) loadConfig(ctx context.Context) (runConfig, error) {
 	s, err := r.Store.Settings(ctx)
 	if err != nil {

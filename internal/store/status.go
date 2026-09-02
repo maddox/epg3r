@@ -33,6 +33,14 @@ const (
 	OutcomeNetwork   Outcome = "network"         // a broadcast network, not an event channel
 )
 
+// Outcomes lists every outcome in display order.
+var Outcomes = []Outcome{OutcomeExported, OutcomeIdle, OutcomeLowConf, OutcomeUnparsed, OutcomeUnmatched, OutcomeDuplicate, OutcomeNetwork}
+
+// ValidationError is a user-correctable input problem, as opposed to a storage failure.
+type ValidationError struct{ Msg string }
+
+func (e *ValidationError) Error() string { return e.Msg }
+
 // FetchStatus is how a source's last download went.
 type FetchStatus string
 

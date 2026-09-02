@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -143,45 +144,84 @@ func (s *Store) LatestSnapshot(ctx context.Context, dst any) (runID int64, ok bo
 
 // ListRuns returns recent runs, newest first.
 func (s *Store) ListRuns(ctx context.Context, limit int) ([]Run, error) {
-	rows, err := s.r.QueryContext(ctx, `SELECT id, trigger, started_at, finished_at, status, error, counts_json
-		FROM runs ORDER BY id DESC LIMIT ?`, limit)
+	rows, err := s.r.QueryContext(ctx, `SELECT `+runColumns+` FROM runs ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Run
 	for rows.Next() {
-		var (
-			r                         Run
-			started, trigger, status  string
-			finished, errText, counts sql.NullString
-		)
-		if err := rows.Scan(&r.ID, &trigger, &started, &finished, &status, &errText, &counts); err != nil {
+		r, err := scanRun(rows)
+		if err != nil {
 			return nil, err
-		}
-		r.Trigger, r.Status = Trigger(trigger), RunStatus(status)
-		r.StartedAt = parseStamp(started)
-		r.FinishedAt = parseNullStamp(finished)
-		r.Error = errText.String
-		r.Counts = RunCounts{}
-		if counts.Valid {
-			_ = json.Unmarshal([]byte(counts.String), &r.Counts)
 		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
 }
 
-// RunChannels returns the per-channel rows of a run, optionally filtered by status.
-func (s *Store) RunChannels(ctx context.Context, runID int64, status Outcome) ([]RunChannel, error) {
+// RunChannelFilter narrows RunChannels.
+type RunChannelFilter struct {
+	Status Outcome // "" for all
+	League string  // league key, "" for all
+	Query  string  // substring of the raw title, channel id, or matchup
+	Limit  int     // 0 for no limit
+}
+
+const runColumns = `id, trigger, started_at, finished_at, status, error, counts_json`
+
+func scanRun(row scanner) (Run, error) {
+	var (
+		r                         Run
+		started, trigger, status  string
+		finished, errText, counts sql.NullString
+	)
+	if err := row.Scan(&r.ID, &trigger, &started, &finished, &status, &errText, &counts); err != nil {
+		return Run{}, err
+	}
+	r.Trigger, r.Status = Trigger(trigger), RunStatus(status)
+	r.StartedAt = parseStamp(started)
+	r.FinishedAt = parseNullStamp(finished)
+	r.Error = errText.String
+	r.Counts = RunCounts{}
+	if counts.Valid {
+		_ = json.Unmarshal([]byte(counts.String), &r.Counts)
+	}
+	return r, nil
+}
+
+// GetRun returns one run.
+func (s *Store) GetRun(ctx context.Context, id int64) (Run, bool, error) {
+	r, err := scanRun(s.r.QueryRowContext(ctx, `SELECT `+runColumns+` FROM runs WHERE id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Run{}, false, nil
+	}
+	return r, err == nil, err
+}
+
+// RunChannels returns the per-channel rows of a run matching the filter.
+func (s *Store) RunChannels(ctx context.Context, runID int64, f RunChannelFilter) ([]RunChannel, error) {
 	q := `SELECT source_id, group_name, raw_title, normalized_title, tvg_id, tvg_name, tvg_logo, stream_url, status, league_key, kind,
 		channel_id, channel_number, matchup, team1, team2, start_at, stop_at, reason, confidence FROM run_channels WHERE run_id = ?`
 	args := []any{runID}
-	if status != "" {
+	if f.Status != "" {
 		q += ` AND status = ?`
-		args = append(args, string(status))
+		args = append(args, string(f.Status))
+	}
+	if f.League != "" {
+		q += ` AND league_key = ?`
+		args = append(args, f.League)
+	}
+	if f.Query != "" {
+		like := "%" + strings.ToLower(f.Query) + "%"
+		q += ` AND (lower(raw_title) LIKE ? OR lower(coalesce(channel_id, '')) LIKE ? OR lower(coalesce(matchup, '')) LIKE ?)`
+		args = append(args, like, like, like)
 	}
 	q += ` ORDER BY channel_number IS NULL, channel_number, id`
+	if f.Limit > 0 {
+		q += ` LIMIT ?`
+		args = append(args, f.Limit)
+	}
 	rows, err := s.r.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

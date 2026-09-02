@@ -40,6 +40,8 @@ const (
 // environment variable that may seed it on first boot.
 type SettingDef struct {
 	Key     string
+	Label   string // shown in the UI
+	Help    string // one sentence under the control
 	Default string
 	Kind    Kind
 	Env     string   // optional first-boot seed, e.g. "EPG3R_REFRESH_INTERVAL"
@@ -53,17 +55,28 @@ func f(v float64) *float64 { return &v }
 
 // SettingDefs is the registry of settings, in display order.
 var SettingDefs = []SettingDef{
-	{Key: SettingRefreshIntervalMinutes, Default: "60", Kind: KindInt, Min: f(1), Env: "EPG3R_REFRESH_INTERVAL"},
-	{Key: SettingRefreshOnStart, Default: "1", Kind: KindBool},
-	{Key: SettingDefaultTimezone, Default: "America/New_York", Kind: KindString, Check: checkTimezone, Env: "EPG3R_TIMEZONE"},
-	{Key: SettingPublicBaseURL, Default: "", Kind: KindString, Env: "EPG3R_PUBLIC_URL"},
-	{Key: SettingConfidenceThreshold, Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
-	{Key: SettingExportIdleChannels, Default: "1", Kind: KindBool},
-	{Key: SettingEmitPlaceholderProg, Default: "0", Kind: KindBool},
-	{Key: SettingM3UTvcGuideTags, Default: "0", Kind: KindBool},
-	{Key: SettingArtEnabled, Default: "0", Kind: KindBool},
-	{Key: SettingChannelIDStyle, Default: "label", Kind: KindString, Choices: []string{"label", "slug"}},
-	{Key: SettingKeepRuns, Default: "20", Kind: KindInt, Min: f(1)},
+	{Key: SettingRefreshIntervalMinutes, Label: "Refresh every (minutes)", Help: "How often sources are fetched and the guide rebuilt.",
+		Default: "60", Kind: KindInt, Min: f(1), Env: "EPG3R_REFRESH_INTERVAL"},
+	{Key: SettingRefreshOnStart, Label: "Refresh on start", Help: "Rebuild the guide as soon as the app starts.",
+		Default: "1", Kind: KindBool},
+	{Key: SettingDefaultTimezone, Label: "Default time zone", Help: "Zone for game times that do not name one. Providers almost always mean Eastern.",
+		Default: "America/New_York", Kind: KindString, Check: checkTimezone, Env: "EPG3R_TIMEZONE"},
+	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app, for absolute links in the output. Leave empty to derive it from each request.",
+		Default: "", Kind: KindString, Env: "EPG3R_PUBLIC_URL"},
+	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
+		Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
+	{Key: SettingExportIdleChannels, Label: "Export idle channels", Help: "Keep channels with nothing scheduled in the lineup so Channels DVR does not see them appear and disappear.",
+		Default: "1", Kind: KindBool},
+	{Key: SettingEmitPlaceholderProg, Label: "Placeholder programme on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" programme instead of an empty guide.",
+		Default: "0", Kind: KindBool},
+	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
+		Default: "0", Kind: KindBool},
+	{Key: SettingArtEnabled, Label: "Generated matchup art", Help: "Reference generated team matchup artwork from the guide (not yet available).",
+		Default: "0", Kind: KindBool},
+	{Key: SettingChannelIDStyle, Label: "Channel id style", Help: "label gives ids like \"NFL 03\"; slug gives \"nfl-03\".",
+		Default: "label", Kind: KindString, Choices: []string{"label", "slug"}},
+	{Key: SettingKeepRuns, Label: "Runs to keep", Help: "How many refresh runs to keep in history.",
+		Default: "20", Kind: KindInt, Min: f(1)},
 }
 
 var settingDefs = func() map[string]SettingDef {
@@ -169,6 +182,37 @@ func (s *Store) SetSetting(ctx context.Context, key, raw string) error {
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
 		key, v, s.stamp())
 	return err
+}
+
+// SetSettings validates every value and, only if all pass, writes them in one
+// transaction. Problems are returned per key; nothing is written when any fail.
+func (s *Store) SetSettings(ctx context.Context, values map[string]string) (map[string]string, error) {
+	problems := map[string]string{}
+	normalized := map[string]string{}
+	for key, raw := range values {
+		v, err := s.normalize(key, raw)
+		if err != nil {
+			problems[key] = err.Error()
+			continue
+		}
+		normalized[key] = v
+	}
+	if len(problems) > 0 {
+		return problems, nil
+	}
+	tx, err := s.w.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	now := s.stamp()
+	for key, v := range normalized {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`, key, v, now); err != nil {
+			return nil, err
+		}
+	}
+	return nil, tx.Commit()
 }
 
 // SetSettingIfUnset validates and writes a value only when the key has never been

@@ -73,6 +73,8 @@ func (s *Scheduler) Trigger(trigger store.Trigger) error {
 	}
 	select {
 	case s.wake <- trigger:
+		// Show the run as underway right away so callers need not wait for the loop.
+		s.update(func(st *Status) { st.Running, st.Phase, st.StartedAt = true, "queued", s.now() })
 	default:
 	}
 	return nil

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -83,11 +84,11 @@ func TestRunsLifecycle(t *testing.T) {
 		t.Errorf("latest snapshot: id=%d ok=%v got=%v err=%v", runID, ok, got, err)
 	}
 
-	all, err := s.RunChannels(ctx, runs[0].ID, "")
+	all, err := s.RunChannels(ctx, runs[0].ID, RunChannelFilter{})
 	if err != nil || len(all) != 3 {
 		t.Fatalf("run channels: %d %v", len(all), err)
 	}
-	idle, _ := s.RunChannels(ctx, runs[0].ID, OutcomeIdle)
+	idle, _ := s.RunChannels(ctx, runs[0].ID, RunChannelFilter{Status: OutcomeIdle})
 	if len(idle) != 1 || idle[0].ChannelID != "NFL 06" {
 		t.Errorf("status filter wrong: %+v", idle)
 	}
@@ -197,5 +198,75 @@ func TestFailStaleRuns(t *testing.T) {
 				t.Errorf("finished run must be untouched: %+v", r)
 			}
 		}
+	}
+}
+
+func TestRunChannelFilterAndSourceCRUD(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	src, _ := s.CreateSource(ctx, NewSource{Name: "p", URL: "http://p/1"})
+	id, _ := s.StartRun(ctx, TriggerManual)
+	rows := []RunChannel{
+		{SourceID: src, RawTitle: "NFL 04: Bills vs Texans", Status: OutcomeExported, LeagueKey: "nfl", ChannelID: "NFL 04", ChannelNumber: 8504, Matchup: "Buffalo Bills vs Houston Texans"},
+		{SourceID: src, RawTitle: "NBA 01: Offline", Status: OutcomeIdle, LeagueKey: "nba", ChannelID: "NBA 01", ChannelNumber: 11501},
+		{SourceID: src, RawTitle: "USA: NFL NETWORK", Status: OutcomeNetwork, LeagueKey: "nfl"},
+	}
+	if err := s.FinishRun(ctx, id, RunOK, "", rows, map[string]any{}, 5); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.RunChannels(ctx, id, RunChannelFilter{League: "nfl"})
+	if len(got) != 2 {
+		t.Errorf("league filter: %d", len(got))
+	}
+	got, _ = s.RunChannels(ctx, id, RunChannelFilter{Query: "texans"})
+	if len(got) != 1 || got[0].ChannelID != "NFL 04" {
+		t.Errorf("query filter: %+v", got)
+	}
+	got, _ = s.RunChannels(ctx, id, RunChannelFilter{Limit: 1})
+	if len(got) != 1 {
+		t.Errorf("limit: %d", len(got))
+	}
+	if r, ok, _ := s.GetRun(ctx, id); !ok || r.Counts.Seen() != 3 {
+		t.Errorf("GetRun: %v %+v", ok, r)
+	}
+	if _, ok, _ := s.GetRun(ctx, 999); ok {
+		t.Error("GetRun should miss")
+	}
+
+	if err := s.UpdateSource(ctx, src, NewSource{Name: "renamed", URL: "http://p/2", XMLTVURL: "http://p/g.xml", Timezone: "America/Chicago", Disabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	var verr *ValidationError
+	if err := s.UpdateSource(ctx, src, NewSource{URL: "ftp://nope"}); !errors.As(err, &verr) {
+		t.Errorf("bad url should be a ValidationError, got %v", err)
+	}
+	if _, err := s.CreateSource(ctx, NewSource{URL: "http://p/3", Timezone: "Mars/Base"}); !errors.As(err, &verr) {
+		t.Errorf("bad zone should be a ValidationError, got %v", err)
+	}
+	if problems, err := s.SetSettings(ctx, map[string]string{SettingKeepRuns: "0", SettingRefreshOnStart: "yes"}); err != nil || len(problems) != 1 || problems[SettingKeepRuns] == "" {
+		t.Errorf("SetSettings validation: %v %v", problems, err)
+	}
+	if v, _ := s.Setting(ctx, SettingRefreshOnStart); v != "1" {
+		t.Error("a failed SetSettings must write nothing")
+	}
+	if problems, err := s.SetSettings(ctx, map[string]string{SettingKeepRuns: "5", SettingRefreshOnStart: "no"}); err != nil || len(problems) != 0 {
+		t.Errorf("SetSettings: %v %v", problems, err)
+	}
+	if all, _ := s.Settings(ctx); all.Int(SettingKeepRuns) != 5 || all.Bool(SettingRefreshOnStart) {
+		t.Errorf("SetSettings not applied: %v", all)
+	}
+	one, ok, _ := s.GetSource(ctx, src)
+	if !ok || one.Name != "renamed" || one.URL != "http://p/2" || one.Enabled || one.Timezone != "America/Chicago" || one.DateOrder != DefaultDateOrder {
+		t.Errorf("UpdateSource: %+v", one)
+	}
+	s.AllocateChannel(ctx, src, "nfl", "US NFL Bills", "NFL Bills", 9300)
+	if err := s.DeleteSource(ctx, src); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := s.GetSource(ctx, src); ok {
+		t.Error("source should be gone")
+	}
+	if allocs, _ := s.ChannelAllocs(ctx, src); len(allocs) != 0 {
+		t.Error("allocations should cascade on delete")
 	}
 }
