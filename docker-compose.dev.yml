@@ -1,0 +1,18 @@
+# Development toolchain. Nothing is installed on the host; every Go command runs in this container.
+# Use through the Makefile: make test, make vet, make tidy, make run, make sh
+services:
+  dev:
+    image: golang:1.26
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /src
+    environment:
+      HOME: /tmp
+      GOCACHE: /go/build-cache
+      GOFLAGS: -buildvcs=false
+      CGO_ENABLED: "0"
+      EPG3R_DATA_DIR: /src/data
+    volumes:
+      - .:/src
+      - ./.cache/go:/go
+    ports:
+      - "8080:8080"

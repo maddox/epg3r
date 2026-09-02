@@ -1,3 +1,12 @@
-iptv-sports.m3u
-iptv-sports.xml
-iptv.m3u
+/data/
+/.env
+/dist/
+/.cache/
+*.db
+*.db-wal
+*.db-shm
+
+# Raw provider files dropped in for analysis. Anonymized copies live in testdata/.
+/all-sports.m3u
+/all-sports.xmltv
+/tms_league_teams.csv
