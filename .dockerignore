@@ -1,0 +1,13 @@
+.git
+.cache
+.github
+data
+dist
+*.md
+docker-compose*.yml
+all-sports.m3u
+all-sports.xmltv
+tms_league_teams.csv
+testdata
+.env
+.env.*
