@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<tv generator-info-name="epg3r test">
+  <channel id="NFL 04">
+    <display-name>NFL 04</display-name>
+  </channel>
+  <channel id="NFL 06">
+    <display-name>NFL 06</display-name>
+  </channel>
+  <channel id="NFL Bills">
+    <display-name>NFL Bills</display-name>
+  </channel>
+  <programme start="20260913164500 +0000" stop="20260913203000 +0000" channel="NFL 04">
+    <title lang="en">NFL Football</title>
+    <sub-title lang="en">Buffalo Bills vs Houston Texans</sub-title>
+    <desc lang="en">NFL Football presents Buffalo Bills vs Houston Texans</desc>
+    <series-id system="epg3r">191277</series-id>
+    <episode-num system="epg3r">191277-abc123def456</episode-num>
+    <date>2026-09-13</date>
+    <icon src="http://epg3r.test/art/league/nfl.png"></icon>
+    <video>
+      <quality>HDTV</quality>
+    </video>
+    <new></new>
+    <live></live>
+    <category lang="en">Football</category>
+    <category lang="en">Sports event</category>
+    <category lang="en">Sports</category>
+    <team-id system="tms">34</team-id>
+    <team-id system="tms">43</team-id>
+  </programme>
+  <programme start="20260913164500 +0000" stop="20260913203000 +0000" channel="NFL Bills">
+    <title lang="en">NFL Football</title>
+    <sub-title lang="en">Buffalo Bills vs Houston Texans</sub-title>
+    <desc lang="en">NFL Football presents Buffalo Bills vs Houston Texans (Buffalo Bills broadcast)</desc>
+    <series-id system="epg3r">191277</series-id>
+    <episode-num system="epg3r">191277-abc123def456</episode-num>
+    <date>2026-09-13</date>
+    <icon src="http://epg3r.test/art/league/nfl.png"></icon>
+    <video>
+      <quality>HDTV</quality>
+    </video>
+    <new></new>
+    <live></live>
+    <category lang="en">Football</category>
+    <category lang="en">Sports event</category>
+    <category lang="en">Sports</category>
+    <team-id system="tms">34</team-id>
+    <team-id system="tms">43</team-id>
+  </programme>
+</tv>
