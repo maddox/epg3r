@@ -67,8 +67,9 @@ type sourceData struct {
 	problem string
 }
 
-// Run performs one refresh.
-func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (*model.Snapshot, *Report, error) {
+// Run performs one refresh. The run row is always finalized: an early failure marks
+// it failed rather than leaving it "running" forever.
+func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Snapshot, rep *Report, err error) {
 	started := r.now()
 	log := cmp.Or(r.Log, slog.Default())
 	phase := r.Phase
@@ -84,7 +85,23 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (*model.Snapsho
 	if err != nil {
 		return nil, nil, err
 	}
-	rep := &Report{RunID: runID}
+	rep = &Report{RunID: runID}
+	finalized := false
+	defer func() {
+		if finalized {
+			return
+		}
+		// The caller's context may be the reason we are here; use a fresh one.
+		fctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		msg := "interrupted"
+		if err != nil {
+			msg = err.Error()
+		}
+		if ferr := r.Store.FinishRun(fctx, runID, store.RunFailed, msg, nil, nil, cfg.keepRuns); ferr != nil {
+			log.Error("could not finalize failed run", "run", runID, "err", ferr)
+		}
+	}()
 
 	sources, err := r.Store.ListSources(ctx)
 	if err != nil {
@@ -155,7 +172,7 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (*model.Snapsho
 	phase("assembling guide")
 	ix.finalize()
 	now := r.now()
-	snap := &model.Snapshot{RunID: runID, GeneratedAt: now.UTC(), Channels: r.assemble(cfg, entries, ix, now)}
+	snap = &model.Snapshot{RunID: runID, GeneratedAt: now.UTC(), Channels: r.assemble(cfg, entries, ix, now)}
 
 	rows := make([]store.RunChannel, len(entries))
 	for i, en := range entries {
@@ -175,6 +192,7 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (*model.Snapsho
 	if err := r.Store.FinishRun(ctx, runID, rep.Status, strings.Join(rep.Problems, "; "), rows, snap, cfg.keepRuns); err != nil {
 		return nil, nil, fmt.Errorf("persist run: %w", err)
 	}
+	finalized = true
 	log.Info("run finished", "run", runID, "status", rep.Status, "channels", len(snap.Channels),
 		"exported", rep.Counts[store.OutcomeExported], "idle", rep.Counts[store.OutcomeIdle],
 		"duplicates", rep.Counts[store.OutcomeDuplicate], "dur", rep.Duration.Round(time.Millisecond))

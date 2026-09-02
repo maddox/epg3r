@@ -50,6 +50,11 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error
 		st.Close()
 		return nil, err
 	}
+	if n, err := st.FailStaleRuns(ctx); err != nil {
+		log.Warn("could not reconcile interrupted runs", "err", err)
+	} else if n > 0 {
+		log.Info("marked interrupted runs as failed", "runs", n)
+	}
 	cat, err := catalog.Load()
 	if err != nil {
 		st.Close()

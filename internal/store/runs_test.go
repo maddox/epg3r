@@ -172,3 +172,30 @@ func TestFamilyFor(t *testing.T) {
 		t.Errorf("leagues are independent: %d %v", f, ok)
 	}
 }
+
+func TestFailStaleRuns(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	id, _ := s.StartRun(ctx, TriggerSchedule)
+	done, _ := s.StartRun(ctx, TriggerSchedule)
+	if err := s.FinishRun(ctx, done, RunOK, "", nil, map[string]any{}, 10); err != nil {
+		t.Fatal(err)
+	}
+	n, err := s.FailStaleRuns(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("FailStaleRuns = %d %v, want 1", n, err)
+	}
+	runs, _ := s.ListRuns(ctx, 5)
+	for _, r := range runs {
+		switch r.ID {
+		case id:
+			if r.Status != RunFailed || r.FinishedAt == nil || r.Error == "" {
+				t.Errorf("stale run not failed: %+v", r)
+			}
+		case done:
+			if r.Status != RunOK {
+				t.Errorf("finished run must be untouched: %+v", r)
+			}
+		}
+	}
+}

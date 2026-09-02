@@ -115,6 +115,17 @@ func (s *Store) FinishRun(ctx context.Context, id int64, status RunStatus, errTe
 	return tx.Commit()
 }
 
+// FailStaleRuns marks runs still "running" as failed. Called at startup: a run that
+// was in flight when the previous process died can never finish.
+func (s *Store) FailStaleRuns(ctx context.Context) (int64, error) {
+	res, err := s.w.ExecContext(ctx, `UPDATE runs SET status = ?, finished_at = ?, error = 'interrupted by shutdown' WHERE status = ?`,
+		string(RunFailed), s.stamp(), string(RunRunning))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 // LatestSnapshot returns the most recent successful run's snapshot, decoded into dst.
 // ok is false when no run has completed yet.
 func (s *Store) LatestSnapshot(ctx context.Context, dst any) (runID int64, ok bool, err error) {

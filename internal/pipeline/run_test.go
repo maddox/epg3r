@@ -329,3 +329,28 @@ func TestTeamChannelsWithoutTvgNameStayDistinct(t *testing.T) {
 		t.Errorf("duplicates = %d, want 1", rep.Counts[store.OutcomeDuplicate])
 	}
 }
+
+func TestInterruptedRunIsMarkedFailed(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r, st := newRunner(t)
+	// The playlist server cancels the run's context as soon as it is asked, so every
+	// store call after the fetch fails with a cancelled context.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cancel()
+		w.Write([]byte("#EXTM3U\n#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"))
+	}))
+	defer srv.Close()
+	st.CreateSource(context.Background(), store.NewSource{Name: "p", URL: srv.URL})
+
+	if _, _, err := r.Run(ctx, store.TriggerManual); err == nil {
+		t.Fatal("expected the cancelled run to fail")
+	}
+	runs, err := st.ListRuns(context.Background(), 5)
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs: %+v %v", runs, err)
+	}
+	if runs[0].Status != store.RunFailed || runs[0].FinishedAt == nil || runs[0].Error == "" {
+		t.Errorf("run row should be finalized as failed: %+v", runs[0])
+	}
+}
