@@ -1,0 +1,70 @@
+{{define "content"}}
+{{with .Data}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <a href="/runs" class="text-sm">← All runs</a>
+    <h1 class="mt-1 text-2xl font-bold tracking-tight">Run #{{.Run.ID}}</h1>
+    <p class="mt-1 text-sm text-ink-300">{{stamp .Run.StartedAt}} · {{.Run.Trigger}} · {{dur .Run.StartedAt .Run.FinishedAt}}
+      · <span class="status-text-{{.Run.Status}}">{{.Run.Status}}</span></p>
+    {{if .Run.Error}}<p class="mt-2 max-w-3xl rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Run.Error}}</p>{{end}}
+  </div>
+</div>
+{{template "channel_view" .}}
+{{end}}
+{{end}}
+
+{{/* Tabs, filters, and table. Tabs replace the whole view (so the active tab and the hidden
+     status field follow); the filter form replaces only the table. Both request the same
+     URL and the server returns the block named by HX-Target. */}}
+{{define "channel_view"}}
+<div id="channel-view">
+  {{$d := .}}
+  <div class="mt-6 flex flex-wrap gap-2">
+    {{template "outcome_tab" dict "D" $d "Status" "" "Label" "All" "Count" .Run.Counts.Seen}}
+    {{range outcomes}}{{$n := index $d.Run.Counts .}}{{if $n}}
+      {{template "outcome_tab" dict "D" $d "Status" (printf "%s" .) "Label" (outcome .) "Count" $n}}
+    {{end}}{{end}}
+  </div>
+  <form class="mt-4 flex flex-wrap items-center gap-3" hx-get="/runs/{{.Run.ID}}" hx-target="#channel-table" hx-swap="outerHTML" hx-push-url="true" hx-boost="false"
+        hx-trigger="change from:select, input changed delay:300ms from:input[name=q]">
+    <input type="hidden" name="status" value="{{.Filter.Status}}">
+    <select name="league" class="input !w-auto">
+      <option value="">All leagues</option>
+      {{range .Leagues}}<option value="{{.Key}}" {{if eq .Key $d.Filter.League}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <input type="search" name="q" value="{{.Filter.Query}}" placeholder="Search titles, ids, matchups" class="input !w-72">
+  </form>
+  {{template "channel_table" .}}
+</div>
+{{end}}
+
+{{define "outcome_tab"}}<a class="tab {{if eq (printf "%s" .D.Filter.Status) .Status}}tab-active{{end}}"
+  href="/runs/{{.D.Run.ID}}?status={{.Status}}&league={{.D.Filter.League}}&q={{.D.Filter.Query}}"
+  hx-boost="false" hx-get="/runs/{{.D.Run.ID}}?status={{.Status}}&league={{.D.Filter.League}}&q={{.D.Filter.Query}}"
+  hx-target="#channel-view" hx-swap="outerHTML" hx-push-url="true">{{.Label}} <span class="ml-1 text-ink-500">{{.Count}}</span></a>{{end}}
+
+{{define "channel_table"}}
+<div id="channel-table" class="card mt-4 overflow-x-auto">
+  {{if not .Rows}}
+  <div class="py-10 text-center text-sm text-ink-300">Nothing matches.</div>
+  {{else}}
+  <table class="table">
+    <thead><tr><th>Outcome</th><th>Channel</th><th>League</th><th>Playlist title</th><th>Game</th><th>Start</th><th>Note</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+    <tr>
+      <td><span class="outcome-{{.Status}}">{{outcome .Status}}</span></td>
+      <td class="whitespace-nowrap">{{if .ChannelID}}<div class="font-medium">{{.ChannelID}}</div><div class="mono text-ink-500">{{.ChannelNumber}}</div>{{else}}<span class="text-ink-500">–</span>{{end}}</td>
+      <td>{{if .LeagueKey}}<span class="chip" data-league="{{.LeagueKey}}">{{upper .LeagueKey}}</span>{{end}}</td>
+      <td class="max-w-md"><div class="break-words">{{.RawTitle}}</div>{{if .Group}}<div class="text-xs text-ink-500">{{.Group}}</div>{{end}}</td>
+      <td class="max-w-xs">{{.Matchup}}</td>
+      <td class="whitespace-nowrap text-ink-200">{{stamp .StartAt}}</td>
+      <td class="max-w-xs text-xs text-ink-300">{{.Reason}}{{if and (ne .Status "network") (ne .Status "unmatched_group") .Confidence}}<div class="text-ink-500">confidence {{printf "%.2f" .Confidence}}</div>{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{if ge (len .Rows) .Filter.Limit}}<div class="px-3 py-2 text-xs text-ink-500">Showing the first {{.Filter.Limit}}. Narrow the filter to see more.</div>{{end}}
+  {{end}}
+</div>
+{{end}}

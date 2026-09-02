@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@source "../../templates";
+
+/* epg3r: dark broadcast look. One accent, league chips carry their own colour. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-ink-950: #070b14;
+  --color-ink-900: #0b1220;
+  --color-ink-800: #111a2e;
+  --color-ink-700: #1a2540;
+  --color-ink-600: #263352;
+  --color-ink-500: #3a4a70;
+  --color-ink-300: #8b98b8;
+  --color-ink-200: #b9c3da;
+  --color-ink-100: #e6eaf4;
+
+  --color-accent-300: #d9f99d;
+  --color-accent-400: #bef264;
+  --color-accent-500: #a3e635;
+  --color-accent-600: #84cc16;
+
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-info: #60a5fa;
+}
+
+@layer base {
+  html { color-scheme: dark; }
+  body { @apply bg-ink-950 text-ink-100 antialiased; }
+  a { @apply text-accent-400 hover:text-accent-300; }
+  ::selection { @apply bg-accent-500/40; }
+}
+
+/* Composable bases must be utilities so other classes can @apply them. */
+@utility card { @apply rounded-2xl border border-ink-700/70 bg-ink-800/80 shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_10px_30px_-15px_rgba(0,0,0,0.6)]; }
+@utility btn { @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
+@utility pill { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+
+@layer components {
+  .btn-primary { @apply btn bg-accent-500 text-ink-950 hover:bg-accent-400; }
+  .btn-ghost { @apply btn bg-ink-700/60 text-ink-100 hover:bg-ink-600; }
+  .btn-danger { @apply btn bg-bad/15 text-bad hover:bg-bad/25; }
+  .input { @apply w-full rounded-xl border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30; }
+  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .help { @apply mt-1 text-xs text-ink-300; }
+  .stat { @apply card p-5; }
+  .stat-value { @apply text-3xl font-bold tabular-nums tracking-tight; }
+  .stat-label { @apply mt-1 text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .tab { @apply rounded-xl px-3 py-1.5 text-sm font-medium text-ink-200 hover:bg-ink-700/60; }
+  .tab-active { @apply bg-ink-700 text-ink-100; }
+  .table { @apply w-full text-left text-sm; }
+  .table th { @apply border-b border-ink-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .table td { @apply border-b border-ink-800 px-3 py-2 align-top; }
+  .table tr:hover td { @apply bg-ink-800/60; }
+  .mono { @apply font-mono text-xs; }
+  .chip { @apply pill bg-ink-700 text-ink-100; }
+  .chip[data-league="nfl"] { @apply bg-[#013369]/70 text-white; }
+  .chip[data-league="mlb"] { @apply bg-[#bf0d3e]/70 text-white; }
+  .chip[data-league="nba"] { @apply bg-[#c8102e]/70 text-white; }
+  .chip[data-league="nhl"] { @apply bg-ink-500 text-white; }
+  .chip[data-league="wnba"] { @apply bg-[#f57b20]/70 text-white; }
+  .chip[data-league="mls"] { @apply bg-[#1d4ed8]/70 text-white; }
+  .chip[data-league="ncaaf"] { @apply bg-[#7c3aed]/70 text-white; }
+  .chip[data-league="ncaab"] { @apply bg-[#0d9488]/70 text-white; }
+  .outcome-exported { @apply pill bg-ok/15 text-ok; }
+  .outcome-idle { @apply pill bg-ink-600/60 text-ink-200; }
+  .outcome-unparsed, .outcome-low_confidence { @apply pill bg-warn/15 text-warn; }
+  .outcome-unmatched_group { @apply pill bg-info/15 text-info; }
+  .outcome-duplicate { @apply pill bg-ink-500/50 text-ink-200; }
+  .outcome-network { @apply pill bg-ink-700 text-ink-300; }
+  /* Run status, fetch status, and toast kinds: one class per value, driven by the constants. */
+  .dot { @apply inline-block h-2.5 w-2.5 rounded-full; }
+  .status-ok { @apply bg-ok; }
+  .status-partial { @apply bg-warn; }
+  .status-failed { @apply bg-bad; }
+  .status-running { @apply bg-info; }
+  .status-none { @apply bg-ink-500; }
+  .status-text-ok { @apply text-ok; }
+  .status-text-partial { @apply text-warn; }
+  .status-text-failed { @apply text-bad; }
+  .status-text-running { @apply text-info; }
+  .status-pill-ok { @apply bg-ok/15 text-ok; }
+  .status-pill-partial { @apply bg-warn/15 text-warn; }
+  .status-pill-failed { @apply bg-bad/15 text-bad; }
+  .status-pill-running { @apply bg-info/15 text-info; }
+  .fetch-ok { @apply text-ink-500; }
+  .fetch-not-modified { @apply text-ink-500; }
+  .fetch-cached { @apply text-warn; }
+  .fetch-error { @apply text-bad; }
+  .toast-ok { @apply border-ok/40 text-ok; }
+  .toast-bad { @apply border-bad/40 text-bad; }
+  .toast-info { @apply border-info/40 text-info; }
+  .pulse { @apply relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-500; }
+  .pulse::after { content: ""; @apply absolute inset-0 animate-ping rounded-full bg-accent-500 opacity-75; }
+}
+
+.htmx-request .htmx-indicator { display: inline-flex; }
+.htmx-indicator { display: none; }

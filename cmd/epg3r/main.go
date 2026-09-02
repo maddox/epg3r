@@ -29,11 +29,12 @@ var commands = map[string]command{
 		help: "run the HTTP server and scheduler (default)",
 		run: func(ctx context.Context, cfg config.Config, args []string) int {
 			fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+			dev := fs.Bool("dev", false, "reload UI templates and static files from the source tree on every request")
 			if err := fs.Parse(args); err != nil {
 				return 2
 			}
 			log := app.NewLogger(cfg)
-			if err := app.Serve(ctx, cfg, version, log); err != nil {
+			if err := app.Serve(ctx, cfg, version, *dev, log); err != nil {
 				log.Error("fatal", "err", err)
 				return 1
 			}

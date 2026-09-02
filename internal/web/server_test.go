@@ -13,7 +13,7 @@ import (
 	"github.com/jonmaddox/epg3r/internal/model"
 )
 
-func newTestServer() *Server { return New("test-1", slog.New(slog.DiscardHandler)) }
+func newTestServer() *Server { return New("test-1", slog.New(slog.DiscardHandler), false, nil) }
 
 func TestHealthz(t *testing.T) {
 	rec := httptest.NewRecorder()
@@ -55,7 +55,7 @@ func TestMethodNotAllowed(t *testing.T) {
 
 func TestQuietRoutesLogAtDebug(t *testing.T) {
 	var buf bytes.Buffer
-	s := New("t", slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	s := New("t", slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})), false, nil)
 	h := s.Handler()
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, HealthPath, nil))

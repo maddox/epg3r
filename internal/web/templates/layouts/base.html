@@ -1,0 +1,42 @@
+{{define "layout"}}<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · epg3r</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body class="min-h-full" hx-boost="true">
+<header class="sticky top-0 z-20 border-b border-ink-800 bg-ink-950/85 backdrop-blur">
+  <div class="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
+    <a href="/" class="flex items-center gap-2 text-ink-100 hover:text-ink-100">
+      <span class="grid h-8 w-8 place-items-center rounded-lg bg-accent-500 font-black text-ink-950">e</span>
+      <span class="text-lg font-bold tracking-tight">epg3r</span>
+    </a>
+    <nav class="flex items-center gap-1 text-sm">
+      {{template "navlink" dict "Href" "/" "Label" "Dashboard" "Key" "dashboard" "Active" .Nav}}
+      {{template "navlink" dict "Href" "/sources" "Label" "Sources" "Key" "sources" "Active" .Nav}}
+      {{template "navlink" dict "Href" "/runs" "Label" "Runs" "Key" "runs" "Active" .Nav}}
+      {{template "navlink" dict "Href" "/settings" "Label" "Settings" "Key" "settings" "Active" .Nav}}
+    </nav>
+    <div class="ml-auto">{{template "status_pill" .Status}}</div>
+  </div>
+</header>
+<main id="main" class="mx-auto max-w-7xl px-6 py-8">
+  {{template "content" .}}
+</main>
+<footer class="mx-auto max-w-7xl px-6 pb-8 text-xs text-ink-500">epg3r {{.Version}}</footer>
+<div id="toasts" class="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
+<script>
+document.body.addEventListener('toast', function (e) {
+  var t = e.detail || {}; var el = document.createElement('div');
+  el.className = 'card pointer-events-auto border px-4 py-2 text-sm font-medium toast-' + (t.kind || 'info');
+  el.textContent = t.msg || ''; document.getElementById('toasts').appendChild(el);
+  setTimeout(function () { el.remove(); }, 3500);
+});
+</script>
+</body>
+</html>{{end}}
+
+{{define "navlink"}}<a href="{{.Href}}" class="tab {{if eq .Key .Active}}tab-active{{end}}">{{.Label}}</a>{{end}}

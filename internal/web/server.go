@@ -6,9 +6,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/jonmaddox/epg3r/internal/catalog"
+	"github.com/jonmaddox/epg3r/internal/store"
 )
 
 // HealthPath is the liveness probe route.
@@ -23,15 +27,21 @@ type Health struct {
 
 // Server holds the dependencies handlers need.
 type Server struct {
-	Version   string
-	Log       *slog.Logger
-	Snapshots *Snapshots
-	started   time.Time
+	Version    string
+	Log        *slog.Logger
+	Snapshots  *Snapshots
+	Store      *store.Store
+	Catalog    *catalog.Catalog
+	Refresher  Refresher
+	TestSource SourceTester
+	started    time.Time
+	tpl        *templates
 }
 
-// New creates a Server.
-func New(version string, log *slog.Logger) *Server {
-	return &Server{Version: version, Log: log, Snapshots: &Snapshots{}, started: time.Now()}
+// New creates a Server. With dev set, templates and static files are read from the
+// source tree on every request. zone is the zone the UI shows times in; nil means UTC.
+func New(version string, log *slog.Logger, dev bool, zone func() *time.Location) *Server {
+	return &Server{Version: version, Log: log, Snapshots: &Snapshots{}, started: time.Now(), tpl: newTemplates(dev, zone)}
 }
 
 // Output routes Channels DVR pulls.
@@ -48,6 +58,33 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+XMLTVPath, quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET /epg.xml", quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET "+M3UPath, quiet(http.HandlerFunc(s.handleM3U)))
+
+	static, _ := fs.Sub(s.tpl.fsys, "static")
+	files := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
+	mux.Handle("GET /static/", quiet(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.tpl.dev {
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+		}
+		files.ServeHTTP(w, r)
+	})))
+
+	if s.Store != nil {
+		mux.HandleFunc("GET /{$}", s.handleDashboard)
+		mux.HandleFunc("POST /refresh", s.handleRefresh)
+		mux.Handle("GET /status", quiet(http.HandlerFunc(s.handleStatus)))
+		mux.HandleFunc("GET /sources", s.handleSources)
+		mux.HandleFunc("POST /sources", s.handleCreateSource)
+		mux.HandleFunc("POST /sources/test", s.handleTestSource)
+		mux.HandleFunc("GET /sources/{id}", s.sourceRow("source_row"))
+		mux.HandleFunc("GET /sources/{id}/edit", s.sourceRow("source_row_edit"))
+		mux.HandleFunc("PUT /sources/{id}", s.handleUpdateSource)
+		mux.HandleFunc("DELETE /sources/{id}", s.handleDeleteSource)
+		mux.HandleFunc("POST /sources/{id}/test", s.handleTestSource)
+		mux.HandleFunc("GET /runs", s.handleRuns)
+		mux.HandleFunc("GET /runs/{id}", s.handleRun)
+		mux.HandleFunc("GET /settings", s.handleSettings)
+		mux.HandleFunc("PUT /settings", s.handleSaveSettings)
+	}
 
 	var h http.Handler = mux
 	h = s.recoverer(h)

@@ -1,0 +1,35 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold tracking-tight">Settings</h1>
+<p class="mt-1 text-sm text-ink-300">Changes apply on the next refresh unless noted. Values seeded from the environment on first boot live here from then on.</p>
+<div class="card mt-6 max-w-3xl p-6" id="settings-form">{{template "settings_form" .Data}}</div>
+{{end}}
+
+{{define "settings_form"}}
+<form hx-put="/settings" hx-target="#settings-form" hx-swap="innerHTML" hx-boost="false" class="space-y-6">
+  {{range .Fields}}
+  <div class="grid gap-1 md:grid-cols-[16rem_1fr] md:gap-6">
+    <div>
+      <label class="label !mb-0 !normal-case !tracking-normal !text-sm !text-ink-100" for="s-{{.Key}}">{{.Label}}</label>
+      <p class="help">{{.Help}}</p>
+    </div>
+    <div>
+      {{if eq .Control "checkbox"}}
+        <label class="inline-flex items-center gap-3 text-sm"><input id="s-{{.Key}}" type="checkbox" name="{{.Key}}" value="1" {{if eq .Value "1"}}checked{{end}} class="h-5 w-5 accent-accent-500"> <span class="text-ink-300">{{if eq .Value "1"}}on{{else}}off{{end}}</span></label>
+      {{else if eq .Control "select"}}
+        <select id="s-{{.Key}}" name="{{.Key}}" class="input !w-auto">{{$v := .Value}}{{range .Choices}}<option value="{{.}}" {{if eq . $v}}selected{{end}}>{{.}}</option>{{end}}</select>
+      {{else if eq .Control "number"}}
+        <input id="s-{{.Key}}" class="input !w-40" name="{{.Key}}" value="{{.Value}}" inputmode="decimal">
+      {{else}}
+        <input id="s-{{.Key}}" class="input" name="{{.Key}}" value="{{.Value}}" placeholder="{{.Default}}">
+      {{end}}
+      {{if .Error}}<p class="mt-1 text-xs text-bad">{{.Error}}</p>{{end}}
+      <p class="mt-1 text-xs text-ink-500">default {{if .Default}}{{.Default}}{{else}}empty{{end}}{{if .Env}} · seed {{.Env}}{{end}}</p>
+    </div>
+  </div>
+  {{end}}
+  <div class="flex items-center gap-3 pt-2">
+    <button class="btn-primary">Save settings</button>
+    {{if .Saved}}<span class="text-sm text-ok">Saved.</span>{{end}}
+  </div>
+</form>
+{{end}}

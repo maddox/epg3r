@@ -74,15 +74,26 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error
 // Close releases resources.
 func (a *App) Close() error { return a.Store.Close() }
 
-// Serve runs the HTTP server and scheduler until ctx is cancelled.
-func Serve(ctx context.Context, cfg config.Config, version string, log *slog.Logger) error {
+// Serve runs the HTTP server and scheduler until ctx is cancelled. With dev set the
+// UI's templates and static files are read from the source tree on every request.
+func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log *slog.Logger) error {
 	app, err := Open(ctx, cfg, log)
 	if err != nil {
 		return err
 	}
 	defer app.Close()
 
-	srv := web.New(version, log)
+	// The UI shows times in the configured default zone.
+	zone := func() *time.Location {
+		settings, err := app.Store.Settings(context.Background())
+		if err != nil {
+			return time.UTC
+		}
+		return settings.Location()
+	}
+	srv := web.New(version, log, dev, zone)
+	srv.Store, srv.Catalog = app.Store, app.Catalog
+	srv.TestSource = app.Runner.Probe
 	srv.Snapshots.GuideTags = func() bool {
 		v, _ := app.Store.SettingBool(context.Background(), store.SettingM3UTvcGuideTags)
 		return v
@@ -118,6 +129,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, log *slog.Log
 		log,
 	)
 	app.Runner.Phase = sched.SetPhase
+	srv.Refresher = sched
 	runOnStart, _ := app.Store.SettingBool(ctx, store.SettingRefreshOnStart)
 	schedDone := make(chan struct{})
 	go func() {
