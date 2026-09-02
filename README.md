@@ -101,9 +101,10 @@ are told apart by the `(W)` marker in their titles.
 Everything runs in Docker; nothing is installed on the host.
 
 ```
+./dev         # run from source with hot reload, using .env; ./dev reset wipes ./data
 make test     # go test -race in the dev container
 make vet
-make run      # go run ./cmd/epg3r serve on :8080
+make css      # rebuild the committed Tailwind CSS after editing internal/web/static/src/app.css
 make build    # production image
 make help
 ```

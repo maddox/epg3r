@@ -1,5 +1,8 @@
 # Development toolchain. Nothing is installed on the host; every Go command runs in this container.
 # Use through the Makefile: make test, make vet, make tidy, make run, make sh
+#
+# `make run` starts the app from source with your .env (copy .env.example), data in ./data,
+# templates reloaded from disk, on http://localhost:${EPG3R_PORT:-8080}.
 services:
   dev:
     image: golang:1.26
@@ -11,8 +14,11 @@ services:
       GOFLAGS: -buildvcs=false
       CGO_ENABLED: "0"
       EPG3R_DATA_DIR: /src/data
+      EPG3R_LOG_LEVEL: ${EPG3R_LOG_LEVEL:-debug}
+    env_file:
+      - .env   # every EPG3R_* seed; ./dev creates it from .env.example
     volumes:
       - .:/src
       - ./.cache/go:/go
     ports:
-      - "8080:8080"
+      - "${EPG3R_PORT:-8080}:8080"

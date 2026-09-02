@@ -1,0 +1,23 @@
+# Hot reload for `./dev`: rebuild and restart on Go, template, or CSS source changes.
+root = "."
+tmp_dir = ".cache/air"
+
+[build]
+  cmd = "go build -o .cache/air/epg3r ./cmd/epg3r"
+  bin = ".cache/air/epg3r"
+  args_bin = ["serve", "-dev"]
+  # Templates and static files are read from disk per request under -dev, so only
+  # compiled inputs trigger a rebuild.
+  include_ext = ["go", "yaml"]
+  exclude_dir = [".cache", "data", "testdata", ".git", ".github", "internal/web/templates", "internal/web/static"]
+  exclude_regex = ["_test\\.go$"]
+  delay = 300
+  stop_on_error = false
+  send_interrupt = true
+  kill_delay = "2s"
+
+[log]
+  main_only = true
+
+[misc]
+  clean_on_exit = false

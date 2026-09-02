@@ -8,7 +8,7 @@ DEV     := $(COMPOSE) run --rm
 IMAGE   ?= epg3r:dev
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: help cache test vet tidy fmt run sh build up logs stop reset down clean
+.PHONY: help cache test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-10s %s\n", $$1, $$2}'
@@ -28,8 +28,17 @@ fmt: cache ## gofmt -l (fails if anything is unformatted)
 tidy: cache ## go mod tidy
 	$(DEV) dev go mod tidy
 
-run: cache ## Run the server from source on :8080
-	$(DEV) --service-ports dev go run ./cmd/epg3r serve
+css: cache ## Build internal/web/static/app.css from the Tailwind source (commit the result)
+	$(DEV) dev sh scripts/tailwind.sh
+
+css-check: css ## Fail if the committed app.css is out of date
+	@git diff --quiet -- internal/web/static/app.css || (echo "internal/web/static/app.css is stale; run make css and commit" && exit 1)
+
+run: cache ## Run from source with hot reload, reading .env (see ./dev for the guided version)
+	$(DEV) --service-ports dev go run github.com/air-verse/air@v1.61.7 -c .air.toml
+
+reset-dev: ## Delete the dev database and caches under ./data
+	rm -rf data
 
 sh: cache ## Shell in the dev container
 	$(DEV) dev bash

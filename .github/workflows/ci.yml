@@ -14,6 +14,8 @@ jobs:
       - run: test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal; exit 1)
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Check committed CSS is current
+        run: sh scripts/tailwind.sh && git diff --quiet -- internal/web/static/app.css
   image:
     runs-on: ubuntu-latest
     steps:
