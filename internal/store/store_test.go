@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -211,5 +212,32 @@ func TestSources(t *testing.T) {
 	}
 	if got.LastFetchedAt != nil || got.LastChannelCount != nil {
 		t.Errorf("derived fields should be nil before any run: %+v", got)
+	}
+}
+
+func TestLocationFollowsSettingWrites(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	if s.Location(ctx).String() != "America/New_York" {
+		t.Fatalf("default zone: %s", s.Location(ctx))
+	}
+	if err := s.SetSetting(ctx, SettingDefaultTimezone, "Europe/London"); err != nil {
+		t.Fatal(err)
+	}
+	if s.Location(ctx).String() != "Europe/London" {
+		t.Errorf("zone should follow a write immediately: %s", s.Location(ctx))
+	}
+	if _, err := s.SetSettings(ctx, map[string]string{SettingDefaultTimezone: "America/Chicago"}); err != nil {
+		t.Fatal(err)
+	}
+	if s.Location(ctx).String() != "America/Chicago" {
+		t.Errorf("zone should follow a batch write: %s", s.Location(ctx))
+	}
+	var verr *ValidationError
+	if err := s.SetSetting(ctx, SettingDefaultTimezone, "Mars/Base"); !errors.As(err, &verr) {
+		t.Errorf("SetSetting must surface bad input as a ValidationError, got %v", err)
+	}
+	if s.Location(ctx).String() != "America/Chicago" {
+		t.Error("a rejected write must not change the cached zone")
 	}
 }

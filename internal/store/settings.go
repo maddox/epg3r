@@ -172,16 +172,51 @@ func (s *Store) Setting(ctx context.Context, key string) (string, error) {
 	return v, err
 }
 
-// SetSetting validates and writes a value.
+// SetSetting validates and writes one value. Bad input is a ValidationError.
 func (s *Store) SetSetting(ctx context.Context, key, raw string) error {
 	v, err := s.normalize(key, raw)
 	if err != nil {
+		return &ValidationError{err.Error()}
+	}
+	return s.writeSettings(ctx, map[string]string{key: v})
+}
+
+// writeSettings stores normalized values in one transaction and drops the zone cache
+// once they are committed. Every settings writer ends here.
+func (s *Store) writeSettings(ctx context.Context, values map[string]string) error {
+	tx, err := s.w.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	_, err = s.w.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-		key, v, s.stamp())
-	return err
+	defer tx.Rollback()
+	now := s.stamp()
+	for key, v := range values {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`, key, v, now); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.loc.Store(nil) // after commit, so a concurrent reader cannot re-cache the old value
+	return nil
+}
+
+// Location is the configured default zone. The store is the only writer of settings,
+// so it caches the parsed zone and drops it whenever settings change; callers may use
+// this on hot paths.
+func (s *Store) Location(ctx context.Context) *time.Location {
+	if loc := s.loc.Load(); loc != nil {
+		return loc
+	}
+	all, err := s.Settings(ctx)
+	if err != nil {
+		return time.UTC
+	}
+	loc := all.Location()
+	s.loc.Store(loc)
+	return loc
 }
 
 // SetSettings validates every value and, only if all pass, writes them in one
@@ -200,19 +235,7 @@ func (s *Store) SetSettings(ctx context.Context, values map[string]string) (map[
 	if len(problems) > 0 {
 		return problems, nil
 	}
-	tx, err := s.w.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-	now := s.stamp()
-	for key, v := range normalized {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`, key, v, now); err != nil {
-			return nil, err
-		}
-	}
-	return nil, tx.Commit()
+	return nil, s.writeSettings(ctx, normalized)
 }
 
 // SetSettingIfUnset validates and writes a value only when the key has never been
@@ -231,6 +254,7 @@ func (s *Store) SetSettingIfUnset(ctx context.Context, key, raw string) (bool, e
 	if err != nil {
 		return false, err
 	}
+	s.loc.Store(nil)
 	n, err := res.RowsAffected()
 	return n > 0, err
 }

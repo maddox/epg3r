@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
@@ -25,6 +26,7 @@ type Store struct {
 	w   *sql.DB
 	r   *sql.DB
 	now func() time.Time
+	loc atomic.Pointer[time.Location] // parsed default_timezone, dropped on any settings write
 }
 
 // Open opens (creating if needed) the database in dataDir, applies pragmas, and runs

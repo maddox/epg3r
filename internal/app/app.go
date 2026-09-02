@@ -83,14 +83,8 @@ func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log
 	}
 	defer app.Close()
 
-	// The UI shows times in the configured default zone.
-	zone := func() *time.Location {
-		settings, err := app.Store.Settings(context.Background())
-		if err != nil {
-			return time.UTC
-		}
-		return settings.Location()
-	}
+	// The UI shows times in the configured default zone; the store caches it.
+	zone := func() *time.Location { return app.Store.Location(context.Background()) }
 	srv := web.New(version, log, dev, zone)
 	srv.Store, srv.Catalog = app.Store, app.Catalog
 	srv.TestSource = app.Runner.Probe
@@ -204,11 +198,7 @@ func ParseTitle(ctx context.Context, cfg config.Config, group, title string) err
 	if !ok {
 		return fmt.Errorf("group %q does not match any league", group)
 	}
-	settings, err := app.Store.Settings(ctx)
-	if err != nil {
-		return err
-	}
-	res := titleparse.Parse(titleparse.Context{Now: time.Now(), Loc: lg.Location(settings.Location()), League: lg, Catalog: app.Catalog}, title)
+	res := titleparse.Parse(titleparse.Context{Now: time.Now(), Loc: lg.Location(app.Store.Location(ctx)), League: lg, Catalog: app.Catalog}, title)
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(struct {
