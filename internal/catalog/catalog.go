@@ -1,0 +1,340 @@
+// Package catalog is the built-in knowledge of leagues and teams: how to recognise a
+// league from a playlist group, what an airing should be called, how long a game
+// lasts, which channel numbers a league owns, and who the teams are (with their
+// Gracenote ids). Defaults are embedded; the store layers user overrides on top.
+package catalog
+
+import (
+	"cmp"
+	"embed"
+	"fmt"
+	"regexp"
+	"slices"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+//go:embed data/catalog.yaml
+var dataFS embed.FS
+
+// League describes one league.
+type League struct {
+	Key         string        `yaml:"key"`          // stable lowercase id, never changes
+	Name        string        `yaml:"name"`         // "NFL"
+	AiringTitle string        `yaml:"airing_title"` // XMLTV <title>, e.g. "NFL Football"
+	Sport       string        `yaml:"sport"`
+	Genre       string        `yaml:"genre"`      // XMLTV <category>, e.g. "Football"
+	Categories  []string      `yaml:"categories"` // extra categories; default ["Sports event","Sports"]
+	Duration    time.Duration `yaml:"duration"`
+	StartPad    time.Duration `yaml:"start_pad"`
+	EndPad      time.Duration `yaml:"end_pad"`
+	SeriesID    string        `yaml:"series_id"`
+
+	// Each league owns BlockSize channel numbers starting at ChannelBase. Slot channels
+	// occupy the first TeamOffset numbers, split into families of SlotSpan (one family
+	// per provider style, since several providers may all have an "NFL 04"); team
+	// channels take the rest.
+	ChannelBase  int      `yaml:"channel_base"`
+	SlotSpan     int      `yaml:"slot_span"`     // numbers per slot family; default 100
+	LabelPrefix  string   `yaml:"label_prefix"`  // the word before the slot number, "NFL" in "NFL 03"
+	LabelAliases []string `yaml:"label_aliases"` // regexes that also count as the label, e.g. "NHL Game"
+	NameTokens   []string `yaml:"name_tokens"`   // other league words found in channel names, e.g. "NBALP"
+
+	Timezone      string   `yaml:"timezone"` // overrides the source zone when set
+	Enabled       bool     `yaml:"enabled"`
+	GroupPatterns []string `yaml:"group_patterns"` // regexes (case-insensitive) matched against group-title
+	NamePatterns  []string `yaml:"name_patterns"`  // fallback regexes matched against the channel name
+	Exclude       []string `yaml:"exclude"`        // regexes; a name matching one is not this league
+
+	Roster            string `yaml:"roster"`              // league column in tms_league_teams.csv
+	WomensRoster      string `yaml:"womens_roster"`       // roster used when a title carries a (W) marker
+	WomensAiringTitle string `yaml:"womens_airing_title"` // airing title for those games
+	WomensSeriesID    string `yaml:"womens_series_id"`    // series id for those games; defaults to SeriesID
+
+	Logo             string `yaml:"logo"`
+	Placard          string `yaml:"placard"`
+	TeamLogoTemplate string `yaml:"team_logo_template"`
+
+	// Loc is Timezone resolved, or nil when the league defers to the source.
+	Loc *time.Location
+
+	groupRes   []*regexp.Regexp
+	nameRes    []*regexp.Regexp
+	excludeRes []*regexp.Regexp
+}
+
+// Channel number layout within a league's block.
+const (
+	BlockSize       = 1000 // numbers per league
+	TeamOffset      = 800  // team channels start here within the block
+	DefaultSlotSpan = 100
+)
+
+// DefaultCategories are appended to every sports airing so Channels DVR files it as a
+// sports event and its guide filters find it.
+var DefaultCategories = []string{"Sports event", "Sports"}
+
+// Catalog is the loaded set of leagues and rosters.
+type Catalog struct {
+	Leagues []League // in manifest order
+	byKey   map[string]*League
+	rosters map[string]*TeamIndex // by roster name
+	tokens  string                // regex alternation of every league word, see TokenPattern
+}
+
+// manifest is the shape of data/catalog.yaml.
+type manifest struct {
+	Leagues []League     `yaml:"leagues"`
+	Rosters []rosterFile `yaml:"rosters"`
+}
+
+// Load reads the embedded catalog.
+func Load() (*Catalog, error) {
+	body, err := dataFS.ReadFile("data/catalog.yaml")
+	if err != nil {
+		return nil, err
+	}
+	return Parse(body)
+}
+
+// Parse loads a catalog manifest.
+func Parse(body []byte) (*Catalog, error) {
+	var m manifest
+	if err := yaml.Unmarshal(body, &m); err != nil {
+		return nil, fmt.Errorf("catalog.yaml: %w", err)
+	}
+	c := &Catalog{Leagues: m.Leagues, byKey: map[string]*League{}}
+	rosters, err := buildRosters(m.Rosters)
+	if err != nil {
+		return nil, err
+	}
+	c.rosters = rosters
+
+	var tokens []string
+	for i := range c.Leagues {
+		lg := &c.Leagues[i]
+		if err := lg.compile(); err != nil {
+			return nil, err
+		}
+		c.byKey[lg.Key] = lg
+		tokens = append(tokens, regexp.QuoteMeta(lg.LabelPrefix))
+		tokens = append(tokens, lg.LabelAliases...)
+		for _, t := range lg.NameTokens {
+			tokens = append(tokens, regexp.QuoteMeta(t))
+		}
+	}
+	c.tokens = "(?:" + strings.Join(tokens, "|") + ")"
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// TokenPattern is a regex alternation matching any league's label, label alias, or
+// name token, so parsers can strip league words from channel names without knowing
+// the leagues.
+func (c *Catalog) TokenPattern() string { return c.tokens }
+
+func (lg *League) compile() error {
+	var err error
+	if lg.groupRes, err = compileAll(lg.GroupPatterns); err != nil {
+		return fmt.Errorf("league %s group_patterns: %w", lg.Key, err)
+	}
+	if lg.nameRes, err = compileAll(lg.NamePatterns); err != nil {
+		return fmt.Errorf("league %s name_patterns: %w", lg.Key, err)
+	}
+	if lg.excludeRes, err = compileAll(lg.Exclude); err != nil {
+		return fmt.Errorf("league %s exclude: %w", lg.Key, err)
+	}
+	if _, err := regexp.Compile(lg.LabelPattern()); err != nil {
+		return fmt.Errorf("league %s label_aliases: %w", lg.Key, err)
+	}
+	if lg.Timezone != "" {
+		if lg.Loc, err = time.LoadLocation(lg.Timezone); err != nil {
+			return fmt.Errorf("league %s timezone: %w", lg.Key, err)
+		}
+	}
+	if len(lg.Categories) == 0 {
+		lg.Categories = append([]string(nil), DefaultCategories...)
+	}
+	if lg.SlotSpan == 0 {
+		lg.SlotSpan = DefaultSlotSpan
+	}
+	return nil
+}
+
+func compileAll(pats []string) ([]*regexp.Regexp, error) {
+	out := make([]*regexp.Regexp, 0, len(pats))
+	for _, p := range pats {
+		re, err := regexp.Compile("(?i)" + p)
+		if err != nil {
+			return nil, fmt.Errorf("%q: %w", p, err)
+		}
+		out = append(out, re)
+	}
+	return out, nil
+}
+
+func (c *Catalog) validate() error {
+	seenSeries := map[string]string{}
+	type block struct {
+		lo, hi int
+		key    string
+	}
+	var blocks []block
+	for _, lg := range c.Leagues {
+		switch {
+		case lg.Key == "" || strings.ToLower(lg.Key) != lg.Key:
+			return fmt.Errorf("league key %q must be lowercase and non-empty", lg.Key)
+		case lg.LabelPrefix == "":
+			return fmt.Errorf("league %s: label_prefix is required", lg.Key)
+		case lg.Duration <= 0:
+			return fmt.Errorf("league %s: duration is required", lg.Key)
+		case lg.SeriesID == "":
+			return fmt.Errorf("league %s: series_id is required", lg.Key)
+		case lg.ChannelBase <= 0:
+			return fmt.Errorf("league %s: channel_base is required", lg.Key)
+		case TeamOffset%lg.SlotSpan != 0:
+			return fmt.Errorf("league %s: slot_span %d must divide %d", lg.Key, lg.SlotSpan, TeamOffset)
+		}
+		if other, dup := seenSeries[lg.SeriesID]; dup {
+			return fmt.Errorf("leagues %s and %s share series_id %s", other, lg.Key, lg.SeriesID)
+		}
+		seenSeries[lg.SeriesID] = lg.Key
+		if lg.WomensSeriesID != "" {
+			if other, dup := seenSeries[lg.WomensSeriesID]; dup {
+				return fmt.Errorf("leagues %s and %s share series_id %s", other, lg.Key, lg.WomensSeriesID)
+			}
+			seenSeries[lg.WomensSeriesID] = lg.Key + " (women's)"
+		}
+		if lg.Roster != "" {
+			if _, ok := c.rosters[lg.Roster]; !ok {
+				return fmt.Errorf("league %s: roster %q not found in the manifest", lg.Key, lg.Roster)
+			}
+		}
+		if lg.WomensRoster != "" {
+			if _, ok := c.rosters[lg.WomensRoster]; !ok {
+				return fmt.Errorf("league %s: womens_roster %q not found", lg.Key, lg.WomensRoster)
+			}
+		}
+		blocks = append(blocks, block{lg.ChannelBase, lg.ChannelBase + BlockSize, lg.Key})
+	}
+	slices.SortFunc(blocks, func(a, b block) int { return cmp.Compare(a.lo, b.lo) })
+	for i := 1; i < len(blocks); i++ {
+		if blocks[i].lo < blocks[i-1].hi {
+			return fmt.Errorf("leagues %s and %s have overlapping channel number blocks", blocks[i-1].key, blocks[i].key)
+		}
+	}
+	return nil
+}
+
+// League returns a league by key.
+func (c *Catalog) League(key string) (*League, bool) {
+	lg, ok := c.byKey[key]
+	return lg, ok
+}
+
+// MatchLeague resolves a playlist entry to a league using its group title, then the
+// channel name as a fallback. Exclude patterns are checked against both.
+func (c *Catalog) MatchLeague(group, name string) (*League, bool) {
+	for i := range c.Leagues {
+		lg := &c.Leagues[i]
+		if !lg.Enabled || lg.excluded(group) || lg.excluded(name) {
+			continue
+		}
+		if matchAny(lg.groupRes, group) {
+			return lg, true
+		}
+	}
+	for i := range c.Leagues {
+		lg := &c.Leagues[i]
+		if !lg.Enabled || lg.excluded(name) {
+			continue
+		}
+		if matchAny(lg.nameRes, name) {
+			return lg, true
+		}
+	}
+	return nil, false
+}
+
+func (lg *League) excluded(s string) bool { return matchAny(lg.excludeRes, s) }
+
+// LabelPattern is a regex alternation matching this league's slot label as providers
+// write it: the prefix ("NFL") or any label alias ("NHL Game").
+func (lg *League) LabelPattern() string {
+	alts := append([]string{regexp.QuoteMeta(lg.LabelPrefix)}, lg.LabelAliases...)
+	return "(?:" + strings.Join(alts, "|") + ")"
+}
+
+// Location is the zone for this league's schedule text: its own when set, else fallback.
+func (lg *League) Location(fallback *time.Location) *time.Location {
+	if lg.Loc != nil {
+		return lg.Loc
+	}
+	return fallback
+}
+
+// MaxFamilies is how many provider styles a league can hold.
+func (lg *League) MaxFamilies() int { return TeamOffset / lg.SlotSpan }
+
+// SlotChannelNumber is the channel number for a slot in a provider family (0-based).
+// Family 0 is the plain numbering: NFL 03 is 8503.
+func (lg *League) SlotChannelNumber(family, slot int) int {
+	return lg.ChannelBase + family*lg.SlotSpan + slot%lg.SlotSpan
+}
+
+// TeamChannelBase is where this league's team channels start.
+func (lg *League) TeamChannelBase() int { return lg.ChannelBase + TeamOffset }
+
+// ChannelID is the channel id for a slot: "NFL 03" for the first provider family,
+// "NFL 03 B" for the second, and so on.
+func (lg *League) ChannelID(family, slot int) string {
+	id := fmt.Sprintf("%s %02d", lg.LabelPrefix, slot)
+	if family > 0 {
+		id += " " + string(rune('A'+family))
+	}
+	return id
+}
+
+// SeriesIDFor returns the series id for a game, using the women's id when set.
+func (lg *League) SeriesIDFor(womens bool) string {
+	if womens && lg.WomensSeriesID != "" {
+		return lg.WomensSeriesID
+	}
+	return lg.SeriesID
+}
+
+// AiringTitleFor returns the airing title for a game.
+func (lg *League) AiringTitleFor(womens bool) string {
+	if womens && lg.WomensAiringTitle != "" {
+		return lg.WomensAiringTitle
+	}
+	return lg.AiringTitle
+}
+
+// Teams returns the roster index for this league, or the women's roster when womens is set.
+func (c *Catalog) Teams(lg *League, womens bool) *TeamIndex {
+	name := lg.Roster
+	if womens && lg.WomensRoster != "" {
+		name = lg.WomensRoster
+	}
+	return c.rosters[name]
+}
+
+// Roster returns a roster by its CSV league name.
+func (c *Catalog) Roster(name string) (*TeamIndex, bool) {
+	ti, ok := c.rosters[name]
+	return ti, ok
+}
+
+func matchAny(res []*regexp.Regexp, s string) bool {
+	for _, re := range res {
+		if re.MatchString(s) {
+			return true
+		}
+	}
+	return false
+}
