@@ -36,8 +36,9 @@ type Scheduler struct {
 	Log      *slog.Logger
 
 	wake   chan store.Trigger
-	mu     sync.Mutex // guards status
+	mu     sync.Mutex // guards status and queued
 	status Status
+	queued *store.Trigger // a request that arrived mid-run, to be honoured after it
 	now    func() time.Time
 }
 
@@ -66,16 +67,21 @@ func (s *Scheduler) Status() Status {
 	return s.status
 }
 
-// Trigger requests a run now. It returns ErrRunning if one is in progress. The check
-// and the "queued" status are one update, so two concurrent triggers cannot both pass.
+// Trigger requests a run now. It returns ErrRunning if one is in progress — but the
+// request is not lost: a run that is already under way has read its settings, so the
+// change that prompted this would otherwise wait for the next interval. It is held and
+// honoured as soon as the current run finishes. The check and the "queued" status are
+// one update, so two concurrent triggers cannot both pass.
 func (s *Scheduler) Trigger(trigger store.Trigger) error {
 	var was bool
-	s.update(func(st *Status) {
-		was = st.Running
-		if !was {
-			st.Running, st.Phase, st.StartedAt = true, "queued", s.now()
-		}
-	})
+	s.mu.Lock()
+	was = s.status.Running
+	if was {
+		s.queued = &trigger
+	} else {
+		s.status.Running, s.status.Phase, s.status.StartedAt = true, "queued", s.now()
+	}
+	s.mu.Unlock()
 	if was {
 		return ErrRunning
 	}
@@ -113,6 +119,17 @@ func (s *Scheduler) Start(ctx context.Context, runOnStart bool) {
 		case trigger := <-s.wake:
 			timer.Stop()
 			s.runOnce(ctx, trigger)
+		}
+		// Anything asked for while that run was going has not been seen by it.
+		for {
+			s.mu.Lock()
+			q := s.queued
+			s.queued = nil
+			s.mu.Unlock()
+			if q == nil || ctx.Err() != nil {
+				break
+			}
+			s.runOnce(ctx, *q)
 		}
 	}
 }
