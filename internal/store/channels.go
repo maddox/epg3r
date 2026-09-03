@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -198,25 +199,59 @@ func (s *Store) ForgetChannels(ctx context.Context, before time.Time) (int, erro
 	return int(n), nil
 }
 
-// SetChannelNumber moves a channel the user has asked to move. It only moves a channel
-// that has an identity already: a channel with no number has never been in the guide,
-// and giving it one by hand would leave it numbered but unnamed.
-func (s *Store) SetChannelNumber(ctx context.Context, key string, number int) error {
-	if number <= 0 {
-		return &ValidationError{Msg: "channel number must be positive"}
+// SetChannelNumbers moves channels the user has asked to move, in one go. Every number
+// asked for is vacated first, so a block can be shifted onto itself — moving 200..231 to
+// 201..232 is one channel taking the number of the one before it, which would collide
+// applied one at a time. A number held by a channel outside the move is a conflict, and
+// nothing is written.
+//
+// Only a channel with an identity can be moved: one with no number has never been in the
+// guide, and giving it one by hand would leave it numbered but unnamed. From here on
+// nothing assigns over these channels.
+func (s *Store) SetChannelNumbers(ctx context.Context, numbers map[string]int) error {
+	if len(numbers) == 0 {
+		return nil
 	}
-	res, err := s.w.ExecContext(ctx, `UPDATE channels SET number = ?, by_user = 1
-		WHERE key = ? AND channel_id IS NOT NULL`, number, key)
-	if err != nil {
-		if isUniqueViolation(err) {
-			return &ValidationError{Msg: fmt.Sprintf("channel number %d is already taken", number)}
+	for _, n := range numbers {
+		if n <= 0 {
+			return &ValidationError{Msg: "a channel number must be positive"}
 		}
+	}
+	tx, err := s.w.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+	defer tx.Rollback()
+
+	keys := slices.Sorted(maps.Keys(numbers)) // a stable order, so an error names the same channel every time
+	free, err := tx.PrepareContext(ctx, `UPDATE channels SET number = NULL WHERE key = ? AND channel_id IS NOT NULL`)
+	if err != nil {
+		return err
 	}
-	return nil
+	defer free.Close()
+	for _, k := range keys {
+		res, err := free.ExecContext(ctx, k)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return ErrNotFound
+		}
+	}
+	set, err := tx.PrepareContext(ctx, `UPDATE channels SET number = ?, by_user = 1 WHERE key = ?`)
+	if err != nil {
+		return err
+	}
+	defer set.Close()
+	for _, k := range keys {
+		if _, err := set.ExecContext(ctx, numbers[k], k); err != nil {
+			if isUniqueViolation(err) {
+				return &ValidationError{Msg: fmt.Sprintf("channel number %d is already taken by another channel", numbers[k])}
+			}
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // isUniqueViolation reports whether an error is SQLite refusing a duplicate. The driver

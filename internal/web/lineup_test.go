@@ -355,3 +355,69 @@ func TestChannelInspector(t *testing.T) {
 		t.Errorf("unknown channel: %d", rec.Code)
 	}
 }
+
+// Numbers are the one thing about a channel the user owns, so the Lineup hands out a
+// run of them in the order the reader is looking at.
+func TestRenumbering(t *testing.T) {
+	s, st, ref := uiServer(t)
+	h := s.Handler()
+	ctx := context.Background()
+	st.CreateSource(ctx, store.NewSource{Name: "Provider", URL: "http://p/1"})
+	// The store has to know these channels before it can move them.
+	urls := []string{"http://x/1", "http://x/2", "http://x/3", "http://x/4", "http://x/5"}
+	st.SeeChannels(ctx, 1, urls) //nolint:errcheck
+	var want []store.Assignment
+	for i, u := range urls {
+		want = append(want, store.Assignment{Key: store.ChannelKey(1, u),
+			PreferredID: []string{"NFL 04", "NFL 05", "NFL 06", "NFL Bills", "NBA 01"}[i],
+			Base:        8500, Limit: 9300})
+	}
+	st.AssignNumbers(ctx, want) //nolint:errcheck
+	snap := lineupSnapshot()
+	for i := range snap.Channels {
+		snap.Channels[i].Key = store.ChannelKey(1, urls[i])
+	}
+	s.Snapshots.Set(snap)
+	key := func(i int) string { return store.ChannelKey(1, urls[i]) }
+
+	// Nothing ticked, or no number: say so rather than doing something surprising.
+	for _, form := range []url.Values{{"start": {"200"}}, {"key": {key(0)}}, {"key": {key(0)}, "start": {"0"}}} {
+		if rec := do(h, http.MethodPost, "/lineup/numbers", form, true); rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%v should be refused, got %d", form, rec.Code)
+		}
+	}
+
+	// Three channels take 200, 201, 202 in the order they were posted.
+	rec := do(h, http.MethodPost, "/lineup/numbers", url.Values{"key": {key(1), key(0), key(3)}, "start": {"200"}}, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("renumber: %d %s", rec.Code, rec.Body.String())
+	}
+	all, _ := st.Channels(ctx, 1)
+	for i, k := range []string{key(1), key(0), key(3)} {
+		if c := all[k]; c.Number != 200+i || !c.ByUser {
+			t.Errorf("channel %d: %+v", i, c)
+		}
+	}
+	if ref.triggered == 0 {
+		t.Error("renumbering should ask for a refresh so the outputs follow")
+	}
+	// The guide says so straight away rather than serving the old numbers until the
+	// refresh lands.
+	live := s.Snapshots.Get()
+	moved, _ := live.ByKey(key(1))
+	if moved.Number != 200 || !moved.ByUser {
+		t.Errorf("the snapshot should carry the new number: %+v", moved)
+	}
+	if !strings.Contains(rec.Body.String(), ">200<") {
+		t.Error("the re-rendered lineup should show the new numbers")
+	}
+
+	// A number another channel holds is refused, and nothing moves.
+	rec = do(h, http.MethodPost, "/lineup/numbers", url.Values{"key": {key(2)}, "start": {"200"}}, true)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "already taken") {
+		t.Errorf("clash: %d %s", rec.Code, rec.Body.String())
+	}
+	if all, _ = st.Channels(ctx, 1); all[key(1)].Number != 200 {
+		t.Errorf("a refused renumber must change nothing: %+v", all[key(1)])
+	}
+}

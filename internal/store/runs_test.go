@@ -58,15 +58,18 @@ func TestChannelIdentity(t *testing.T) {
 	}
 
 	// The user moves one by hand, and it stays moved.
-	if err := s.SetChannelNumber(ctx, k(urls[0]), 205); err != nil {
+	if err := s.SetChannelNumbers(ctx, map[string]int{k(urls[0]): 205}); err != nil {
 		t.Fatal(err)
 	}
 	all, _ = s.Channels(ctx, src)
 	if c := all[k(urls[0])]; c.Number != 205 || !c.ByUser {
 		t.Errorf("hand-set number: %+v", c)
 	}
-	if err := s.SetChannelNumber(ctx, "nope", 300); !errors.Is(err, ErrNotFound) {
+	if err := s.SetChannelNumbers(ctx, map[string]int{"nope": 300}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("unknown channel: %v", err)
+	}
+	if err := s.SetChannelNumbers(ctx, map[string]int{k(urls[0]): 0}); err == nil {
+		t.Error("zero is not a channel number")
 	}
 
 	// Seeing the playlist again neither duplicates rows nor disturbs numbers.
@@ -76,6 +79,25 @@ func TestChannelIdentity(t *testing.T) {
 	}
 	if len(after) != 3 || after[k(urls[0])].Number != 205 || after[k(urls[2])].Number != 9300 {
 		t.Errorf("a second sighting changed something: %+v", after)
+	}
+
+	// A block can be shifted onto itself: each channel takes the number of the one
+	// before it, which would collide if the moves were applied one at a time.
+	if err := s.SetChannelNumbers(ctx, map[string]int{k(urls[1]): 8504, k(urls[0]): 8500}); err != nil {
+		t.Fatalf("shifting a block onto itself: %v", err)
+	}
+	all, _ = s.Channels(ctx, src)
+	if all[k(urls[0])].Number != 8500 || all[k(urls[1])].Number != 8504 {
+		t.Errorf("after the shift: %+v", all)
+	}
+	// A number held by a channel outside the move is a conflict, and nothing is written.
+	err = s.SetChannelNumbers(ctx, map[string]int{k(urls[1]): 9300})
+	var verr *ValidationError
+	if !errors.As(err, &verr) {
+		t.Errorf("taking another channel's number: %v", err)
+	}
+	if all, _ = s.Channels(ctx, src); all[k(urls[1])].Number != 8504 {
+		t.Errorf("a refused move must change nothing: %+v", all[k(urls[1])])
 	}
 
 	// A channel gone from the playlist gives its number back once it has been away long

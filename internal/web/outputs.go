@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,6 +33,26 @@ func (s *Snapshots) Set(snap *model.Snapshot) { s.current.Store(snap) }
 
 // Get returns the current snapshot or nil.
 func (s *Snapshots) Get() *model.Snapshot { return s.current.Load() }
+
+// Renumber publishes a copy of the current snapshot with these channels moved. The
+// store is where a channel's number lives and it has just been written, so the guide
+// says so at once rather than serving the old numbers until the next refresh rebuilds
+// it. The refresh that follows produces the same thing from scratch.
+func (s *Snapshots) Renumber(numbers map[string]int) {
+	cur := s.Get()
+	if cur == nil || len(numbers) == 0 {
+		return
+	}
+	next := *cur
+	next.Channels = slices.Clone(cur.Channels)
+	for i := range next.Channels {
+		if n, ok := numbers[next.Channels[i].Key]; ok {
+			next.Channels[i].Number, next.Channels[i].ByUser = n, true
+		}
+	}
+	next.SortChannels()
+	s.Set(&next)
+}
 
 func (s *Snapshots) render(generator string) (xmlOut, m3uOut []byte, runID int64, ok bool) {
 	s.mu.Lock()

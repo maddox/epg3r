@@ -364,6 +364,7 @@ type numbering struct {
 func (run *sourceRun) propose(en *entry, want store.Assignment) {
 	if c, ok := run.known[en.key]; ok && c.ChannelID != "" {
 		en.settle(c.ChannelID, c.Number)
+		en.ch.ByUser = c.ByUser
 		run.claimed[c.ChannelID] = true
 		return
 	}

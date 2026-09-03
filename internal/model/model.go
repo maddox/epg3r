@@ -64,10 +64,11 @@ const (
 
 // Channel is one exported channel with the programmes it carries.
 type Channel struct {
-	Key        string      `json:"key"`    // this channel's identity: the hash of its source and URL
-	ID         string      `json:"id"`     // tvg-id / channel-id, e.g. "NFL 03" or "NFL Bears"
-	Number     int         `json:"number"` // channel-number
-	Name       string      `json:"name"`   // display name
+	Key        string      `json:"key"`     // this channel's identity: the hash of its source and URL
+	ID         string      `json:"id"`      // tvg-id / channel-id, e.g. "NFL 03" or "NFL Bears"
+	Number     int         `json:"number"`  // channel-number
+	ByUser     bool        `json:"by_user"` // the number was set by hand, so nothing reassigns it
+	Name       string      `json:"name"`    // display name
 	Kind       ChannelKind `json:"kind"`
 	LeagueKey  string      `json:"league_key"`
 	Team       *TeamRef    `json:"team,omitempty"` // for team channels

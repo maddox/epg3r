@@ -61,3 +61,14 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () { el.remove(); }, 3500);
   });
 });
+
+// The renumber bar is only useful once something is ticked, and the count is the
+// reader's own selection, so it is answered here rather than by a round trip.
+document.addEventListener('change', function (e) {
+  if (!e.target.matches || !e.target.matches('input[name="key"]')) return;
+  var bar = document.getElementById('renumber-bar');
+  if (!bar) return;
+  var n = document.querySelectorAll('input[name="key"]:checked').length;
+  bar.hidden = n === 0;
+  bar.querySelector('[data-selected]').textContent = n;
+});

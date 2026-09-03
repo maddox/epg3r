@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"net/http"
 	"slices"
@@ -52,6 +53,7 @@ type lineupPage struct {
 	SwapTeams               bool
 	Total                   int
 	HasRun                  bool
+	Error                   string // what went wrong with the last renumbering
 }
 
 // lineupFilter narrows the channel list. Scheduled is "", "yes", or "no"; Teams holds
@@ -134,7 +136,10 @@ func (s *Server) lineupRow(ch *model.Channel, t time.Time, sources map[int64]str
 }
 
 func (s *Server) lineup(r *http.Request) lineupPage {
-	q := r.URL.Query()
+	// Read from the form, so a filtered list stays filtered whether it was asked for by
+	// query string or posted alongside a renumbering.
+	_ = r.ParseForm()
+	q := r.Form
 	d := lineupPage{}
 	d.Filter = lineupFilter{League: q.Get("league"), Kind: q.Get("kind"),
 		Query: strings.ToLower(strings.TrimSpace(q.Get("q"))), Scheduled: q.Get("scheduled")}
@@ -275,6 +280,61 @@ func (s *Server) handleChannel(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.page(w, r, "channel", s.view(ch.ID, "lineup", d))
+}
+
+// handleRenumber moves channels to numbers the user has chosen. Numbers are the one
+// thing about a channel a user owns: a playlist has none, so what a consumer sees is
+// whatever epg3r hands out until someone says otherwise.
+func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	keys := r.Form["key"]
+	start, err := strconv.Atoi(strings.TrimSpace(r.FormValue("start")))
+	d := s.lineup(r)
+	switch {
+	case len(keys) == 0:
+		d.Error = "Choose the channels to renumber."
+	case err != nil || start <= 0:
+		d.Error = "A starting number has to be a positive whole number."
+	default:
+		// The numbers run from the start in the order the reader is looking at, which
+		// is the order the form posts them in.
+		want := make(map[string]int, len(keys))
+		for i, k := range keys {
+			want[k] = start + i
+		}
+		switch err := s.Store.SetChannelNumbers(r.Context(), want); {
+		case errors.Is(err, store.ErrNotFound):
+			d.Error = "One of those channels is no longer in the guide."
+		case err != nil:
+			var verr *store.ValidationError
+			if !errors.As(err, &verr) {
+				s.fail(w, r, err)
+				return
+			}
+			d.Error = verr.Msg
+		default:
+			// The guide follows at once; the refresh then rebuilds it from the store.
+			s.Snapshots.Renumber(want)
+			s.refreshSoon()
+			toast(w, "ok", fmt.Sprintf("%s renumbered from %d", plural(len(keys), "channel"), start))
+			d = s.lineup(r)
+		}
+	}
+	if d.Error != "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}
+	s.partial(w, r, "lineup", "lineup_view", d)
+}
+
+// plural counts a thing the way a sentence would.
+func plural(n int, thing string) string {
+	if n == 1 {
+		return "1 " + thing
+	}
+	return fmt.Sprintf("%d %ss", n, thing)
 }
 
 // ---------- leagues ----------

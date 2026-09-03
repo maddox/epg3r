@@ -85,6 +85,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("PUT /settings", s.handleSaveSettings)
 		mux.HandleFunc("GET /lineup", s.handleLineup)
 		mux.HandleFunc("GET /lineup/{key}", s.handleChannel)
+		mux.HandleFunc("POST /lineup/numbers", s.handleRenumber)
 		mux.HandleFunc("GET /leagues", s.handleLeagues)
 		mux.HandleFunc("PUT /leagues/{key}", s.handleSaveLeague)
 		mux.HandleFunc("DELETE /leagues/{key}", s.handleResetLeague)
