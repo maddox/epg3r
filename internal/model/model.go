@@ -64,6 +64,7 @@ const (
 
 // Channel is one exported channel with the programmes it carries.
 type Channel struct {
+	Key        string      `json:"key"`    // this channel's identity: the hash of its source and URL
 	ID         string      `json:"id"`     // tvg-id / channel-id, e.g. "NFL 03" or "NFL Bears"
 	Number     int         `json:"number"` // channel-number
 	Name       string      `json:"name"`   // display name
@@ -75,6 +76,16 @@ type Channel struct {
 	SourceID   int64       `json:"source_id"`
 	Programmes []Programme `json:"programmes"`
 	FeedNote   string      `json:"feed_note,omitempty"` // e.g. "Bears broadcast"
+}
+
+// ByKey finds a channel by its identity.
+func (s *Snapshot) ByKey(key string) (Channel, bool) {
+	for _, ch := range s.Channels {
+		if ch.Key == key {
+			return ch, true
+		}
+	}
+	return Channel{}, false
 }
 
 // Programme is an Event placed on a Channel. Most fields come from the Event; the

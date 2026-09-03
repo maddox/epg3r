@@ -175,16 +175,26 @@ var (
 	reGameAt   = regexp.MustCompile(`^(.+?) (?:at|vs\.?|@) (.+?)( possible Overtime)?$`)
 )
 
-// eventsFromGuide reads a team channel's provider programmes and returns the games it
-// describes. Two shapes are understood: the game itself ("Away at Home", optionally
-// followed by a "possible Overtime" block that extends it) and the filler the provider
-// runs between games ("Next game: Away at Home at 09/13/2026 01:00 PM (US/Eastern)"),
-// which is a schedule announcement and still tells us when the next game is. loc is
-// the zone kickoffs are expressed in when the guide does not say.
-func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv.Programme, loc *time.Location) []model.Event {
+// eventsFromGuide reads a provider's programmes for one channel. It understands two
+// title shapes: "X at Y" for a game in progress, whose times are the programme's own,
+// and "Next game: X at Y at <when>" for the filler a provider airs between games.
+// Filler carries its own kickoff, so it depends only on the title — and a provider
+// repeats the same filler all day on every channel showing that team, so the same title
+// arrives thousands of times to describe a few dozen games. Filler is therefore worked
+// out once per title and remembered in memo, which the caller keeps for one source.
+func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv.Programme, loc *time.Location, memo map[string]*model.Event) []model.Event {
 	var out []model.Event
 	var last *model.Event
+	seen := map[string]bool{} // filler titles already taken from this channel
 	for _, p := range progs {
+		if ev, known := memo[lg.Key+"\x00"+p.Title]; known {
+			if !seen[p.Title] {
+				seen[p.Title] = true
+				out = append(out, *ev)
+			}
+			last = nil
+			continue
+		}
 		if m := reNextGame.FindStringSubmatch(p.Title); m != nil {
 			zone := loc
 			if z, err := titleparse.LoadLocation(m[4]); err == nil {
@@ -195,6 +205,8 @@ func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv
 				continue
 			}
 			if ev, ok := guideEvent(lg, teams, m[1], m[2], kick, kick.Add(-lg.StartPad), kick.Add(lg.Duration+lg.EndPad), 0.85, loc); ok {
+				memo[lg.Key+"\x00"+p.Title] = &ev
+				seen[p.Title] = true
 				out = append(out, ev)
 			}
 			last = nil
