@@ -62,13 +62,35 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-// The renumber bar is only useful once something is ticked, and the count is the
-// reader's own selection, so it is answered here rather than by a round trip.
-document.addEventListener('change', function (e) {
-  if (!e.target.matches || !e.target.matches('input[name="key"]')) return;
+// Selecting channels to renumber. The count is the reader's own selection, so it is
+// answered here rather than by a round trip.
+function syncSelection() {
   var bar = document.getElementById('renumber-bar');
   if (!bar) return;
   var n = document.querySelectorAll('input[name="key"]:checked').length;
   bar.hidden = n === 0;
   bar.querySelector('[data-selected]').textContent = n;
+}
+
+// Shift-click takes everything between the last box clicked and this one, the way a
+// file list does. Renumbering a league means selecting dozens of rows, and ticking them
+// one at a time is not worth anyone's time.
+var anchor = null;
+document.addEventListener('click', function (e) {
+  var box = e.target;
+  if (!box.matches || !box.matches('input[name="key"]')) return;
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('input[name="key"]'));
+  var to = boxes.indexOf(box);
+  var from = boxes.indexOf(anchor); // -1 once the table has been swapped out from under it
+  if (e.shiftKey && from !== -1 && from !== to) {
+    var lo = Math.min(from, to), hi = Math.max(from, to);
+    for (var i = lo; i <= hi; i++) boxes[i].checked = box.checked;
+  }
+  anchor = box;
+  syncSelection();
+});
+
+// Shift-clicking a label would otherwise select the text between the two rows.
+document.addEventListener('mousedown', function (e) {
+  if (e.shiftKey && e.target.matches && e.target.matches('input[name="key"]')) e.preventDefault();
 });

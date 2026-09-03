@@ -116,7 +116,7 @@ held forever: a channel gone from every playlist for longer than **Forget channe
 (days)** is dropped and its number freed for another. Set that longer if your provider
 drops channels out of season, shorter if it churns URLs often.
 
-Numbers are yours to set. Tick channels in the Lineup, give a starting number, and they
+Numbers are yours to set. Tick channels in the Lineup — shift-click to take a range — give a starting number, and they
 take consecutive numbers in the order shown; a number you set is marked with a dot and is
 never reassigned. Playlists carry no channel numbers of their own, so what epg3r hands
 out is only a starting point — the numbers that suit the lineup you are inserting into
