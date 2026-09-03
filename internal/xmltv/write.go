@@ -66,7 +66,7 @@ func programme(ch model.Channel, p model.Programme) xProgramme {
 		desc += " (" + p.Note + ")"
 	}
 	xp.Desc = &xLang{Lang: "en", Text: desc}
-	xp.SeriesID = &xSystem{System: "epg3r", Text: ev.SeriesID}
+	xp.SeriesID = &xSystem{Text: ev.SeriesID}
 	xp.EpisodeNum = &xSystem{System: "epg3r", Text: ev.ID}
 	xp.Date = ev.Kickoff.Format("2006-01-02")
 	if ev.PlacardURL != "" {
@@ -114,7 +114,7 @@ type xLang struct {
 }
 
 type xSystem struct {
-	System string `xml:"system,attr"`
+	System string `xml:"system,attr,omitempty"`
 	Text   string `xml:",chardata"`
 }
 

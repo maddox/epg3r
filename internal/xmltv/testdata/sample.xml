@@ -14,7 +14,7 @@
     <title lang="en">NFL Football</title>
     <sub-title lang="en">Buffalo Bills vs Houston Texans</sub-title>
     <desc lang="en">NFL Football presents Buffalo Bills vs Houston Texans</desc>
-    <series-id system="epg3r">191277</series-id>
+    <series-id>191277</series-id>
     <episode-num system="epg3r">191277-abc123def456</episode-num>
     <date>2026-09-13</date>
     <icon src="http://epg3r.test/art/league/nfl.png"></icon>
@@ -33,7 +33,7 @@
     <title lang="en">NFL Football</title>
     <sub-title lang="en">Buffalo Bills vs Houston Texans</sub-title>
     <desc lang="en">NFL Football presents Buffalo Bills vs Houston Texans (Buffalo Bills broadcast)</desc>
-    <series-id system="epg3r">191277</series-id>
+    <series-id>191277</series-id>
     <episode-num system="epg3r">191277-abc123def456</episode-num>
     <date>2026-09-13</date>
     <icon src="http://epg3r.test/art/league/nfl.png"></icon>

@@ -114,7 +114,7 @@ func TestWriteGolden(t *testing.T) {
 		`<!DOCTYPE tv SYSTEM "xmltv.dtd">`,
 		`<channel id="NFL 04">`,
 		`<programme start="20260913164500 +0000" stop="20260913203000 +0000" channel="NFL 04">`,
-		`<series-id system="epg3r">191277</series-id>`,
+		`<series-id>191277</series-id>`,
 		`<episode-num system="epg3r">191277-abc123def456</episode-num>`,
 		`<team-id system="tms">34</team-id>`,
 		`<team-id system="tms">43</team-id>`,
