@@ -1,5 +1,7 @@
 package store
 
+import "errors"
+
 // RunStatus is the outcome of a refresh.
 type RunStatus string
 
@@ -26,15 +28,18 @@ type Outcome string
 const (
 	OutcomeExported  Outcome = "exported"        // in the guide with at least one programme
 	OutcomeIdle      Outcome = "idle"            // in the lineup with nothing scheduled
-	OutcomeUnparsed  Outcome = "unparsed"        // slot channel whose title yielded nothing usable
 	OutcomeLowConf   Outcome = "low_confidence"  // parsed, but below the confidence threshold
 	OutcomeUnmatched Outcome = "unmatched_group" // no league recognised
-	OutcomeDuplicate Outcome = "duplicate"       // another entry already holds this channel id
+	OutcomeDuplicate Outcome = "duplicate"       // the same stream URL is listed twice
+	OutcomeNoNumber  Outcome = "no_number"       // recognised, but its league's block has no free number
 	OutcomeNetwork   Outcome = "network"         // a broadcast network, not an event channel
 )
 
 // Outcomes lists every outcome in display order.
-var Outcomes = []Outcome{OutcomeExported, OutcomeIdle, OutcomeLowConf, OutcomeUnparsed, OutcomeUnmatched, OutcomeDuplicate, OutcomeNetwork}
+var Outcomes = []Outcome{OutcomeExported, OutcomeIdle, OutcomeLowConf, OutcomeUnmatched, OutcomeDuplicate, OutcomeNoNumber, OutcomeNetwork}
+
+// ErrNotFound is returned by updates that matched no row.
+var ErrNotFound = errors.New("not found")
 
 // ValidationError is a user-correctable input problem, as opposed to a storage failure.
 type ValidationError struct{ Msg string }

@@ -62,6 +62,12 @@ type RunChannel struct {
 	Confidence      float64
 }
 
+// Scored reports whether this row's confidence is worth showing: a channel nothing
+// recognised, or one that is not an event channel at all, was never scored.
+func (c RunChannel) Scored() bool {
+	return c.Confidence > 0 && c.Status != OutcomeNetwork && c.Status != OutcomeUnmatched
+}
+
 // StartRun inserts a running run and returns its id.
 func (s *Store) StartRun(ctx context.Context, trigger Trigger) (int64, error) {
 	res, err := s.w.ExecContext(ctx, `INSERT INTO runs (trigger, started_at, status) VALUES (?, ?, ?)`, string(trigger), s.stamp(), string(RunRunning))
@@ -248,16 +254,6 @@ func (s *Store) RunChannels(ctx context.Context, runID int64, f RunChannelFilter
 		out = append(out, c)
 	}
 	return out, rows.Err()
-}
-
-// UpsertGroup records that a group was seen in a source with n channels.
-func (s *Store) UpsertGroup(ctx context.Context, sourceID int64, name string, count int, matchedLeague string) error {
-	now := s.stamp()
-	_, err := s.w.ExecContext(ctx, `INSERT INTO groups (source_id, name, first_seen_at, last_seen_at, channel_count, matched_league_key)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(source_id, name) DO UPDATE SET last_seen_at = excluded.last_seen_at, channel_count = excluded.channel_count,
-		matched_league_key = excluded.matched_league_key`, sourceID, name, now, now, count, nullStr(matchedLeague))
-	return err
 }
 
 func nullStr(s string) any {
