@@ -1,0 +1,18 @@
+{{define "content"}}
+{{with .Data}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <a href="/lineup" class="text-sm">← Lineup</a>
+    <h1 class="mt-1 text-2xl font-bold tracking-tight">{{upper .Kind}} preview</h1>
+    <p class="mt-1 text-sm text-ink-300">What Channels DVR receives from <code class="mono select-all">{{.URL}}</code>{{if .Bytes}} · {{.Bytes}} bytes{{end}}.</p>
+  </div>
+  <div class="flex gap-2"><a href="/preview/m3u" class="tab {{if eq .Kind "m3u"}}tab-active{{end}}">M3U</a><a href="/preview/xmltv" class="tab {{if eq .Kind "xmltv"}}tab-active{{end}}">XMLTV</a></div>
+</div>
+{{if not .Bytes}}
+  <div class="mt-6">{{template "empty" dict "Icon" "📄" "Title" "Nothing generated yet" "Body" "Previews appear after the first refresh."}}</div>
+{{else}}
+<pre class="card mono mt-6 max-h-[70vh] overflow-auto p-4 text-ink-200">{{.Body}}</pre>
+{{if .Truncated}}<p class="help mt-2">Showing the first {{len .Body}} bytes. Fetch the URL above for the whole file.</p>{{end}}
+{{end}}
+{{end}}
+{{end}}

@@ -38,12 +38,12 @@
 @utility card { @apply rounded-2xl border border-ink-700/70 bg-ink-800/80 shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_10px_30px_-15px_rgba(0,0,0,0.6)]; }
 @utility btn { @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
 @utility pill { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+@utility input { @apply w-full rounded-xl border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30; }
 
 @layer components {
   .btn-primary { @apply btn bg-accent-500 text-ink-950 hover:bg-accent-400; }
   .btn-ghost { @apply btn bg-ink-700/60 text-ink-100 hover:bg-ink-600; }
   .btn-danger { @apply btn bg-bad/15 text-bad hover:bg-bad/25; }
-  .input { @apply w-full rounded-xl border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30; }
   .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-300; }
   .help { @apply mt-1 text-xs text-ink-300; }
   .stat { @apply card p-5; }
@@ -67,7 +67,7 @@
   .chip[data-league="ncaab"] { @apply bg-[#0d9488]/70 text-white; }
   .outcome-exported { @apply pill bg-ok/15 text-ok; }
   .outcome-idle { @apply pill bg-ink-600/60 text-ink-200; }
-  .outcome-unparsed, .outcome-low_confidence { @apply pill bg-warn/15 text-warn; }
+  .outcome-low_confidence, .outcome-no_number { @apply pill bg-warn/15 text-warn; }
   .outcome-unmatched_group { @apply pill bg-info/15 text-info; }
   .outcome-duplicate { @apply pill bg-ink-500/50 text-ink-200; }
   .outcome-network { @apply pill bg-ink-700 text-ink-300; }
@@ -93,6 +93,20 @@
   .toast-ok { @apply border-ok/40 text-ok; }
   .toast-bad { @apply border-bad/40 text-bad; }
   .toast-info { @apply border-info/40 text-info; }
+  /* Multi-select. No native control does this without a modal, so it is a <details>
+     dressed as one: the summary matches .input, the panel is a solid popover. */
+  .picker { @apply relative inline-block align-middle; }
+  .picker > summary { @apply input inline-flex w-auto cursor-pointer select-none items-center gap-2 whitespace-nowrap; list-style: none; }
+  .picker > summary::-webkit-details-marker { display: none; }
+  .picker > summary::after { content: ""; @apply h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-ink-300; }
+  .picker[open] > summary { @apply border-accent-500 ring-2 ring-accent-500/30; }
+  .picker[open] > summary::after { @apply rotate-180; }
+  .picker-panel { @apply card absolute left-0 z-30 mt-2 flex max-h-80 w-72 flex-col overflow-hidden bg-ink-800 p-0; }
+  .picker-head { @apply flex items-center justify-between border-b border-ink-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .picker-list { @apply overflow-y-auto p-1.5; }
+  .picker-option { @apply flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-200 hover:bg-ink-700/70; }
+  .picker-option input { @apply h-4 w-4 shrink-0 accent-accent-500; }
+  .picker-count { @apply pill bg-accent-500/20 text-accent-300 tabular-nums; }
   .pulse { @apply relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-500; }
   .pulse::after { content: ""; @apply absolute inset-0 animate-ping rounded-full bg-accent-500 opacity-75; }
 }

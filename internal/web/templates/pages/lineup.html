@@ -1,0 +1,76 @@
+{{define "content"}}
+{{with .Data}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight">Lineup</h1>
+    <p class="mt-1 text-sm text-ink-300">Every channel epg3r built from your sources, and what it is carrying now and next. All of them go into the guide.</p>
+  </div>
+  <div class="flex gap-3 text-sm">
+    <a href="/preview/m3u" class="btn-ghost">Preview M3U</a>
+    <a href="/preview/xmltv" class="btn-ghost">Preview XMLTV</a>
+  </div>
+</div>
+{{if not .HasRun}}
+  <div class="mt-6">{{template "empty" dict "Icon" "📺" "Title" "No lineup yet" "Body" "The lineup appears after the first refresh finishes."}}</div>
+{{else}}
+{{template "lineup_view" .}}
+{{end}}
+{{end}}
+{{end}}
+
+{{define "lineup_view"}}
+<div id="lineup-view">
+  <div class="mt-6 flex flex-wrap items-center gap-3 text-sm text-ink-300">
+    <span><span class="font-semibold text-ink-100">{{.Total}}</span> channels in the guide</span>
+    {{if ne (len .Rows) .Total}}<span>· {{len .Rows}} shown</span>{{end}}
+  </div>
+  <form class="mt-3 flex flex-wrap items-center gap-3" hx-get="/lineup" hx-target="#lineup-table" hx-swap="outerHTML" hx-push-url="true" hx-boost="false"
+        hx-trigger="change, input changed delay:300ms from:input[name=q]">
+    {{/* Every control filters the list and nothing else. The league also decides which
+         teams exist, so it consumes its own change and brings back the team slot with
+         the list, rather than rebuilding the bar the reader is working in. */}}
+    <span hx-get="/lineup" hx-target="#lineup-table" hx-swap="outerHTML" hx-push-url="true"
+          hx-include="closest form" hx-trigger="change consume" hx-headers='{"X-Refresh-Teams":"1"}'>{{template "picker" .League}}</span>
+    {{template "team_slot" .}}
+    {{template "picker" .Kind}}
+    {{template "picker" .Scheduled}}
+    <input type="search" name="q" value="{{.Filter.Query}}" placeholder="Search this list" class="input !w-64">
+  </form>
+  {{template "lineup_table" .}}
+</div>
+{{end}}
+
+{{/* The teams on offer depend on the chosen league, so a league change brings this slot
+     back with the table, out of band. */}}
+{{define "team_slot"}}<span id="team-filter" class="contents" {{if .SwapTeams}}hx-swap-oob="true"{{end}}>{{with .Teams}}{{template "picker" .}}{{end}}</span>{{end}}
+
+{{define "lineup_table"}}
+{{if .SwapTeams}}{{template "team_slot" .}}{{end}}
+<div id="lineup-table" class="card mt-4 overflow-x-auto">
+  {{if not .Rows}}
+  <div class="py-10 text-center text-sm text-ink-300">Nothing matches.</div>
+  {{else}}
+  <table class="table">
+    <thead><tr><th class="w-20">#</th><th>Channel</th><th>Channel Type</th><th>League</th><th>Source</th><th>Now</th><th>Next</th></tr></thead>
+    <tbody>
+    {{range .Rows}}{{template "lineup_row" .}}{{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+{{end}}
+
+{{define "lineup_row"}}
+<tr id="ch-{{.Key}}">
+  <td class="mono tabular-nums text-ink-300">{{.Number}}</td>
+  <td>
+    <a href="/lineup/{{.Key}}" class="font-medium">{{.ID}}</a>
+    {{if .Team}}<div class="mt-0.5 text-xs text-ink-300">{{.Team.Name}}</div>{{end}}
+  </td>
+  <td class="whitespace-nowrap text-ink-300">{{kind .Kind}}</td>
+  <td><span class="chip" data-league="{{.LeagueKey}}">{{.League}}</span></td>
+  <td class="whitespace-nowrap text-ink-300">{{.Source}}</td>
+  <td class="max-w-xs">{{with .Now}}<div class="font-medium text-accent-300">{{.Event.SubTitle}}</div><div class="text-xs text-ink-300">until {{stamp .Event.Stop}}</div>{{else}}<span class="text-ink-500">–</span>{{end}}</td>
+  <td class="max-w-xs">{{with .Next}}<div>{{.Event.SubTitle}}</div><div class="text-xs text-ink-300">{{stamp .Event.Start}}</div>{{else}}<span class="text-ink-500">{{if .Now}}–{{else}}nothing scheduled{{end}}</span>{{end}}</td>
+</tr>
+{{end}}

@@ -83,6 +83,12 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /runs/{id}", s.handleRun)
 		mux.HandleFunc("GET /settings", s.handleSettings)
 		mux.HandleFunc("PUT /settings", s.handleSaveSettings)
+		mux.HandleFunc("GET /lineup", s.handleLineup)
+		mux.HandleFunc("GET /lineup/{key}", s.handleChannel)
+		mux.HandleFunc("GET /leagues", s.handleLeagues)
+		mux.HandleFunc("PUT /leagues/{key}", s.handleSaveLeague)
+		mux.HandleFunc("DELETE /leagues/{key}", s.handleResetLeague)
+		mux.HandleFunc("GET /preview/{kind}", s.handlePreview)
 	}
 
 	var h http.Handler = mux

@@ -9,14 +9,14 @@
   {{range .Fields}}
   <div class="grid gap-1 md:grid-cols-[16rem_1fr] md:gap-6">
     <div>
-      <label class="label !mb-0 !normal-case !tracking-normal !text-sm !text-ink-100" for="s-{{.Key}}">{{.Label}}</label>
+      <span class="label !mb-0 !normal-case !tracking-normal !text-sm !text-ink-100">{{.Label}}</span>
       <p class="help">{{.Help}}</p>
     </div>
     <div>
       {{if eq .Control "checkbox"}}
         <label class="inline-flex items-center gap-3 text-sm"><input id="s-{{.Key}}" type="checkbox" name="{{.Key}}" value="1" {{if eq .Value "1"}}checked{{end}} class="h-5 w-5 accent-accent-500"> <span class="text-ink-300">{{if eq .Value "1"}}on{{else}}off{{end}}</span></label>
       {{else if eq .Control "select"}}
-        <select id="s-{{.Key}}" name="{{.Key}}" class="input !w-auto">{{$v := .Value}}{{range .Choices}}<option value="{{.}}" {{if eq . $v}}selected{{end}}>{{.}}</option>{{end}}</select>
+        {{template "picker" choices .Key .Value .Choices}}
       {{else if eq .Control "number"}}
         <input id="s-{{.Key}}" class="input !w-40" name="{{.Key}}" value="{{.Value}}" inputmode="decimal">
       {{else}}

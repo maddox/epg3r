@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/model"
 	"github.com/jonmaddox/epg3r/internal/scheduler"
 	"github.com/jonmaddox/epg3r/internal/store"
@@ -31,6 +30,31 @@ type leagueStat struct {
 	WithGames int
 }
 
+// leagueCounts tallies each league's channels and how many carry a game.
+func leagueCounts(snap *model.Snapshot) map[string]leagueStat {
+	out := map[string]leagueStat{}
+	if snap == nil {
+		return out
+	}
+	for _, ch := range snap.Channels {
+		st := out[ch.LeagueKey]
+		st.Channels++
+		if len(ch.Programmes) > 0 {
+			st.WithGames++
+		}
+		out[ch.LeagueKey] = st
+	}
+	return out
+}
+
+// leagueName is a league's display name, falling back to the bare key.
+func (s *Server) leagueName(key string) string {
+	if lg, ok := s.Catalog.League(key); ok {
+		return lg.Name
+	}
+	return strings.ToUpper(key)
+}
+
 type dashboard struct {
 	Snapshot   *model.Snapshot
 	Leagues    []leagueStat
@@ -50,28 +74,16 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	d.Outputs.M3U, d.Outputs.XMLTV = base+M3UPath, base+XMLTVPath
 
 	if d.Snapshot != nil {
-		byKey := map[string]*leagueStat{}
+		counts := leagueCounts(d.Snapshot)
 		for _, ch := range d.Snapshot.Channels {
-			ls := byKey[ch.LeagueKey]
-			if ls == nil {
-				name := strings.ToUpper(ch.LeagueKey)
-				if lg, ok := s.Catalog.League(ch.LeagueKey); ok {
-					name = lg.Name
-				}
-				ls = &leagueStat{Key: ch.LeagueKey, Name: name}
-				byKey[ch.LeagueKey] = ls
-			}
-			ls.Channels++
 			d.Channels++
-			if n := len(ch.Programmes); n > 0 {
-				ls.WithGames++
-				d.WithGames++
-				d.Programmes += n
-			}
+			d.Programmes += len(ch.Programmes)
 		}
 		for _, lg := range s.Catalog.Leagues {
-			if ls, ok := byKey[lg.Key]; ok {
-				d.Leagues = append(d.Leagues, *ls)
+			if st, ok := counts[lg.Key]; ok {
+				st.Key, st.Name = lg.Key, lg.Name
+				d.Leagues = append(d.Leagues, st)
+				d.WithGames += st.WithGames
 			}
 		}
 	}
@@ -266,10 +278,10 @@ type runsPage struct {
 }
 
 type runDetail struct {
-	Run     store.Run
-	Rows    []store.RunChannel
-	Filter  store.RunChannelFilter
-	Leagues []catalog.League
+	Run          store.Run
+	Rows         []store.RunChannel
+	Filter       store.RunChannelFilter
+	LeaguePicker picker
 }
 
 const rowLimit = 500
@@ -302,7 +314,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	d := runDetail{Run: run, Rows: rows, Filter: f, Leagues: s.Catalog.Leagues}
+	d := runDetail{Run: run, Rows: rows, Filter: f, LeaguePicker: s.leaguePicker(f.League)}
 	s.page(w, r, "run", s.view("Run "+strconv.FormatInt(run.ID, 10), "runs", d))
 }
 
