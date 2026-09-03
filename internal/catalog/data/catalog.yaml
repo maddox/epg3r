@@ -4,7 +4,7 @@
 #   games run, its Gracenote series id, and the channel-number block it owns. Fields:
 #   key, name, airing_title, sport, genre, duration, start_pad, series_id, channel_base,
 #   slot_span (default 100), label_prefix, label_aliases, name_tokens, group_patterns,
-#   name_patterns, exclude, roster, womens_roster, womens_airing_title, womens_series_id, enabled.
+#   name_patterns, exclude, roster, womens_roster, womens_airing_title, womens_series_id.
 #
 # rosters: one per Gracenote team list (a school has a separate entry per sport, each with
 #   its own id). tms_brand_id is emitted as <team-id system="tms">; tms_team_id is the
@@ -22,7 +22,6 @@ leagues:
     series_id: '191277'
     channel_base: 8500
     label_prefix: NFL
-    enabled: true
     group_patterns:
       - ^nfl$
       - ^nfl\b
@@ -37,7 +36,6 @@ leagues:
     series_id: '191273'
     channel_base: 9500
     label_prefix: MLB
-    enabled: true
     group_patterns:
       - ^mlb\b
     roster: MLB
@@ -51,7 +49,6 @@ leagues:
     series_id: '191276'
     channel_base: 11500
     label_prefix: NBA
-    enabled: true
     group_patterns:
       - ^nba$
       - ^nba\b
@@ -72,7 +69,6 @@ leagues:
     label_prefix: NHL
     label_aliases:
       - NHL Game
-    enabled: true
     group_patterns:
       - ^nhl\b
     roster: NHL
@@ -86,7 +82,6 @@ leagues:
     series_id: '191289'
     channel_base: 13500
     label_prefix: WNBA
-    enabled: true
     group_patterns:
       - ^wnba\b
     roster: WNBA
@@ -102,7 +97,6 @@ leagues:
     label_prefix: MLS
     label_aliases:
       - \(Apple\) \(MLS\)
-    enabled: true
     group_patterns:
       - ^mls\b
     roster: MLS
@@ -117,7 +111,6 @@ leagues:
     channel_base: 14500
     slot_span: 200
     label_prefix: NCAAF
-    enabled: true
     group_patterns:
       - ^ncaaf\b
       - ^ncaa football
@@ -134,7 +127,6 @@ leagues:
     channel_base: 15500
     slot_span: 200
     label_prefix: NCAAB
-    enabled: true
     group_patterns:
       - ^ncaab\b
       - ^ncaa basketball

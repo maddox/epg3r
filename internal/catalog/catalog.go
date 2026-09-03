@@ -42,8 +42,7 @@ type League struct {
 	LabelAliases []string `yaml:"label_aliases"` // regexes that also count as the label, e.g. "NHL Game"
 	NameTokens   []string `yaml:"name_tokens"`   // other league words found in channel names, e.g. "NBALP"
 
-	Timezone      string   `yaml:"timezone"` // overrides the source zone when set
-	Enabled       bool     `yaml:"enabled"`
+	Timezone      string   `yaml:"timezone"`       // overrides the source zone when set
 	GroupPatterns []string `yaml:"group_patterns"` // regexes (case-insensitive) matched against group-title
 	NamePatterns  []string `yaml:"name_patterns"`  // fallback regexes matched against the channel name
 	Exclude       []string `yaml:"exclude"`        // regexes; a name matching one is not this league
@@ -241,7 +240,7 @@ func (c *Catalog) League(key string) (*League, bool) {
 func (c *Catalog) MatchLeague(group, name string) (*League, bool) {
 	for i := range c.Leagues {
 		lg := &c.Leagues[i]
-		if !lg.Enabled || lg.excluded(group) || lg.excluded(name) {
+		if lg.excluded(group) || lg.excluded(name) {
 			continue
 		}
 		if matchAny(lg.groupRes, group) {
@@ -250,7 +249,7 @@ func (c *Catalog) MatchLeague(group, name string) (*League, bool) {
 	}
 	for i := range c.Leagues {
 		lg := &c.Leagues[i]
-		if !lg.Enabled || lg.excluded(name) {
+		if lg.excluded(name) {
 			continue
 		}
 		if matchAny(lg.nameRes, name) {
@@ -280,14 +279,23 @@ func (lg *League) Location(fallback *time.Location) *time.Location {
 // MaxFamilies is how many provider styles a league can hold.
 func (lg *League) MaxFamilies() int { return TeamOffset / lg.SlotSpan }
 
-// SlotChannelNumber is the channel number for a slot in a provider family (0-based).
-// Family 0 is the plain numbering: NFL 03 is 8503.
+// SlotChannelNumber is the number a slot would like in a provider family (0-based).
+// Family 0 is the plain numbering: NFL 03 is 8503. A slot beyond the league's span has
+// no number of its own to ask for, and takes whatever the block has free.
 func (lg *League) SlotChannelNumber(family, slot int) int {
-	return lg.ChannelBase + family*lg.SlotSpan + slot%lg.SlotSpan
+	if slot >= lg.SlotSpan {
+		return 0
+	}
+	return lg.ChannelBase + family*lg.SlotSpan + slot
 }
 
 // TeamChannelBase is where this league's team channels start.
 func (lg *League) TeamChannelBase() int { return lg.ChannelBase + TeamOffset }
+
+// SlotRange and TeamRange are the halves of this league's block: the numbers its event
+// channels draw from, and the numbers its team channels draw from.
+func (lg *League) SlotRange() (from, to int) { return lg.ChannelBase, lg.TeamChannelBase() }
+func (lg *League) TeamRange() (from, to int) { return lg.TeamChannelBase(), lg.ChannelBase + BlockSize }
 
 // ChannelID is the channel id for a slot: "NFL 03" for the first provider family,
 // "NFL 03 B" for the second, and so on.
@@ -337,4 +345,75 @@ func matchAny(res []*regexp.Regexp, s string) bool {
 		}
 	}
 	return false
+}
+
+// Override is a user's changes to one league. Pointers distinguish "not overridden"
+// from an explicit value; durations are Go duration strings so the type stores as JSON.
+type Override struct {
+	AiringTitle *string `json:"airing_title,omitempty"`
+	Duration    *string `json:"duration,omitempty"`
+	StartPad    *string `json:"start_pad,omitempty"`
+	Logo        *string `json:"logo,omitempty"`
+	Placard     *string `json:"placard,omitempty"`
+}
+
+// IsZero reports whether nothing is overridden. Every field is a pointer, so the
+// zero value stays correct as fields are added.
+func (o Override) IsZero() bool { return o == Override{} }
+
+// Validate checks the override's values.
+func (o Override) Validate() error {
+	if _, _, err := overrideDuration("duration", o.Duration, false); err != nil {
+		return err
+	}
+	_, _, err := overrideDuration("start_pad", o.StartPad, true)
+	return err
+}
+
+// overrideDuration reads one of the two duration fields. ok is false when the field is
+// not overridden at all, so callers can tell "leave it alone" from "use this". Both the
+// form and the run go through here, so they cannot disagree on what is acceptable.
+func overrideDuration(name string, s *string, allowZero bool) (d time.Duration, ok bool, err error) {
+	if s == nil || *s == "" {
+		return 0, false, nil
+	}
+	d, err = time.ParseDuration(*s)
+	if err != nil {
+		return 0, false, fmt.Errorf("%s: %q is not a duration like 3h30m", name, *s)
+	}
+	if d < 0 || (d == 0 && !allowZero) {
+		return 0, false, fmt.Errorf("%s must be positive", name)
+	}
+	return d, true, nil
+}
+
+// WithOverrides returns a catalog with user overrides applied to copies of the
+// leagues. Rosters and compiled patterns are shared with the receiver.
+func (c *Catalog) WithOverrides(overrides map[string]Override) *Catalog {
+	if len(overrides) == 0 {
+		return c
+	}
+	out := &Catalog{Leagues: slices.Clone(c.Leagues), byKey: map[string]*League{}, rosters: c.rosters, tokens: c.tokens}
+	for i := range out.Leagues {
+		lg := &out.Leagues[i]
+		if o, ok := overrides[lg.Key]; ok {
+			if o.AiringTitle != nil && *o.AiringTitle != "" {
+				lg.AiringTitle = *o.AiringTitle
+			}
+			if d, ok, _ := overrideDuration("duration", o.Duration, false); ok {
+				lg.Duration = d
+			}
+			if d, ok, _ := overrideDuration("start_pad", o.StartPad, true); ok {
+				lg.StartPad = d
+			}
+			if o.Logo != nil {
+				lg.Logo = *o.Logo
+			}
+			if o.Placard != nil {
+				lg.Placard = *o.Placard
+			}
+		}
+		out.byKey[lg.Key] = lg
+	}
+	return out
 }
