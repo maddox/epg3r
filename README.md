@@ -69,9 +69,9 @@ epg3r version
 ## What it understands
 
 Leagues: NFL, MLB, NBA, NHL, WNBA, MLS, NCAA Football, NCAA Basketball (men's and
-women's). Channel kinds:
+women's). Channel types:
 
-- **Slot channels** (`NFL 04`, `NCAAF 008 | WEST GEORGIA AT KENNESAW STATE | 09/03 07:00PM | ESPN+`).
+- **Event channels** (`NFL 04`, `NCAAF 008 | WEST GEORGIA AT KENNESAW STATE | 09/03 07:00PM | ESPN+`).
   Dozens of provider formats are handled through normalization and segment
   classification rather than one regex per provider. Several providers in one playlist
   may all have an "NFL 04"; each provider style gets its own family of channels
@@ -79,10 +79,42 @@ women's). Channel kinds:
 - **Team channels** (`US NFL Buffalo Bills (HD)`, `NBALP: Oklahoma City Thunder`). Their
   games come from the provider's XMLTV when it has them, and otherwise from the slot
   channels: if a slot says Bills vs Texans on Sunday, both team channels carry it.
-- **Placeholders** (`Offline`, `No Event Scheduled`, bare labels) stay in the lineup as
-  idle channels so Channels DVR does not see channels appear and disappear.
+- **Unused channels** (`Offline`, `No Event Scheduled`, bare labels) are numbered slots
+  the provider has parked. They stay in the lineup so the consumer does not see channels
+  appear and disappear.
 - **Network channels** (NFL Network, ESPN, local affiliates) are recognised and listed
   but not exported; they have real guide data elsewhere.
+
+### Looking at what you get
+
+A channel's properties come from parsing: which league it belongs to, whether it is an
+event channel or a team channel, which teams it carries. None of that is configurable. If
+a channel lands in the wrong league, that is a bug in the catalog or the parser, not a
+setting.
+
+- **Lineup** lists every channel with what is on now and next. Filter by league, by type,
+  by team, by whether anything is scheduled, or search what the table shows. Click a
+  channel to see all of its airings.
+- **Leagues** adjusts how a league's airings are described: airing title, game length,
+  early start, and art URLs.
+
+The guide is one list. Every event-carrying channel epg3r recognises goes into `/m3u`
+and `/xmltv`, and nothing in the app takes any of them out. Choosing what a consumer
+sees will be the job of collections: named sets of channels you curate, each exported at
+its own URL. Until then it is all of them or none.
+
+Each change on the Leagues page triggers a refresh, so the guide follows within a second
+or two.
+
+A channel is its stream URL: identity is a hash of the source and that URL, and nothing
+about the title takes part, because a provider rewrites titles every week. The number a
+channel is published under is written once and read back for the life of the row.
+
+When a provider changes its stream URLs, though, the channels behind them are new as far
+as epg3r can tell — there is no identifier the two have in common. So numbers are not
+held forever: a channel gone from every playlist for longer than **Forget channels after
+(days)** is dropped and its number freed for another. Set that longer if your provider
+drops channels out of season, shorter if it churns URLs often.
 
 Channel numbers: each league owns a block of 1,000 starting at 8500 for the NFL
 (so `NFL 03` is 8503), then 9500 MLB, 10500 MLS, 11500 NBA, 12500 NHL, 13500 WNBA,
