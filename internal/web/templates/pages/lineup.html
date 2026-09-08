@@ -61,7 +61,7 @@
 {{if .SwapTeams}}{{template "team_slot" .}}{{end}}
 <div id="lineup-table" class="card mt-4 overflow-x-auto">
   {{if not .Rows}}
-  <div class="py-10 text-center text-sm text-ink-300">Nothing matches.</div>
+  <div class="no-rows">Nothing matches.</div>
   {{else}}
   <table class="table">
     <thead><tr><th class="w-10"></th><th class="w-20">#</th><th>Channel</th><th>Channel Type</th><th>League</th><th>Source</th><th>Now</th><th>Next</th></tr></thead>

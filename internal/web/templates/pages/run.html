@@ -44,7 +44,7 @@
 {{define "channel_table"}}
 <div id="channel-table" class="card mt-4 overflow-x-auto">
   {{if not .Rows}}
-  <div class="py-10 text-center text-sm text-ink-300">Nothing matches.</div>
+  <div class="no-rows">Nothing matches.</div>
   {{else}}
   <table class="table">
     <thead><tr><th>Outcome</th><th>Channel</th><th>League</th><th>Playlist title</th><th>Game</th><th>Start</th><th>Note</th></tr></thead>

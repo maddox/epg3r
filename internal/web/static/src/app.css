@@ -56,6 +56,7 @@
   .table td { @apply border-b border-ink-800 px-3 py-2 align-top; }
   .table tr:hover td { @apply bg-ink-800/60; }
   .mono { @apply font-mono text-xs; }
+  .no-rows { @apply py-10 text-center text-sm text-ink-300; }
   .chip { @apply pill bg-ink-700 text-ink-100; }
   .chip[data-league="nfl"] { @apply bg-[#013369]/70 text-white; }
   .chip[data-league="mlb"] { @apply bg-[#bf0d3e]/70 text-white; }
