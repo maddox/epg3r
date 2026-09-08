@@ -412,6 +412,29 @@ func TestRenumbering(t *testing.T) {
 		t.Error("the re-rendered lineup should show the new numbers")
 	}
 
+	// A refusal keeps the selection and the number typed: losing them means picking the
+	// channels out again to correct a typo. A pass that worked clears them.
+	rec = do(h, http.MethodPost, "/lineup/numbers", url.Values{"key": {key(0), key(2)}, "start": {"nope"}}, true)
+	body := rec.Body.String()
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bad start: %d", rec.Code)
+	}
+	for _, k := range []string{key(0), key(2)} {
+		if !strings.Contains(body, `value="`+k+`" checked`) {
+			t.Errorf("channel %s should still be ticked", k)
+		}
+	}
+	if !strings.Contains(body, `>2</span> selected`) {
+		t.Error("the bar should still say two are selected")
+	}
+	rec = do(h, http.MethodPost, "/lineup/numbers", url.Values{"key": {key(0)}, "start": {"700"}}, true)
+	if body = rec.Body.String(); strings.Contains(body, `value="`+key(0)+`" checked`) {
+		t.Error("a renumbering that worked should leave nothing selected")
+	}
+	if !strings.Contains(body, `>0</span> selected`) {
+		t.Error("and the bar should say so")
+	}
+
 	// A number another channel holds is refused, and nothing moves.
 	rec = do(h, http.MethodPost, "/lineup/numbers", url.Values{"key": {key(2)}, "start": {"200"}}, true)
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "already taken") {

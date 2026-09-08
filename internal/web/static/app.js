@@ -69,13 +69,23 @@ function syncSelection() {
   if (!bar) return;
   var n = document.querySelectorAll('input[name="key"]:checked').length;
   bar.querySelector('[data-selected]').textContent = n;
-  bar.querySelector('[data-apply]').disabled = n === 0;
+  bar.querySelectorAll('[data-apply], [data-clear-selection]').forEach(function (b) { b.disabled = n === 0; });
 }
+
+// The last box clicked, for shift-click ranges below.
+var anchor = null;
+
+// Clearing the selection is the reader's own doing and needs nothing from the server.
+document.addEventListener('click', function (e) {
+  if (!e.target.closest || !e.target.closest('[data-clear-selection]')) return;
+  document.querySelectorAll('input[name="key"]:checked').forEach(function (b) { b.checked = false; });
+  anchor = null;
+  syncSelection();
+});
 
 // Shift-click takes everything between the last box clicked and this one, the way a
 // file list does. Renumbering a league means selecting dozens of rows, and ticking them
 // one at a time is not worth anyone's time.
-var anchor = null;
 document.addEventListener('click', function (e) {
   var box = e.target;
   if (!box.matches || !box.matches('input[name="key"]')) return;

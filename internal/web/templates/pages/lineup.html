@@ -41,11 +41,11 @@
   <form hx-post="/lineup/numbers" hx-target="#lineup-view" hx-swap="outerHTML" hx-boost="false" hx-include="#lineup-filters">
     {{/* Always here, so choosing a channel does not push the table down. */}}
     <div id="renumber-bar" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-800/60 px-4 py-3 text-sm">
-      <span class="text-ink-300"><span data-selected class="font-semibold text-ink-100">0</span> selected</span>
+      <span class="text-ink-300"><span data-selected class="font-semibold text-ink-100">{{len .Picked}}</span> selected</span>
       <label class="flex items-center gap-2 text-ink-300">Number them from
-        <input type="number" name="start" min="1" step="1" class="input !w-28" placeholder="e.g. 200"></label>
-      <button class="btn-primary" data-apply disabled>Renumber</button>
-      <span class="text-xs text-ink-300">Tick channels to renumber; shift-click takes a range. They take consecutive numbers in the order shown.</span>
+        <input type="number" name="start" min="1" step="1" class="input !w-28" placeholder="e.g. 200" value="{{.Start}}"></label>
+      <button class="btn-primary" data-apply {{if not .Picked}}disabled{{end}}>Renumber</button>
+      <button type="button" data-clear-selection class="btn-ghost" {{if not .Picked}}disabled{{end}}>Clear selection</button>
     </div>
     {{if .Error}}<div class="mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
     {{template "lineup_table" .}}
@@ -75,7 +75,7 @@
 
 {{define "lineup_row"}}
 <tr id="ch-{{.Key}}">
-  <td><input type="checkbox" name="key" value="{{.Key}}" class="h-4 w-4 accent-accent-500" aria-label="Select {{.ID}}"></td>
+  <td><input type="checkbox" name="key" value="{{.Key}}" {{if .Picked}}checked{{end}} class="h-4 w-4 accent-accent-500" aria-label="Select {{.ID}}"></td>
   <td class="mono tabular-nums text-ink-300">{{.Number}}{{if .ByUser}}<span class="ml-1 text-accent-500" title="you set this number">·</span>{{end}}</td>
   <td>
     <a href="/lineup/{{.Key}}" class="font-medium">{{.ID}}</a>

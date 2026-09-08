@@ -36,6 +36,7 @@ type lineupRow struct {
 	*model.Channel
 	League string // league display name
 	Source string // the source the channel came from
+	Picked bool   // ticked for renumbering
 	Now    *model.Programme
 	Next   *model.Programme
 }
@@ -53,7 +54,9 @@ type lineupPage struct {
 	SwapTeams               bool
 	Total                   int
 	HasRun                  bool
-	Error                   string // what went wrong with the last renumbering
+	Picked                  []string // channels ticked for renumbering
+	Start                   string   // the number they would be renumbered from
+	Error                   string   // what went wrong with the last renumbering
 }
 
 // lineupFilter narrows the channel list. Scheduled is "", "yes", or "no"; Teams holds
@@ -163,6 +166,9 @@ func (s *Server) lineup(r *http.Request) lineupPage {
 		{Value: "team", Label: "Team channels"}, {Value: "placeholder", Label: "Unused"}}, d.Filter.Kind)
 	d.Scheduled = choose("scheduled", []pickerOption{{Value: "", Label: "Scheduled or not"}, {Value: "yes", Label: "Something scheduled"},
 		{Value: "no", Label: "Nothing scheduled"}}, d.Filter.Scheduled)
+	// A renumbering that could not be applied comes back with its selection intact:
+	// losing it means picking the channels out again to correct a typo.
+	d.Picked, d.Start = q["key"], strings.TrimSpace(q.Get("start"))
 	now, sources := time.Now(), s.sourceNames(r.Context())
 	d.Rows = make([]lineupRow, 0, len(snap.Channels))
 	d.Total = len(snap.Channels)
@@ -172,6 +178,7 @@ func (s *Server) lineup(r *http.Request) lineupPage {
 			continue
 		}
 		if row := s.lineupRow(ch, now, sources, d.Filter.Teams); d.Filter.keeps(row) {
+			row.Picked = slices.Contains(d.Picked, ch.Key)
 			d.Rows = append(d.Rows, row)
 		}
 	}
@@ -320,6 +327,9 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 			s.Snapshots.Renumber(want)
 			s.refreshSoon()
 			toast(w, "ok", fmt.Sprintf("%s renumbered from %d", plural(len(keys), "channel"), start))
+			// Done with, so the selection goes rather than inviting a second pass.
+			r.Form.Del("key")
+			r.Form.Del("start")
 			d = s.lineup(r)
 		}
 	}
