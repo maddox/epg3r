@@ -76,7 +76,7 @@
 {{define "lineup_row"}}
 <tr id="ch-{{.Key}}">
   <td><input type="checkbox" name="key" value="{{.Key}}" {{if .Picked}}checked{{end}} class="h-4 w-4 accent-accent-500" aria-label="Select {{.ID}}"></td>
-  <td class="mono tabular-nums text-ink-300">{{.Number}}{{if .ByUser}}<span class="ml-1 text-accent-500" title="you set this number">·</span>{{end}}</td>
+  <td class="mono tabular-nums text-ink-300">{{.Number}}</td>
   <td>
     <a href="/lineup/{{.Key}}" class="font-medium">{{.ID}}</a>
     {{if .Team}}<div class="mt-0.5 text-xs text-ink-300">{{.Team.Name}}</div>{{end}}
