@@ -3,7 +3,9 @@ package web
 import (
 	"bytes"
 	"cmp"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -28,10 +30,32 @@ var assets embed.FS
 type templates struct {
 	fsys fs.FS
 	dev  bool
+	tag  string                // fingerprint of the built assets
 	zone func() *time.Location // zone the UI shows times in
 	mu   sync.Mutex
 	set  map[string]*template.Template
 	base *template.Template
+}
+
+// assetTag fingerprints the built stylesheet and script, so the URL the browser is
+// given changes whenever they do. A version string does not: in development it never
+// changes at all, and the browser goes on running whichever copy it has.
+func (t *templates) assetTag() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.tag != "" && !t.dev {
+		return t.tag
+	}
+	sum := sha256.New()
+	for _, name := range []string{"static/app.css", "static/app.js"} {
+		b, err := fs.ReadFile(t.fsys, name)
+		if err != nil {
+			return "dev"
+		}
+		sum.Write(b)
+	}
+	t.tag = hex.EncodeToString(sum.Sum(nil))[:10]
+	return t.tag
 }
 
 func newTemplates(dev bool, zone func() *time.Location) *templates {
@@ -274,12 +298,13 @@ type view struct {
 	Title   string
 	Nav     string // active nav key
 	Version string
+	Assets  string // fingerprint of the built css and js, for the asset URLs
 	Status  scheduler.Status
 	Data    any
 }
 
 func (s *Server) view(title, nav string, data any) view {
-	return view{Title: title, Nav: nav, Version: s.Version, Status: s.status(), Data: data}
+	return view{Title: title, Nav: nav, Version: s.Version, Assets: s.tpl.assetTag(), Status: s.status(), Data: data}
 }
 
 func (s *Server) status() scheduler.Status {

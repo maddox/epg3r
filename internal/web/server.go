@@ -27,7 +27,8 @@ type Health struct {
 
 // Server holds the dependencies handlers need.
 type Server struct {
-	Version    string
+	Version string
+
 	Log        *slog.Logger
 	Snapshots  *Snapshots
 	Store      *store.Store
@@ -62,7 +63,11 @@ func (s *Server) Handler() http.Handler {
 	static, _ := fs.Sub(s.tpl.fsys, "static")
 	files := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
 	mux.Handle("GET /static/", quiet(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.tpl.dev {
+		if s.tpl.dev {
+			// Without this the browser caches on its own guess and goes on running an
+			// old script against a new page.
+			w.Header().Set("Cache-Control", "no-store")
+		} else {
 			w.Header().Set("Cache-Control", "public, max-age=86400")
 		}
 		files.ServeHTTP(w, r)
