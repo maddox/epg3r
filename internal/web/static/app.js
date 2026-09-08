@@ -68,8 +68,8 @@ function syncSelection() {
   var bar = document.getElementById('renumber-bar');
   if (!bar) return;
   var n = document.querySelectorAll('input[name="key"]:checked').length;
-  bar.hidden = n === 0;
   bar.querySelector('[data-selected]').textContent = n;
+  bar.querySelector('[data-apply]').disabled = n === 0;
 }
 
 // Shift-click takes everything between the last box clicked and this one, the way a

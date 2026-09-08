@@ -39,12 +39,13 @@
   {{/* Numbers are the reader's to set. The table lives inside this form so a tick is
        carried with the starting number when it is applied. */}}
   <form hx-post="/lineup/numbers" hx-target="#lineup-view" hx-swap="outerHTML" hx-boost="false" hx-include="#lineup-filters">
-    <div id="renumber-bar" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-800/60 px-4 py-3 text-sm" hidden>
-      <span class="text-ink-200"><span data-selected class="font-semibold text-ink-100">0</span> selected</span>
+    {{/* Always here, so choosing a channel does not push the table down. */}}
+    <div id="renumber-bar" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-800/60 px-4 py-3 text-sm">
+      <span class="text-ink-300"><span data-selected class="font-semibold text-ink-100">0</span> selected</span>
       <label class="flex items-center gap-2 text-ink-300">Number them from
         <input type="number" name="start" min="1" step="1" class="input !w-28" placeholder="e.g. 200"></label>
-      <button class="btn-primary">Renumber</button>
-      <span class="text-xs text-ink-300">They take consecutive numbers in the order shown.</span>
+      <button class="btn-primary" data-apply disabled>Renumber</button>
+      <span class="text-xs text-ink-300">Tick channels to renumber; shift-click takes a range. They take consecutive numbers in the order shown.</span>
     </div>
     {{if .Error}}<div class="mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
     {{template "lineup_table" .}}
