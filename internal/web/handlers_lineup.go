@@ -297,46 +297,53 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	// A renumbering that cannot be applied comes back with its selection and its number
+	// intact, so a typo costs a keystroke rather than picking the channels out again.
+	refuse := func(msg string) {
+		d := s.lineup(r)
+		d.Error = msg
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.partial(w, r, "lineup", "lineup_view", d)
+	}
+
 	keys := r.Form["key"]
 	start, err := strconv.Atoi(strings.TrimSpace(r.FormValue("start")))
-	d := s.lineup(r)
-	switch {
-	case len(keys) == 0:
-		d.Error = "Choose the channels to renumber."
-	case err != nil || start <= 0:
-		d.Error = "A starting number has to be a positive whole number."
-	default:
-		// The numbers run from the start in the order the reader is looking at, which
-		// is the order the form posts them in.
-		want := make(map[string]int, len(keys))
-		for i, k := range keys {
-			want[k] = start + i
-		}
-		switch err := s.Store.SetChannelNumbers(r.Context(), want); {
-		case errors.Is(err, store.ErrNotFound):
-			d.Error = "One of those channels is no longer in the guide."
-		case err != nil:
-			var verr *store.ValidationError
-			if !errors.As(err, &verr) {
-				s.fail(w, r, err)
-				return
-			}
-			d.Error = verr.Msg
-		default:
-			// The guide follows at once; the refresh then rebuilds it from the store.
-			s.Snapshots.Renumber(want)
-			s.refreshSoon()
-			toast(w, "ok", fmt.Sprintf("%s renumbered from %d", plural(len(keys), "channel"), start))
-			// Done with, so the selection goes rather than inviting a second pass.
-			r.Form.Del("key")
-			r.Form.Del("start")
-			d = s.lineup(r)
-		}
+	if len(keys) == 0 {
+		refuse("Choose the channels to renumber.")
+		return
 	}
-	if d.Error != "" {
-		w.WriteHeader(http.StatusUnprocessableEntity)
+	if err != nil || start <= 0 {
+		refuse("A starting number has to be a positive whole number.")
+		return
 	}
-	s.partial(w, r, "lineup", "lineup_view", d)
+
+	// The numbers run from the start in the order the reader is looking at, which is the
+	// order the form posts them in.
+	want := make(map[string]int, len(keys))
+	for i, k := range keys {
+		want[k] = start + i
+	}
+	var verr *store.ValidationError
+	switch err := s.Store.SetChannelNumbers(r.Context(), want); {
+	case errors.Is(err, store.ErrNotFound):
+		refuse("One of those channels is no longer in the guide.")
+		return
+	case errors.As(err, &verr):
+		refuse(verr.Msg)
+		return
+	case err != nil:
+		s.fail(w, r, err)
+		return
+	}
+
+	// The guide follows at once; the refresh then rebuilds it from the store.
+	s.Snapshots.Renumber(want)
+	s.refreshSoon()
+	toast(w, "ok", fmt.Sprintf("%s renumbered from %d", plural(len(keys), "channel"), start))
+	// Done with, so the selection goes rather than inviting a second pass.
+	r.Form.Del("key")
+	r.Form.Del("start")
+	s.partial(w, r, "lineup", "lineup_view", s.lineup(r))
 }
 
 // plural counts a thing the way a sentence would.
