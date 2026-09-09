@@ -65,15 +65,23 @@ const (
 
 // Channel is one exported channel with the programmes it carries.
 type Channel struct {
-	Key        string      `json:"key"`     // this channel's identity: the hash of its source and URL
-	ID         string      `json:"id"`      // tvg-id / channel-id, e.g. "NFL 03" or "NFL Bears"
-	Number     int         `json:"number"`  // channel-number
-	ByUser     bool        `json:"by_user"` // the number was set by hand, so nothing reassigns it
-	Name       string      `json:"name"`    // display name
-	Kind       ChannelKind `json:"kind"`
-	LeagueKey  string      `json:"league_key"`
-	Team       *TeamRef    `json:"team,omitempty"` // for team channels
-	LogoURL    string      `json:"logo_url,omitempty"`
+	Key       string      `json:"key"`     // this channel's identity: the hash of its source and URL
+	ID        string      `json:"id"`      // tvg-id / channel-id, e.g. "NFL 03" or "NFL Bears"
+	Number    int         `json:"number"`  // channel-number
+	ByUser    bool        `json:"by_user"` // the number was set by hand, so nothing reassigns it
+	Name      string      `json:"name"`    // display name
+	Kind      ChannelKind `json:"kind"`
+	LeagueKey string      `json:"league_key"`
+	Team      *TeamRef    `json:"team,omitempty"` // for team channels
+	LogoURL   string      `json:"logo_url,omitempty"`
+
+	// GuideTitle, GuideText and GuideArt describe the channel itself, for the tvc-guide-*
+	// attributes a setup that loads the playlist without the XMLTV falls back to. They must
+	// never name a particular game: a consumer stamps them on every hour of filler it invents
+	// for the channel, so a matchup here would claim one game is on all day, every day.
+	GuideTitle string      `json:"guide_title,omitempty"`
+	GuideText  string      `json:"guide_text,omitempty"`
+	GuideArt   string      `json:"guide_art,omitempty"`
 	StreamURL  string      `json:"stream_url"`
 	SourceID   int64       `json:"source_id"`
 	Programmes []Programme `json:"programmes"`

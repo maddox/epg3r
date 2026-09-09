@@ -807,3 +807,53 @@ func TestLeagueArtOverrides(t *testing.T) {
 		t.Errorf("a placard override beat a matchup: %q", got)
 	}
 }
+
+// The playlist's guide attributes are what a consumer falls back to when it has no guide at
+// all, and it repeats them over every hour it invents for the channel. So they describe the
+// channel, never a game: a matchup here would claim one fixture is on all day, every day.
+func TestGuideTagsDescribeTheChannel(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 04\" group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/2\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 07\" group-title=\"NFL\",NFL 07: No Event Scheduled\nhttp://x/3\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slot := findChannel(snap, "NFL 04")
+	if slot.GuideTitle != "NFL Football" || slot.GuideText != "Live NFL games." {
+		t.Errorf("slot channel says %q / %q", slot.GuideTitle, slot.GuideText)
+	}
+	if len(slot.Programmes) == 0 || strings.Contains(slot.GuideText, slot.Programmes[0].Event.SubTitle) {
+		t.Errorf("the channel's own text names the game it happens to be carrying: %q", slot.GuideText)
+	}
+
+	// A team channel is a team all the time, so it may say so.
+	var team *model.Channel
+	for i := range snap.Channels {
+		if snap.Channels[i].Kind == model.KindTeam {
+			team = &snap.Channels[i]
+		}
+	}
+	if team == nil {
+		t.Fatal("no team channel")
+	}
+	if team.GuideText != "Live Buffalo Bills games." {
+		t.Errorf("team channel says %q", team.GuideText)
+	}
+
+	if slot.GuideArt != art.LeaguePlacardPath("nfl") {
+		t.Errorf("channel art = %q, want the league's", slot.GuideArt)
+	}
+
+	// A channel with nothing scheduled still says what it is: that is the whole point.
+	if idle := findChannel(snap, "NFL 07"); idle.GuideTitle == "" {
+		t.Error("a channel carrying nothing should still describe itself")
+	}
+}

@@ -14,11 +14,12 @@ func TestWriteRoundTrip(t *testing.T) {
 	snap := &model.Snapshot{Channels: []model.Channel{
 		{ID: "NFL 06", Number: 8506, Name: "NFL 06", Kind: model.KindPlaceholder, LeagueKey: "nfl", LogoURL: "/art/league/nfl.png", StreamURL: "http://x/2"},
 		{ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", LogoURL: "http://logo/nfl.png", StreamURL: "http://x/1",
+			GuideTitle: "NFL Football", GuideText: "Live NFL games.", GuideArt: "/art/1/placard/nfl.png",
 			Programmes: []model.Programme{{Event: model.Event{Title: "NFL Football", SubTitle: `Bills "vs" Texans`, Start: kick, Stop: kick.Add(3 * time.Hour)}}}},
 	}}
 	snap.SortChannels()
 	var buf bytes.Buffer
-	if err := Write(&buf, snap, WriteOptions{GuideTags: true, Now: kick.Add(-time.Hour), BaseURL: "http://epg3r.test"}); err != nil {
+	if err := Write(&buf, snap, WriteOptions{GuideTags: true, BaseURL: "http://epg3r.test"}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -32,14 +33,19 @@ func TestWriteRoundTrip(t *testing.T) {
 		`channel-id="NFL 04"`, `tvg-id="NFL 04"`, `channel-number="8504"`, `group-title="NFL"`,
 		`tvg-logo="http://logo/nfl.png"`,                  // the user's own URL, untouched
 		`tvg-logo="http://epg3r.test/art/league/nfl.png"`, // a path, addressed under the base
-		`tvc-guide-title="NFL Football"`, `tvc-guide-description="Bills 'vs' Texans"`, `tvc-guide-categories="Sports event"`,
+		`tvc-guide-title="NFL Football"`, `tvc-guide-categories="Sports event"`,
+		// Generic, never a game: a consumer repeats this over every hour it invents.
+		`tvc-guide-description="Live NFL games."`,
+		// Generic here too: a matchup would claim one game is on every hour of the day.
+		`tvc-guide-art="http://epg3r.test/art/1/placard/nfl.png"`,
 	} {
 		if !strings.Contains(out, must) {
 			t.Errorf("missing %s in\n%s", must, out)
 		}
 	}
+	// The other channel says nothing about itself, so it gets no tags rather than empty ones.
 	if strings.Contains(out, `tvc-guide-title="" `) || strings.Count(out, "tvc-guide-title") != 1 {
-		t.Error("idle channel should have no guide tags")
+		t.Error("a channel with nothing to say should have no guide tags")
 	}
 
 	entries, err := Parse(strings.NewReader(out))

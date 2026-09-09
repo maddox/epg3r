@@ -136,6 +136,9 @@ func TestOutputCacheRespectsGuideTagsAndNeverRegresses(t *testing.T) {
 	mk := func(run int64) *model.Snapshot {
 		return &model.Snapshot{RunID: run, Channels: []model.Channel{{
 			ID: "NFL 04", Number: 8504, Name: fmt.Sprintf("NFL 04 run %d", run), Kind: model.KindSlot, LeagueKey: "nfl", StreamURL: "http://x/1",
+			// The guide tags describe the channel, so a channel that says nothing about
+			// itself gets none and the setting would have nothing to switch.
+			GuideTitle: "NFL Football", GuideText: "Live NFL games.",
 			Programmes: []model.Programme{{Event: model.Event{ID: "191277-abc", SeriesID: "191277", Title: "NFL Football", SubTitle: "A vs B", Start: kick.Add(-time.Hour), Stop: kick.Add(time.Hour), Kickoff: kick}}},
 		}}}
 	}

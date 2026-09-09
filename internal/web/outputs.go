@@ -9,7 +9,6 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/jonmaddox/epg3r/internal/m3u"
 	"github.com/jonmaddox/epg3r/internal/model"
@@ -125,7 +124,7 @@ func (s *Snapshots) render(generator, base string, c *store.Collection, members 
 	if err := xmltv.Write(&xb, snap, xmltv.WriteOptions{Generator: generator, BaseURL: base}); err != nil {
 		return rendered{}, false
 	}
-	if err := m3u.Write(&mb, snap, m3u.WriteOptions{GuideTags: state.tags, Now: time.Now(), BaseURL: base}); err != nil {
+	if err := m3u.Write(&mb, snap, m3u.WriteOptions{GuideTags: state.tags, BaseURL: base}); err != nil {
 		return rendered{}, false
 	}
 	// Clip: a bytes.Buffer grows by doubling, so it can end a render nearly half empty,

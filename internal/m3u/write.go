@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/jonmaddox/epg3r/internal/model"
 )
@@ -15,7 +14,6 @@ type WriteOptions struct {
 	// GuideTags adds Channels DVR tvc-guide-* fallback tags describing the current or
 	// next programme, for setups that load the M3U without the XMLTV.
 	GuideTags bool
-	Now       time.Time
 
 	// BaseURL makes root-relative logo paths absolute. Empty leaves them as they are.
 	BaseURL string
@@ -38,15 +36,14 @@ func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
 			attrs = append(attrs, attr("tvg-logo", model.Abs(opts.BaseURL, ch.LogoURL)))
 		}
 		attrs = append(attrs, attr("group-title", strings.ToUpper(ch.LeagueKey)))
-		if opts.GuideTags {
-			if p, ok := currentOrNext(ch, opts.Now); ok {
-				attrs = append(attrs,
-					attr("tvc-guide-title", p.Event.Title),
-					attr("tvc-guide-description", p.Event.SubTitle),
-					attr("tvc-guide-categories", guideCategory),
-					attr("tvc-guide-tags", "HDTV, Live, New"),
-				)
-			}
+		if opts.GuideTags && ch.GuideTitle != "" {
+			attrs = append(attrs,
+				attr("tvc-guide-title", ch.GuideTitle),
+				attr("tvc-guide-description", ch.GuideText),
+				attr("tvc-guide-art", model.Abs(opts.BaseURL, ch.GuideArt)),
+				attr("tvc-guide-categories", guideCategory),
+				attr("tvc-guide-tags", "HDTV, Live, New"),
+			)
 		}
 		fmt.Fprintf(bw, "#EXTINF:-1 %s,%s\n%s\n", strings.Join(attrs, " "), ch.Name, ch.StreamURL)
 	}
@@ -60,23 +57,3 @@ const guideCategory = "Sports event"
 var attrEscaper = strings.NewReplacer(`"`, "'", "\n", " ")
 
 func attr(k, v string) string { return k + `="` + attrEscaper.Replace(v) + `"` }
-
-func currentOrNext(ch model.Channel, now time.Time) (model.Programme, bool) {
-	var best *model.Programme
-	for i := range ch.Programmes {
-		p := &ch.Programmes[i]
-		if p.Idle {
-			continue
-		}
-		if !now.IsZero() && p.Event.Stop.Before(now) {
-			continue
-		}
-		if best == nil || p.Event.Start.Before(best.Event.Start) {
-			best = p
-		}
-	}
-	if best == nil {
-		return model.Programme{}, false
-	}
-	return *best, true
-}

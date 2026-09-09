@@ -552,6 +552,8 @@ func assemble(cfg runConfig, entries []*entry, ix *eventIndex, now time.Time) []
 			}
 		}
 		ch.LogoURL = art.ForChannel(en.league, &ch)
+		ch.GuideTitle, ch.GuideText = guideText(en.league, ch.Team)
+		ch.GuideArt = art.LeagueArt(en.league)
 		for i := range ch.Programmes {
 			ch.Programmes[i].Event.PlacardURL = art.ForAiring(en.league, &ch.Programmes[i].Event)
 		}
@@ -560,6 +562,17 @@ func assemble(cfg runConfig, entries []*entry, ix *eventIndex, now time.Time) []
 	snap := model.Snapshot{Channels: channels}
 	snap.SortChannels()
 	return snap.Channels
+}
+
+// guideText describes a channel in general terms, for the playlist attributes a consumer
+// falls back to when it has no guide. It names the channel's league or team and never a
+// game: whatever is here is repeated over every hour the consumer has nothing else for.
+func guideText(lg *catalog.League, team *model.TeamRef) (title, text string) {
+	subject := lg.Name
+	if team != nil {
+		subject = team.Name
+	}
+	return lg.AiringTitle, "Live " + subject + " games."
 }
 
 func idleProgramme(lg *catalog.League, now time.Time) model.Programme {

@@ -91,5 +91,11 @@ func ForAiring(lg *catalog.League, ev *model.Event) string {
 	if ev.Teams[0] != nil && ev.Teams[1] != nil {
 		return MatchupPlacardPath(lg.Key, ev.Teams[0].Key, ev.Teams[1].Key)
 	}
+	return LeagueArt(lg)
+}
+
+// LeagueArt is a league's own picture: what an airing falls back to, and what a channel
+// shows for itself where something wants a picture and has no airing to hang it on.
+func LeagueArt(lg *catalog.League) string {
 	return cmp.Or(lg.Placard, LeaguePlacardPath(lg.Key))
 }
