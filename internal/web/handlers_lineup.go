@@ -51,6 +51,8 @@ type lineupPage struct {
 	// this response carries a replacement for that one slot.
 	League, Kind, Scheduled picker
 	Teams                   *picker
+	Collections             []store.Collection // to add a selection to
+	InCollection            *store.Collection  // the one being looked at, if any
 	SwapTeams               bool
 	Total                   int
 	HasRun                  bool
@@ -64,12 +66,15 @@ type lineupPage struct {
 type lineupFilter struct {
 	League, Kind, Query, Scheduled string
 	Teams                          []string
+	Collection                     map[string]bool // members of the collection being looked at
 }
 
 // wants reports whether a channel is worth building a row for. League and type are
 // properties of the channel itself, so they are settled before any work is done.
 func (f lineupFilter) wants(ch *model.Channel) bool {
-	return (f.League == "" || ch.LeagueKey == f.League) && (f.Kind == "" || string(ch.Kind) == f.Kind)
+	return (f.League == "" || ch.LeagueKey == f.League) &&
+		(f.Kind == "" || string(ch.Kind) == f.Kind) &&
+		(f.Collection == nil || f.Collection[ch.Key])
 }
 
 // keeps reports whether a row survives the rest of the filter. Rows are built with the
@@ -138,7 +143,7 @@ func (s *Server) lineupRow(ch *model.Channel, t time.Time, sources map[int64]str
 	return row
 }
 
-func (s *Server) lineup(r *http.Request) lineupPage {
+func (s *Server) lineup(r *http.Request) (lineupPage, error) {
 	// Read from the form, so a filtered list stays filtered whether it was asked for by
 	// query string or posted alongside a renumbering.
 	_ = r.ParseForm()
@@ -148,7 +153,7 @@ func (s *Server) lineup(r *http.Request) lineupPage {
 		Query: strings.ToLower(strings.TrimSpace(q.Get("q"))), Scheduled: q.Get("scheduled")}
 	snap := s.Snapshots.Get()
 	if snap == nil {
-		return d
+		return d, nil
 	}
 	d.HasRun = true
 	// Teams are offered only for a chosen league, and only those the lineup actually
@@ -166,6 +171,17 @@ func (s *Server) lineup(r *http.Request) lineupPage {
 		{Value: "team", Label: "Team channels"}, {Value: "placeholder", Label: "Unused"}}, d.Filter.Kind)
 	d.Scheduled = choose("scheduled", []pickerOption{{Value: "", Label: "Scheduled or not"}, {Value: "yes", Label: "Something scheduled"},
 		{Value: "no", Label: "Nothing scheduled"}}, d.Filter.Scheduled)
+	// Collections are offered wherever a selection can be made, and looking at one
+	// narrows the list to what is in it.
+	if id, err := strconv.ParseInt(q.Get("collection"), 10, 64); err == nil {
+		if c, ok, _ := s.Store.CollectionByID(r.Context(), id); ok {
+			members, err := s.Store.CollectionMembers(r.Context(), id)
+			if err != nil {
+				return d, err
+			}
+			d.InCollection, d.Filter.Collection = &c, members
+		}
+	}
 	// A renumbering that could not be applied comes back with its selection intact:
 	// losing it means picking the channels out again to correct a typo.
 	d.Picked, d.Start = q["key"], strings.TrimSpace(q.Get("start"))
@@ -182,7 +198,22 @@ func (s *Server) lineup(r *http.Request) lineupPage {
 			d.Rows = append(d.Rows, row)
 		}
 	}
-	return d
+	return d, nil
+}
+
+// lineupView builds the whole Lineup, including the collections its actions menu offers.
+// The list is loaded here rather than in lineup, because only this block shows it: a
+// filter change swaps the table alone and has no use for it.
+func (s *Server) lineupView(w http.ResponseWriter, r *http.Request) (lineupPage, bool) {
+	d, err := s.lineup(r)
+	if err == nil {
+		d.Collections, err = s.Store.Collections(r.Context())
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return d, false
+	}
+	return d, true
 }
 
 // onNow reports whether an airing is the one showing at t.
@@ -252,7 +283,11 @@ func teamOptions(snap *model.Snapshot, league string, chosen []string) picker {
 }
 
 func (s *Server) handleLineup(w http.ResponseWriter, r *http.Request) {
-	s.page(w, r, "lineup", s.view("Lineup", "lineup", s.lineup(r)))
+	d, ok := s.lineupView(w, r)
+	if !ok {
+		return
+	}
+	s.page(w, r, "lineup", s.view("Lineup", "lineup", d))
 }
 
 // channelPage is one channel and everything it is scheduled to carry.
@@ -297,23 +332,14 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	// A renumbering that cannot be applied comes back with its selection and its number
-	// intact, so a typo costs a keystroke rather than picking the channels out again.
-	refuse := func(msg string) {
-		d := s.lineup(r)
-		d.Error = msg
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.partial(w, r, "lineup", "lineup_view", d)
-	}
-
 	keys := r.Form["key"]
 	start, err := strconv.Atoi(strings.TrimSpace(r.FormValue("start")))
 	if len(keys) == 0 {
-		refuse("Choose the channels to renumber.")
+		s.refuseLineup(w, r, "Choose the channels to renumber.")
 		return
 	}
 	if err != nil || start <= 0 {
-		refuse("A starting number has to be a positive whole number.")
+		s.refuseLineup(w, r, "A starting number has to be a positive whole number.")
 		return
 	}
 
@@ -326,10 +352,10 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 	var verr *store.ValidationError
 	switch err := s.Store.SetChannelNumbers(r.Context(), want); {
 	case errors.Is(err, store.ErrNotFound):
-		refuse("One of those channels is no longer in the guide.")
+		s.refuseLineup(w, r, "One of those channels is no longer in the guide.")
 		return
 	case errors.As(err, &verr):
-		refuse(verr.Msg)
+		s.refuseLineup(w, r, verr.Msg)
 		return
 	case err != nil:
 		s.fail(w, r, err)
@@ -343,7 +369,26 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 	// Done with, so the selection goes rather than inviting a second pass.
 	r.Form.Del("key")
 	r.Form.Del("start")
-	s.partial(w, r, "lineup", "lineup_view", s.lineup(r))
+	s.showLineup(w, r)
+}
+
+// refuseLineup re-renders the Lineup with a message and the reader's selection intact,
+// so correcting a mistake costs a keystroke rather than choosing the channels again.
+func (s *Server) refuseLineup(w http.ResponseWriter, r *http.Request, msg string) {
+	d, ok := s.lineupView(w, r)
+	if !ok {
+		return
+	}
+	d.Error = msg
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	s.partial(w, r, "lineup", "lineup_view", d)
+}
+
+// showLineup re-renders the Lineup as it now stands.
+func (s *Server) showLineup(w http.ResponseWriter, r *http.Request) {
+	if d, ok := s.lineupView(w, r); ok {
+		s.partial(w, r, "lineup", "lineup_view", d)
+	}
 }
 
 // plural counts a thing the way a sentence would.
@@ -527,7 +572,7 @@ const previewLimit = 256 << 10
 
 func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
-	xb, mb, _, ok := s.Snapshots.render("epg3r " + s.Version)
+	xb, mb, _, ok := s.Snapshots.render("epg3r "+s.Version, nil, nil)
 	var body []byte
 	var path string
 	switch kind {

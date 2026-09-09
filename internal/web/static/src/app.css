@@ -29,6 +29,26 @@
 
 @layer base {
   html { color-scheme: dark; }
+  /* Web Awesome draws in shadow DOM, where our classes cannot reach. These are the
+     tokens its menus actually read, pointed at the palette the rest of the app uses. */
+  :root {
+    --wa-color-surface-raised: var(--color-ink-800);
+    --wa-color-surface-default: var(--color-ink-900);
+    --wa-color-surface-border: var(--color-ink-600);
+    --wa-color-text-normal: var(--color-ink-100);
+    --wa-color-text-quiet: var(--color-ink-300);
+    --wa-color-neutral-fill-normal: var(--color-ink-700);
+    --wa-color-danger-on-normal: var(--color-bad);
+    --wa-color-danger-on-quiet: var(--color-bad);
+    --wa-color-danger-fill-normal: --alpha(var(--color-bad) / 15%);
+    --wa-color-brand-fill-loud: var(--color-accent-500);
+    --wa-color-brand-on-loud: var(--color-ink-950);
+    --wa-border-radius-m: var(--radius-xl);
+    --wa-shadow-m: 0 16px 40px -12px rgb(0 0 0 / 0.75), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+    --wa-font-family-body: var(--font-sans);
+    --wa-font-size-smaller: 0.875rem;
+    --wa-focus-ring: 2px solid var(--color-accent-500);
+  }
   body { @apply bg-ink-950 text-ink-100 antialiased; }
   a { @apply text-accent-400 hover:text-accent-300; }
   ::selection { @apply bg-accent-500/40; }
@@ -106,8 +126,32 @@
   .picker-head { @apply flex items-center justify-between border-b border-ink-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-300; }
   .picker-list { @apply overflow-y-auto p-1.5; }
   .picker-option { @apply flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-200 hover:bg-ink-700/70; }
-  .picker-option input { @apply h-4 w-4 shrink-0 accent-accent-500; }
+  .picker-option input { @apply h-4 w-4 shrink-0 cursor-pointer accent-accent-500; }
+  /* Tailwind v4 stopped giving controls a pointer, and this is the web. */
+  .tick { @apply h-4 w-4 cursor-pointer accent-accent-500; }
   .picker-count { @apply pill bg-accent-500/20 text-accent-300 tabular-nums; }
+  /* Web Awesome components style themselves through :host, and a rule on the page beats
+     :host every time — so Tailwind's reset, which zeroes padding on every element, quietly
+     strips their layout. These give it back, and are where this app's menus get their
+     density. */
+  wa-dropdown-item {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-lg);
+    gap: 0.5rem;
+  }
+  wa-dropdown::part(menu),
+  wa-dropdown-item::part(submenu) { @apply p-1.5; min-width: 13rem; }
+  wa-dropdown-item::part(submenu-icon) { @apply text-ink-300; }
+  /* A divider inside a menu is a hairline between groups, not a rule across a page. */
+  wa-dropdown wa-divider, wa-dropdown-item wa-divider { @apply my-1.5 block h-px border-0 bg-ink-600; }
+  wa-dropdown-item::part(label) { @apply text-sm; }
+  wa-dropdown-item::part(details) { @apply text-ink-300; }
+
+  /* Web Awesome sets --spacing on its own elements for its own layout, and Tailwind v4
+     builds every spacing utility from a variable of that name. Anything of ours placed
+     inside one needs Tailwind's back; the components keep theirs. */
+  wa-dialog > *, wa-dialog > [slot] { --spacing: 0.25rem; }
+
   .pulse { @apply relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-500; }
   .pulse::after { content: ""; @apply absolute inset-0 animate-ping rounded-full bg-accent-500 opacity-75; }
 }

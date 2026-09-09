@@ -158,8 +158,8 @@ func TestOutputCacheRespectsGuideTagsAndNeverRegresses(t *testing.T) {
 	if etag := get(XMLTVPath).Header().Get("ETag"); etag != `"run-1"` {
 		t.Errorf("older snapshot should be served as is: %s", etag)
 	}
-	if s.Snapshots.runID != 2 {
-		t.Errorf("cache regressed to run %d", s.Snapshots.runID)
+	if got := s.Snapshots.cache[""].runID; got != 2 {
+		t.Errorf("cache regressed to run %d", got)
 	}
 	s.Snapshots.Set(mk(3))
 	if etag := get(XMLTVPath).Header().Get("ETag"); etag != `"run-3"` {

@@ -98,10 +98,17 @@ setting.
 - **Leagues** adjusts how a league's airings are described: airing title, game length,
   early start, and art URLs.
 
-The guide is one list. Every event-carrying channel epg3r recognises goes into `/m3u`
-and `/xmltv`, and nothing in the app takes any of them out. Choosing what a consumer
-sees will be the job of collections: named sets of channels you curate, each exported at
-its own URL. Until then it is all of them or none.
+`/m3u` and `/xmltv` are the whole guide: every event-carrying channel epg3r recognises,
+with nothing in the app taking any of them out.
+
+**Collections** are how you choose what a consumer sees. A collection is a set of
+channels you pick out — every team channel, or just the teams you follow — served at its
+own `/m3u/<name>` and `/xmltv/<name>`. Point one consumer at the whole guide and another
+at a collection, or use collections only. Tick channels in the Lineup — shift-click takes a
+range — then Actions › Add to collection, picking an existing one or naming a new one; open a collection to see just its
+channels and take any back out. A collection is a view of channels, not a copy: deleting
+one leaves the channels alone, and a channel that goes for good leaves the collections it
+was in.
 
 Each change on the Leagues page triggers a refresh, so the guide follows within a second
 or two.

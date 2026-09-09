@@ -91,6 +91,41 @@ function syncSelection() {
   bar.querySelectorAll('[data-apply], [data-clear-selection]').forEach((b) => { b.disabled = n === 0; });
 }
 
+// The actions menu points at controls that already exist in the form, so what an action
+// does stays declared in the HTML and this only says which one was chosen.
+const form = () => document.getElementById('channel-actions');
+const field = (name, value) => { form().querySelector(`[data-field="${name}"]`).value = value; };
+const submit = (what) => form().querySelector(`[data-do="${what}"]`).click();
+
+document.addEventListener('wa-select', (e) => {
+  const item = e.detail.item;
+  if (!item.dataset.action) return; // the parent of a submenu opens it rather than doing anything
+  if (item.dataset.dialog) {
+    const dialog = document.getElementById(item.dataset.dialog);
+    dialog.open = true;
+    dialog.querySelector('input').focus();
+    return;
+  }
+  if (item.dataset.into) field('into', item.dataset.into);
+  submit(item.dataset.action);
+});
+
+// A dialog fills the field it names, then clicks the control that carries out the
+// action. Which field and which control are declared on the button, not known here.
+document.addEventListener('click', (e) => {
+  const el = e.target instanceof Element ? e.target : null;
+  const dialog = el && el.closest('wa-dialog');
+  if (!dialog) return;
+  const confirm = el.closest('[data-confirm]');
+  if (!confirm) {
+    if (el.closest('[data-close]')) dialog.open = false;
+    return;
+  }
+  field(confirm.dataset.field, dialog.querySelector('input').value);
+  dialog.open = false;
+  submit(confirm.dataset.do);
+});
+
 // Shift-clicking a checkbox would otherwise select the text between the two rows.
 document.addEventListener('mousedown', (e) => {
   if (e.shiftKey && e.target.matches && e.target.matches('input[name="key"]')) e.preventDefault();

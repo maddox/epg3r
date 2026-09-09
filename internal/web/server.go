@@ -59,6 +59,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+XMLTVPath, quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET /epg.xml", quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET "+M3UPath, quiet(http.HandlerFunc(s.handleM3U)))
+	// A collection is exported at its own URLs, so a consumer can be pointed at a set
+	// of channels rather than at everything.
+	mux.Handle("GET "+XMLTVPath+"/{collection}", quiet(http.HandlerFunc(s.handleXMLTV)))
+	mux.Handle("GET "+M3UPath+"/{collection}", quiet(http.HandlerFunc(s.handleM3U)))
 
 	static, _ := fs.Sub(s.tpl.fsys, "static")
 	files := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
@@ -91,6 +95,13 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /lineup", s.handleLineup)
 		mux.HandleFunc("GET /lineup/{key}", s.handleChannel)
 		mux.HandleFunc("POST /lineup/numbers", s.handleRenumber)
+		mux.HandleFunc("POST /lineup/collect", s.handleAddToCollection)
+		mux.HandleFunc("POST /lineup/collect/new", s.handleAddToNewCollection)
+		mux.HandleFunc("POST /lineup/uncollect", s.handleRemoveFromCollection)
+		mux.HandleFunc("GET /collections", s.handleCollections)
+		mux.HandleFunc("POST /collections", s.handleSaveCollection)
+		mux.HandleFunc("PUT /collections/{id}", s.handleSaveCollection)
+		mux.HandleFunc("DELETE /collections/{id}", s.handleDeleteCollection)
 		mux.HandleFunc("GET /leagues", s.handleLeagues)
 		mux.HandleFunc("PUT /leagues/{key}", s.handleSaveLeague)
 		mux.HandleFunc("DELETE /leagues/{key}", s.handleResetLeague)
