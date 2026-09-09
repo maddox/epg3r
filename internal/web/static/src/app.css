@@ -86,8 +86,8 @@
   .chip[data-league="nhl"] { @apply bg-ink-500 text-white; }
   .chip[data-league="wnba"] { @apply bg-[#f57b20]/70 text-white; }
   .chip[data-league="mls"] { @apply bg-[#1d4ed8]/70 text-white; }
-  .chip[data-league="ncaaf"] { @apply bg-[#7c3aed]/70 text-white; }
-  .chip[data-league="ncaab"] { @apply bg-[#0d9488]/70 text-white; }
+  .chip[data-league="ncaaf"] { @apply bg-[#0070c0]/70 text-white; }
+  .chip[data-league="ncaab"] { @apply bg-[#00a9e0]/70 text-white; }
   .outcome-exported { @apply pill bg-ok/15 text-ok; }
   .outcome-idle { @apply pill bg-ink-600/60 text-ink-200; }
   .outcome-low_confidence, .outcome-no_number { @apply pill bg-warn/15 text-warn; }

@@ -125,7 +125,7 @@ leagues:
     name: NCAA Football
     airing_title: College Football
     sport: football
-    color: '#7c3aed'
+    color: '#0070c0'
     logo_path: ncaa
     logo_id: https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/football.png
     genre: Football
@@ -144,7 +144,7 @@ leagues:
     name: NCAA Basketball
     airing_title: College Basketball
     sport: basketball
-    color: '#0d9488'
+    color: '#00a9e0'
     logo_path: ncaa
     logo_id: https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/basketball-men.png
     genre: Basketball
