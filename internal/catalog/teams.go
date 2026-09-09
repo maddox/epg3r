@@ -190,6 +190,20 @@ func generatedAliases(name string) []string {
 	return out
 }
 
+// ByKey finds a team by the key the app addresses it with, which is what a URL naming a
+// team carries.
+func (ti *TeamIndex) ByKey(key string) (*Team, bool) {
+	if ti == nil {
+		return nil, false
+	}
+	for _, t := range ti.Teams {
+		if t.Key == key {
+			return t, true
+		}
+	}
+	return nil, false
+}
+
 // ShortName is the name used in a team channel id: the nickname for pro teams
 // ("Bills"), two words when one would be ambiguous in the roster ("Red Sox"), and the
 // full school name for college teams.

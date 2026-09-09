@@ -21,6 +21,7 @@ leagues:
     sport: football
     color: '#013369'
     logo_path: nfl
+    logo_id: nfl
     genre: Football
     duration: 3h30m
     start_pad: 15m
@@ -37,6 +38,7 @@ leagues:
     sport: baseball
     color: '#bf0d3e'
     logo_path: mlb
+    logo_id: mlb
     genre: Baseball
     duration: 3h30m
     start_pad: 15m
@@ -52,6 +54,7 @@ leagues:
     sport: basketball
     color: '#c8102e'
     logo_path: nba
+    logo_id: nba
     genre: Basketball
     duration: 3h
     start_pad: 15m
@@ -72,6 +75,7 @@ leagues:
     sport: hockey
     color: '#1e2a3a'
     logo_path: nhl
+    logo_id: nhl
     genre: Hockey
     duration: 3h
     start_pad: 15m
@@ -89,6 +93,7 @@ leagues:
     sport: basketball
     color: '#f57b20'
     logo_path: wnba
+    logo_id: wnba
     genre: Basketball
     duration: 2h30m
     start_pad: 15m
@@ -104,6 +109,7 @@ leagues:
     sport: soccer
     color: '#1d4ed8'
     logo_path: soccer
+    logo_id: mls
     genre: Soccer
     duration: 2h
     start_pad: 15m
@@ -121,6 +127,7 @@ leagues:
     sport: football
     color: '#7c3aed'
     logo_path: ncaa
+    logo_id: https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/football.png
     genre: Football
     duration: 3h45m
     start_pad: 15m
@@ -139,6 +146,7 @@ leagues:
     sport: basketball
     color: '#0d9488'
     logo_path: ncaa
+    logo_id: https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/basketball-men.png
     genre: Basketball
     duration: 2h30m
     start_pad: 15m

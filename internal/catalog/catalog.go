@@ -61,6 +61,11 @@ type League struct {
 	// to fetch and are drawn from their names instead.
 	LogoPath string `yaml:"logo_path"`
 
+	// LogoID is the league's own mark: an id on the same source its teams come from, or a
+	// whole URL when the league's mark lives somewhere else. Empty means there is none to
+	// fetch and the league is drawn from its name instead.
+	LogoID string `yaml:"logo_id"`
+
 	// Logo and Placard override the art epg3r generates for this league.
 	Logo    string `yaml:"logo"`
 	Placard string `yaml:"placard"`
