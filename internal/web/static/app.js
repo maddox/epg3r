@@ -20,12 +20,8 @@ document.addEventListener('click', (e) => {
     return;
   }
 
-  if (el.closest('[data-clear-selection]')) {
-    document.querySelectorAll('input[name="key"]:checked').forEach((b) => { b.checked = false; });
-    anchor = null;
-    syncSelection();
-    return;
-  }
+  if (el.closest('[data-select-all]')) return tickAll(true);
+  if (el.closest('[data-clear-selection]')) return tickAll(false);
 
   if (el.matches('input[name="key"]')) selectChannels(e, el);
 
@@ -67,6 +63,15 @@ function syncPicker(picker) {
   if (clear) clear.disabled = n === 0;
 }
 
+// Take or drop the whole list as it is filtered, which is how a league gets renumbered
+// without ticking a hundred rows. The anchor goes with it: a shift-click afterwards starts a
+// fresh range rather than reaching back to whatever was last clicked by hand.
+function tickAll(checked) {
+  document.querySelectorAll('input[name="key"]').forEach((b) => { b.checked = checked; });
+  anchor = null;
+  syncSelection();
+}
+
 // Shift-click takes everything between the last box clicked and this one, the way a file
 // list does, and takes this box's new state so a range can be cleared the way it was set.
 // Renumbering a league means selecting dozens of rows.
@@ -86,9 +91,12 @@ function selectChannels(e, box) {
 function syncSelection() {
   const bar = document.getElementById('renumber-bar');
   if (!bar) return;
-  const n = document.querySelectorAll('input[name="key"]:checked').length;
+  const boxes = document.querySelectorAll('input[name="key"]');
+  const n = [...boxes].filter((b) => b.checked).length;
   bar.querySelector('[data-selected]').textContent = n;
   bar.querySelectorAll('[data-apply], [data-clear-selection]').forEach((b) => { b.disabled = n === 0; });
+  // Nothing to take, or nothing left to take.
+  bar.querySelectorAll('[data-select-all]').forEach((b) => { b.disabled = boxes.length === 0 || n === boxes.length; });
 }
 
 // The actions menu points at controls that already exist in the form, so what an action

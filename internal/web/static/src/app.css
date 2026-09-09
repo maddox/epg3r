@@ -64,6 +64,9 @@
   .btn-primary { @apply btn bg-accent-500 text-ink-950 hover:bg-accent-400; }
   .btn-ghost { @apply btn bg-ink-700/60 text-ink-100 hover:bg-ink-600; }
   .btn-danger { @apply btn bg-bad/15 text-bad hover:bg-bad/25; }
+  /* Sits beside a loud button without competing with it: no ground of its own, and it
+     recedes rather than greying out when there is nothing for it to do. */
+  .btn-quiet { @apply btn px-2 text-ink-300 hover:text-ink-100 disabled:opacity-40; }
   .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-300; }
   .help { @apply mt-1 text-xs text-ink-300; }
   .stat { @apply card p-5; }
