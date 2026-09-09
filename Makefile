@@ -8,7 +8,7 @@ DEV     := $(COMPOSE) run --rm
 IMAGE   ?= epg3r:dev
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: help cache need-env test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check logo-ids
+.PHONY: help cache need-env test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check logo-ids font
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-10s %s\n", $$1, $$2}'
@@ -67,6 +67,9 @@ down: ## Stop the dev compose project
 
 clean: down ## Remove caches and local data
 	rm -rf .cache data
+
+font: cache ## Vendor the art typeface into internal/art/data (run by hand; commit the result)
+	$(DEV) dev sh scripts/font.sh
 
 logo-ids: cache ## Resolve team logo ids into the catalog (run by hand; commit the result)
 	$(DEV) dev go run ./scripts/logoids
