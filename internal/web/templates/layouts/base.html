@@ -1,13 +1,18 @@
 {{define "layout"}}<!doctype html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full wa-theme-default wa-dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · epg3r</title>
+<link rel="stylesheet" href="/static/wa/styles/layers.css">
+<link rel="stylesheet" href="/static/wa/styles/themes/default.css">
 <link rel="stylesheet" href="/static/app.css?v={{.Assets}}">
 {{/* HTMX drops 4xx bodies by default; validation errors come back as 422 with the form re-rendered. */}}
 <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'>
 <script src="/static/htmx.min.js" defer></script>
+<script type="module" src="/static/wa/components/dropdown/dropdown.js"></script>
+<script type="module" src="/static/wa/components/dialog/dialog.js"></script>
+<script type="module" src="/static/wa/components/divider/divider.js"></script>
 <script src="/static/app.js?v={{.Assets}}" defer></script>
 </head>
 <body class="min-h-full" hx-boost="true">
@@ -20,6 +25,7 @@
     <nav class="flex items-center gap-1 text-sm">
       {{template "navlink" dict "Href" "/" "Label" "Dashboard" "Key" "dashboard" "Active" .Nav}}
       {{template "navlink" dict "Href" "/lineup" "Label" "Lineup" "Key" "lineup" "Active" .Nav}}
+      {{template "navlink" dict "Href" "/collections" "Label" "Collections" "Key" "collections" "Active" .Nav}}
       {{template "navlink" dict "Href" "/leagues" "Label" "Leagues" "Key" "leagues" "Active" .Nav}}
       {{template "navlink" dict "Href" "/sources" "Label" "Sources" "Key" "sources" "Active" .Nav}}
       {{template "navlink" dict "Href" "/runs" "Label" "Runs" "Key" "runs" "Active" .Nav}}
