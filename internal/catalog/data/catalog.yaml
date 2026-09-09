@@ -2,20 +2,25 @@
 #
 # leagues: how a league is recognised in a playlist, what its airings are called, how long
 #   games run, its Gracenote series id, and the channel-number block it owns. Fields:
-#   key, name, airing_title, sport, genre, duration, start_pad, series_id, channel_base,
-#   slot_span (default 100), label_prefix, label_aliases, name_tokens, group_patterns,
-#   name_patterns, exclude, roster, womens_roster, womens_airing_title, womens_series_id.
+#   key, name, airing_title, sport, color, logo_path, genre, duration, start_pad, series_id,
+#   channel_base, slot_span (default 100), label_prefix, label_aliases, name_tokens,
+#   group_patterns, name_patterns, exclude, roster, womens_roster, womens_airing_title,
+#   womens_series_id. color is the brand hex the generated art is grounded in; logo_path is
+#   the league's segment in the mark source's layout, which team logo_ids sit inside.
 #
 # rosters: one per Gracenote team list (a school has a separate entry per sport, each with
 #   its own id). tms_brand_id is emitted as <team-id system="tms">; tms_team_id is the
 #   franchise id kept for reference. aliases are extra spellings providers use that the
 #   generated forms (full name, nickname, city, abbreviation) miss. Add one when a team
-#   goes unmatched.
+#   goes unmatched. logo_id is written by `make logo-ids`, not by hand: a team that has one
+#   gets its real mark, and a team that does not is drawn from its name.
 leagues:
   - key: nfl
     name: NFL
     airing_title: NFL Football
     sport: football
+    color: '#013369'
+    logo_path: nfl
     genre: Football
     duration: 3h30m
     start_pad: 15m
@@ -30,6 +35,8 @@ leagues:
     name: MLB
     airing_title: MLB Baseball
     sport: baseball
+    color: '#bf0d3e'
+    logo_path: mlb
     genre: Baseball
     duration: 3h30m
     start_pad: 15m
@@ -43,6 +50,8 @@ leagues:
     name: NBA
     airing_title: NBA Basketball
     sport: basketball
+    color: '#c8102e'
+    logo_path: nba
     genre: Basketball
     duration: 3h
     start_pad: 15m
@@ -61,6 +70,8 @@ leagues:
     name: NHL
     airing_title: NHL Hockey
     sport: hockey
+    color: '#1e2a3a'
+    logo_path: nhl
     genre: Hockey
     duration: 3h
     start_pad: 15m
@@ -76,6 +87,8 @@ leagues:
     name: WNBA
     airing_title: WNBA Basketball
     sport: basketball
+    color: '#f57b20'
+    logo_path: wnba
     genre: Basketball
     duration: 2h30m
     start_pad: 15m
@@ -89,6 +102,8 @@ leagues:
     name: MLS
     airing_title: MLS Soccer
     sport: soccer
+    color: '#1d4ed8'
+    logo_path: soccer
     genre: Soccer
     duration: 2h
     start_pad: 15m
@@ -104,6 +119,8 @@ leagues:
     name: NCAA Football
     airing_title: College Football
     sport: football
+    color: '#7c3aed'
+    logo_path: ncaa
     genre: Football
     duration: 3h45m
     start_pad: 15m
@@ -120,6 +137,8 @@ leagues:
     name: NCAA Basketball
     airing_title: College Basketball
     sport: basketball
+    color: '#0d9488'
+    logo_path: ncaa
     genre: Basketball
     duration: 2h30m
     start_pad: 15m

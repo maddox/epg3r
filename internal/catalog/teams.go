@@ -19,6 +19,7 @@ type Team struct {
 	TMSBrandID   string   `json:"tms_brand_id"`            // Gracenote teamBrandId; emitted as <team-id system="tms">
 	TMSTeamID    string   `json:"tms_team_id,omitempty"`   // Gracenote franchise id, kept for reference
 	UniversityID string   `json:"university_id,omitempty"` // NCAA only
+	LogoID       string   `json:"logo_id,omitempty"`       // this team's id within its league's logo_path; resolved offline
 	Aliases      []string `json:"-"`                       // hand-maintained spellings from the manifest
 }
 
@@ -52,6 +53,7 @@ type rosterFile struct {
 		TMSBrandID   string   `yaml:"tms_brand_id"`
 		TMSTeamID    string   `yaml:"tms_team_id"`
 		UniversityID string   `yaml:"university_id"`
+		LogoID       string   `yaml:"logo_id"`
 		Aliases      []string `yaml:"aliases"`
 	} `yaml:"teams"`
 }
@@ -80,7 +82,8 @@ func buildRosters(files []rosterFile) (map[string]*TeamIndex, error) {
 			seen[name] = true
 			teams = append(teams, &Team{
 				Key: slug(name), Roster: rf.Roster, Name: name, Abbr: strings.TrimSpace(t.Abbr),
-				TMSBrandID: t.TMSBrandID, TMSTeamID: t.TMSTeamID, UniversityID: t.UniversityID, Aliases: t.Aliases,
+				TMSBrandID: t.TMSBrandID, TMSTeamID: t.TMSTeamID, UniversityID: t.UniversityID,
+				LogoID: strings.TrimSpace(t.LogoID), Aliases: t.Aliases,
 			})
 		}
 		out[rf.Roster] = newTeamIndex(rf.Roster, teams)

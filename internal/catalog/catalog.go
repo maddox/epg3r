@@ -52,9 +52,18 @@ type League struct {
 	WomensAiringTitle string `yaml:"womens_airing_title"` // airing title for those games
 	WomensSeriesID    string `yaml:"womens_series_id"`    // series id for those games; defaults to SeriesID
 
-	Logo             string `yaml:"logo"`
-	Placard          string `yaml:"placard"`
-	TeamLogoTemplate string `yaml:"team_logo_template"`
+	// Color is the league's brand hex, "#013369". Art grounds every image it draws for
+	// this league in it. Unset falls back to DefaultColor; every shipped league sets one.
+	Color string `yaml:"color"`
+
+	// LogoPath is the league's segment in the mark source's layout, "nfl" or "soccer" or
+	// "ncaa". Teams carry the id within it. Empty means this league's teams have no marks
+	// to fetch and are drawn from their names instead.
+	LogoPath string `yaml:"logo_path"`
+
+	// Logo and Placard override the art epg3r generates for this league.
+	Logo    string `yaml:"logo"`
+	Placard string `yaml:"placard"`
 
 	// Loc is Timezone resolved, or nil when the league defers to the source.
 	Loc *time.Location
@@ -70,6 +79,10 @@ const (
 	TeamOffset      = 800  // team channels start here within the block
 	DefaultSlotSpan = 100
 )
+
+// DefaultColor grounds the art of a league that names no brand colour. Every league in the
+// shipped manifest names one; this is for a league defined somewhere else.
+const DefaultColor = "#334155"
 
 // DefaultCategories are appended to every sports airing so Channels DVR files it as a
 // sports event and its guide filters find it.
@@ -161,6 +174,9 @@ func (lg *League) compile() error {
 	if lg.SlotSpan == 0 {
 		lg.SlotSpan = DefaultSlotSpan
 	}
+	if lg.Color == "" {
+		lg.Color = DefaultColor
+	}
 	return nil
 }
 
@@ -174,6 +190,28 @@ func compileAll(pats []string) ([]*regexp.Regexp, error) {
 		out = append(out, re)
 	}
 	return out, nil
+}
+
+// RGB reads Color. ok is false when it is unset or malformed, which validate rules out for
+// a league from the manifest but not for one built in a test.
+func (lg *League) RGB() (r, g, b uint8, ok bool) {
+	if len(lg.Color) != 7 || lg.Color[0] != '#' {
+		return 0, 0, 0, false
+	}
+	var v uint32
+	for _, ch := range []byte(lg.Color[1:]) {
+		switch {
+		case ch >= '0' && ch <= '9':
+			v = v<<4 | uint32(ch-'0')
+		case ch >= 'a' && ch <= 'f':
+			v = v<<4 | uint32(ch-'a'+10)
+		case ch >= 'A' && ch <= 'F':
+			v = v<<4 | uint32(ch-'A'+10)
+		default:
+			return 0, 0, 0, false
+		}
+	}
+	return uint8(v >> 16), uint8(v >> 8), uint8(v), true
 }
 
 func (c *Catalog) validate() error {
@@ -197,6 +235,12 @@ func (c *Catalog) validate() error {
 			return fmt.Errorf("league %s: channel_base is required", lg.Key)
 		case TeamOffset%lg.SlotSpan != 0:
 			return fmt.Errorf("league %s: slot_span %d must divide %d", lg.Key, lg.SlotSpan, TeamOffset)
+		}
+		if _, _, _, ok := lg.RGB(); !ok {
+			return fmt.Errorf("league %s: color %q is not a #rrggbb hex", lg.Key, lg.Color)
+		}
+		if err := c.checkLogoIDs(&lg); err != nil {
+			return err
 		}
 		if other, dup := seenSeries[lg.SeriesID]; dup {
 			return fmt.Errorf("leagues %s and %s share series_id %s", other, lg.Key, lg.SeriesID)
@@ -224,6 +268,26 @@ func (c *Catalog) validate() error {
 	for i := 1; i < len(blocks); i++ {
 		if blocks[i].lo < blocks[i-1].hi {
 			return fmt.Errorf("leagues %s and %s have overlapping channel number blocks", blocks[i-1].key, blocks[i].key)
+		}
+	}
+	return nil
+}
+
+// checkLogoIDs rejects a team addressed within a league that never says where its marks
+// live, which would leave the id pointing at nothing.
+func (c *Catalog) checkLogoIDs(lg *League) error {
+	if lg.LogoPath != "" {
+		return nil
+	}
+	for _, name := range []string{lg.Roster, lg.WomensRoster} {
+		ti := c.rosters[name]
+		if ti == nil {
+			continue
+		}
+		for _, t := range ti.Teams {
+			if t.LogoID != "" {
+				return fmt.Errorf("league %s: %s has a logo_id but the league has no logo_path", lg.Key, t.Name)
+			}
 		}
 	}
 	return nil
