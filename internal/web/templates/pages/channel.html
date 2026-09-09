@@ -3,12 +3,17 @@
 {{$ch := .Channel}}
 <a href="/lineup" class="text-sm">← Lineup</a>
 <div class="mt-1 flex flex-wrap items-end justify-between gap-4">
-  <div>
+  <div class="flex items-center gap-4">
+    {{/* Art is addressed by a path, so it resolves against whatever host is showing this
+         page rather than against public_base_url, which may name somewhere else. */}}
+    <img src="{{$ch.LogoURL}}" alt="" class="h-14 w-14 shrink-0 object-contain">
+    <div>
     <h1 class="text-2xl font-bold tracking-tight">{{$ch.ID}}</h1>
     <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-300">
       <span class="mono">channel {{$ch.Number}}</span>
       <span class="chip" data-league="{{$ch.LeagueKey}}">{{.League}}</span>
       <span class="pill bg-ink-700 text-ink-200">{{kindName $ch.Kind}}</span>
+    </div>
     </div>
   </div>
 </div>
@@ -22,7 +27,9 @@
     <div class="space-y-4">
       {{$nowIndex := .NowIndex}}
       {{range $i, $p := .Programmes}}
-      <div class="rounded-xl border border-ink-700/70 p-4 {{if eq $i $nowIndex}}bg-ink-700/30{{end}}">
+      <div class="flex gap-4 rounded-xl border border-ink-700/70 p-4 {{if eq $i $nowIndex}}bg-ink-700/30{{end}}">
+        <img src="{{.Event.PlacardURL}}" alt="" loading="lazy" class="hidden h-20 w-[6.7rem] shrink-0 rounded-lg object-cover sm:block">
+        <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <div class="font-medium">{{if .Idle}}<span class="text-ink-300">{{.Event.Title}}</span>{{else}}{{.Event.SubTitle}}{{end}}</div>
           {{if eq $i $nowIndex}}<span class="pill bg-accent-500/15 text-accent-300">on now</span>{{end}}
@@ -34,6 +41,7 @@
         </div>
         {{end}}
         {{if .Note}}<div class="mt-2 text-xs text-ink-300">{{.Note}}</div>{{end}}
+        </div>
       </div>
       {{end}}
     </div>
@@ -49,6 +57,7 @@
       <div><dt class="label">Source</dt><dd>{{.Source}}</dd></div>
       <div><dt class="label">Type</dt><dd>{{kindName $ch.Kind}}</dd></div>
       {{if $ch.Team}}<div><dt class="label">Team</dt><dd>{{$ch.Team.Name}}</dd></div>{{end}}
+      <div><dt class="label">Logo</dt><dd class="mono break-all text-ink-300">{{$ch.LogoURL}}</dd></div>
       <div><dt class="label">Stream URL</dt><dd class="mono break-all text-ink-300">{{$ch.StreamURL}}</dd></div>
     </dl>
   </section>

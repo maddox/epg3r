@@ -118,8 +118,13 @@
   <td><input type="checkbox" name="key" value="{{.Key}}" {{if .Picked}}checked{{end}} class="tick" aria-label="Select {{.ID}}"></td>
   <td class="mono tabular-nums text-ink-300">{{.Number}}</td>
   <td>
-    <a href="/lineup/{{.Key}}" class="font-medium">{{.ID}}</a>
-    {{if .Team}}<div class="mt-0.5 text-xs text-ink-300">{{.Team.Name}}</div>{{end}}
+    <div class="flex items-center gap-2.5">
+      <img src="{{.LogoURL}}" alt="" loading="lazy" class="h-6 w-6 shrink-0 object-contain">
+      <div>
+        <a href="/lineup/{{.Key}}" class="font-medium">{{.ID}}</a>
+        {{if .Team}}<div class="mt-0.5 text-xs text-ink-300">{{.Team.Name}}</div>{{end}}
+      </div>
+    </div>
   </td>
   <td class="whitespace-nowrap text-ink-300">{{kind .Kind}}</td>
   <td><span class="chip" data-league="{{.LeagueKey}}">{{.League}}</span></td>

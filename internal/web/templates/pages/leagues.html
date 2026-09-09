@@ -31,8 +31,19 @@
         <button class="btn-primary">Save</button>
         {{if not .Override.IsZero}}<button type="button" class="btn-ghost" hx-delete="/leagues/{{.Base.Key}}" hx-target="#league-{{.Base.Key}}" hx-swap="outerHTML" hx-confirm="Reset {{.Base.Name}} to the shipped defaults?">Reset</button>{{end}}
       </div>
-      <label class="md:col-span-3"><span class="label">Channel logo URL</span><input class="input mono" type="url" name="logo" value="{{with .Override.Logo}}{{.}}{{end}}" placeholder="{{if .Base.Logo}}{{.Base.Logo}}{{else}}none{{end}}"></label>
-      <label class="md:col-span-3"><span class="label">Airing art URL</span><input class="input mono" type="url" name="placard" value="{{with .Override.Placard}}{{.}}{{end}}" placeholder="{{if .Base.Placard}}{{.Base.Placard}}{{else}}none (4:3 image){{end}}"></label>
+      {{/* The thumbnails show what the league actually wears, so pasting an override and
+           saving shows the result rather than only the URL. */}}
+      <div class="flex items-end gap-3 md:col-span-3">
+        <img src="{{.Logo}}" alt="" class="h-10 w-10 shrink-0 rounded-lg object-contain" title="{{.Logo}}">
+        <label class="min-w-0 flex-1"><span class="label">Slot channel logo</span>
+          <input class="input mono" type="url" name="logo" value="{{with .Override.Logo}}{{.}}{{end}}" placeholder="{{.Logo}}"></label>
+      </div>
+      <div class="flex items-end gap-3 md:col-span-3">
+        <img src="{{.Placard}}" alt="" class="h-10 w-[3.3rem] shrink-0 rounded-lg object-cover" title="{{.Placard}}">
+        <label class="min-w-0 flex-1"><span class="label">Fallback airing art</span>
+          <input class="input mono" type="url" name="placard" value="{{with .Override.Placard}}{{.}}{{end}}" placeholder="{{.Placard}}"></label>
+      </div>
+      <p class="-mt-1 text-xs text-ink-300 md:col-span-3">Both replace only what epg3r draws for the league itself: a team channel still wears its own team, and a game still gets its matchup.</p>
     </div>
   </form>
 </section>

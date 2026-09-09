@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jonmaddox/epg3r/internal/art"
 	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/model"
 	"github.com/jonmaddox/epg3r/internal/scheduler"
@@ -408,6 +409,8 @@ type leagueCard struct {
 	StartPads picker           // early start
 	Channels  int
 	WithGames int
+	Logo      string // what this league's channels and airings actually wear, override or not
+	Placard   string
 	Error     string
 }
 
@@ -476,6 +479,12 @@ func (s *Server) leagueCard(base catalog.League, o catalog.Override, st leagueSt
 		StartPads: durationPicker("start_pad", startPads, base.StartPad, o.StartPad),
 		Channels:  st.Channels, WithGames: st.WithGames,
 	}
+	// The card shows what would go out, not what is typed in the boxes, so the art comes
+	// from the league as the override leaves it and through the same two calls the pipeline
+	// makes.
+	effective := base.With(o)
+	card.Logo = art.ForChannel(&effective, &model.Channel{Kind: model.KindSlot})
+	card.Placard = art.ForAiring(&effective, &model.Event{})
 	return card
 }
 
