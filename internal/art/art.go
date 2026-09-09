@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,6 +68,7 @@ type Service struct {
 	marks *marks
 	dir   string
 	dev   bool
+	nonce string // dev only; see New
 	log   *slog.Logger
 
 	flight singleflight.Group
@@ -107,11 +109,21 @@ func New(opts Options) (*Service, error) {
 		}
 	}
 	dropOldVersions(filepath.Join(opts.CacheDir, "render"))
+	// In dev, every picture is new on every start. What the compositor draws changes with
+	// every edit, and nothing else in the signature moves when it does — so a browser or a
+	// media server revalidates, is told 304, and goes on showing a drawing we have replaced.
+	// Only Version says the drawing has moved on, and bumping it between edits is not a
+	// plan; it is for shipping a change to art someone already has.
+	nonce := ""
+	if opts.Dev {
+		nonce = strconv.FormatInt(now().UnixNano(), 36)
+	}
 	return &Service{
-		cat: opts.Catalog,
-		dir: opts.CacheDir,
-		dev: opts.Dev,
-		log: log,
+		nonce: nonce,
+		cat:   opts.Catalog,
+		dir:   opts.CacheDir,
+		dev:   opts.Dev,
+		log:   log,
 		marks: &marks{
 			base:   cmpOr(opts.Source, defaultSource),
 			client: client,
@@ -325,7 +337,7 @@ func (s *Service) render(ctx context.Context, name string, build func(context.Co
 		if err != nil {
 			return nil, err
 		}
-		img := Image{PNG: body, ETag: etag(name, etags), Fallback: fallback}
+		img := Image{PNG: body, ETag: s.etag(name, etags), Fallback: fallback}
 		s.remember(name, img)
 		if !fallback {
 			s.keep(name, img)
@@ -341,8 +353,8 @@ func (s *Service) render(ctx context.Context, name string, build func(context.Co
 // etag names a picture by what it was drawn from rather than by its bytes, so revalidating
 // one never has to touch it. The crests' own validators are folded in: without them a
 // redrawn crest would keep the same name and consumers would hold the old picture for good.
-func etag(name string, sources []string) string {
-	sum := sha256.Sum256([]byte(name + "\x00" + strings.Join(sources, "\x00")))
+func (s *Service) etag(name string, sources []string) string {
+	sum := sha256.Sum256([]byte(name + "\x00" + s.nonce + "\x00" + strings.Join(sources, "\x00")))
 	kind, _, _ := strings.Cut(name, "/")
 	return `"` + Version + "-" + kind + "-" + hex.EncodeToString(sum[:8]) + `"`
 }
