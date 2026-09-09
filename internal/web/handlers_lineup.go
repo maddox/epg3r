@@ -572,19 +572,23 @@ const previewLimit = 256 << 10
 
 func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
-	xb, mb, _, ok := s.Snapshots.render("epg3r "+s.Version, nil, nil)
-	var body []byte
 	var path string
 	switch kind {
 	case "xmltv":
-		body, path = xb, XMLTVPath
+		path = XMLTVPath
 	case "m3u":
-		body, path = mb, M3UPath
+		path = M3UPath
 	default:
-		http.NotFound(w, r)
+		http.NotFound(w, r) // answered before rendering: an unknown kind costs a whole guide
 		return
 	}
-	d := previewPage{Kind: kind, URL: s.baseURL(r) + path}
+	base := s.baseURL(r)
+	out, ok := s.Snapshots.render("epg3r "+s.Version, base, nil, nil)
+	body := out.xml
+	if kind == "m3u" {
+		body = out.m3u
+	}
+	d := previewPage{Kind: kind, URL: base + path}
 	if ok {
 		d.Bytes = len(body)
 		if len(body) > previewLimit {

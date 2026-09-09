@@ -35,6 +35,11 @@ type Server struct {
 	Catalog    *catalog.Catalog
 	Refresher  Refresher
 	TestSource SourceTester
+
+	// PublicBase reads the public_base_url setting. It arrives as a function, the way
+	// Snapshots.GuideTags does, because the output routes are deliberately registered
+	// outside the Store guard below and must keep answering without one.
+	PublicBase func() string
 	started    time.Time
 	tpl        *templates
 }

@@ -92,6 +92,10 @@ func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log
 		v, _ := app.Store.SettingBool(context.Background(), store.SettingM3UTvcGuideTags)
 		return v
 	}
+	srv.PublicBase = func() string {
+		v, _ := app.Store.Setting(context.Background(), store.SettingPublicBaseURL)
+		return v
+	}
 
 	// Serve the last good output immediately, before the first refresh finishes.
 	var last model.Snapshot

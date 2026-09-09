@@ -2,6 +2,8 @@ package web
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"slices"
@@ -15,25 +17,51 @@ import (
 	"github.com/jonmaddox/epg3r/internal/xmltv"
 )
 
-// Snapshots holds the latest run output for the output endpoints. Rendering is done
-// on demand and cached per run, so Channels DVR polling costs nothing after the first
-// request.
+// Snapshots holds the latest run output for the output endpoints. Rendering is done on
+// demand and cached per collection and base URL, so Channels DVR polling costs nothing
+// after the first request.
 type Snapshots struct {
 	current   atomic.Pointer[model.Snapshot]
 	GuideTags func() bool // reads the m3u_tvc_guide_tags setting
 
 	mu    sync.Mutex
-	cache map[string]rendered // by collection slug; "" is the whole guide
+	cache map[outputKey]rendered
 }
 
-// rendered is one output pair, kept until the run, the settings, or the collection
-// behind it change.
-type rendered struct {
-	runID   int64
+// outputKey names one rendering: a collection, empty for the whole guide, as addressed
+// under one base URL. The base belongs in the key rather than in a single slot per
+// collection, because there is normally more than one: the media server polls by one name
+// while the preview page renders under whatever name the browser used. Sharing a slot
+// would have those two evict each other on every request and neither would ever be cached.
+type outputKey struct {
+	slug string
+	base string
+}
+
+// maxRenderings caps the cache. A base can come from a request header, so without a cap
+// anything that can reach the endpoint could grow this map without bound. A deployment is
+// reached by a handful of names at most, so overflow means something is inventing them:
+// drop the lot rather than track which was used least, since re-rendering is what an
+// unrecognised name costs anyway.
+const maxRenderings = 8
+
+// renderState is everything about a rendering that can go out of date. Comparing it is
+// how a cached entry is known to be still good.
+type renderState struct {
+	// snap is the snapshot itself, not its run id. Set always publishes a fresh pointer,
+	// so this is exact; a run id is only a proxy, and Renumber republishes with the same
+	// one, which a proxy would read as unchanged.
+	snap    *model.Snapshot
 	tags    bool   // guide-tags flag the cached m3u was rendered with
 	changed string // the collection's own stamp; empty for the whole guide
-	xml     []byte
-	m3u     []byte
+}
+
+// rendered is one output pair, kept until anything it was built from changes.
+type rendered struct {
+	renderState
+	runID          int64 // ordering only, so a late request cannot rewind the cache
+	xml, m3u       []byte
+	xmlTag, m3uTag string // strong validators, computed once per render rather than per request
 }
 
 // Set publishes a snapshot.
@@ -62,14 +90,14 @@ func (s *Snapshots) Renumber(numbers map[string]int) {
 	s.Set(&next)
 }
 
-// render builds the outputs for a collection, or for the whole guide when c is nil.
-// Each is cached under its slug and kept until the run, the settings or the collection
-// itself changes, so a consumer polling costs nothing after the first request. ok is
+// render builds the outputs for a collection, or for the whole guide when c is nil, with
+// every link inside addressed under base. Each is cached and kept until anything it was
+// built from changes, so a consumer polling costs nothing after the first request. ok is
 // false when there is no guide yet.
-func (s *Snapshots) render(generator string, c *store.Collection, members map[string]bool) (xmlOut, m3uOut []byte, runID int64, ok bool) {
-	slug, changed := "", ""
+func (s *Snapshots) render(generator, base string, c *store.Collection, members map[string]bool) (rendered, bool) {
+	key, changed := outputKey{base: base}, ""
 	if c != nil {
-		slug, changed = c.Slug, c.Updated
+		key.slug, changed = c.Slug, c.Updated
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -77,11 +105,11 @@ func (s *Snapshots) render(generator string, c *store.Collection, members map[st
 	// cannot overwrite the cache with an older run.
 	snap := s.Get()
 	if snap == nil {
-		return nil, nil, 0, false
+		return rendered{}, false
 	}
-	tags := s.GuideTags != nil && s.GuideTags()
-	if was, hit := s.cache[slug]; hit && was.runID == snap.RunID && was.tags == tags && was.changed == changed {
-		return was.xml, was.m3u, was.runID, true
+	state := renderState{snap: snap, tags: s.GuideTags != nil && s.GuideTags(), changed: changed}
+	if was, hit := s.cache[key]; hit && was.renderState == state {
+		return was, true
 	}
 	if members != nil {
 		picked := *snap
@@ -94,21 +122,39 @@ func (s *Snapshots) render(generator string, c *store.Collection, members map[st
 		snap = &picked
 	}
 	var xb, mb bytes.Buffer
-	if err := xmltv.Write(&xb, snap, generator); err != nil {
-		return nil, nil, 0, false
+	if err := xmltv.Write(&xb, snap, xmltv.WriteOptions{Generator: generator, BaseURL: base}); err != nil {
+		return rendered{}, false
 	}
-	if err := m3u.Write(&mb, snap, m3u.WriteOptions{GuideTags: tags, Now: time.Now()}); err != nil {
-		return nil, nil, 0, false
+	if err := m3u.Write(&mb, snap, m3u.WriteOptions{GuideTags: state.tags, Now: time.Now(), BaseURL: base}); err != nil {
+		return rendered{}, false
 	}
-	if was := s.cache[slug]; snap.RunID < was.runID {
-		return xb.Bytes(), mb.Bytes(), snap.RunID, true // serve, but never move the cache backwards
+	// Clip: a bytes.Buffer grows by doubling, so it can end a render nearly half empty,
+	// and what is kept here is kept for as long as the entry is.
+	out := rendered{renderState: state, runID: snap.RunID,
+		xml: slices.Clip(xb.Bytes()), m3u: slices.Clip(mb.Bytes())}
+	out.xmlTag, out.m3uTag = etag(out.xml), etag(out.m3u)
+	if was := s.cache[key]; snap.RunID < was.runID {
+		return out, true // serve, but never move the cache backwards
 	}
 	if s.cache == nil {
-		s.cache = map[string]rendered{}
+		s.cache = map[outputKey]rendered{}
 	}
-	out := rendered{runID: snap.RunID, tags: tags, changed: changed, xml: xb.Bytes(), m3u: mb.Bytes()}
-	s.cache[slug] = out
-	return out.xml, out.m3u, snap.RunID, true
+	if len(s.cache) >= maxRenderings {
+		clear(s.cache)
+	}
+	s.cache[key] = out
+	return out, true
+}
+
+// etag names the content, not the run that produced it. Naming the run gets both halves
+// wrong: the guide-tags setting, a collection's membership and the base URL all change the
+// body while the run stays put, so a client revalidating would keep bytes that moved; and a
+// refresh that finds nothing new rebuilds the same bytes under a new run, so every consumer
+// would download the whole guide again for nothing. Hashing the body is right on both counts,
+// and which run is being served is a question for the dashboard.
+func etag(body []byte) string {
+	sum := sha256.Sum256(body)
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
 }
 
 // collected resolves the collection a request is asking for, or nil for the whole
@@ -151,7 +197,7 @@ func (s *Server) serveGuide(w http.ResponseWriter, r *http.Request, what string)
 	if !ok {
 		return // collected has answered
 	}
-	xb, mb, runID, built := s.Snapshots.render("epg3r "+s.Version, c, members)
+	out, built := s.Snapshots.render("epg3r "+s.Version, s.baseURL(r), c, members)
 	if !built {
 		http.Error(w, "no "+what+" generated yet; the first refresh has not completed", http.StatusServiceUnavailable)
 		return
@@ -161,17 +207,16 @@ func (s *Server) serveGuide(w http.ResponseWriter, r *http.Request, what string)
 		name = c.Slug
 	}
 	if what == "guide" {
-		serveOutput(w, r, xb, runID, "application/xml; charset=utf-8", name+".xml")
+		serveOutput(w, r, out.xml, out.xmlTag, "application/xml; charset=utf-8", name+".xml")
 		return
 	}
-	serveOutput(w, r, mb, runID, "audio/x-mpegurl; charset=utf-8", name+".m3u")
+	serveOutput(w, r, out.m3u, out.m3uTag, "audio/x-mpegurl; charset=utf-8", name+".m3u")
 }
 
-func serveOutput(w http.ResponseWriter, r *http.Request, body []byte, runID int64, contentType, filename string) {
-	etag := fmt.Sprintf(`"run-%d"`, runID)
-	w.Header().Set("ETag", etag)
+func serveOutput(w http.ResponseWriter, r *http.Request, body []byte, tag, contentType, filename string) {
+	w.Header().Set("ETag", tag)
 	w.Header().Set("Cache-Control", "no-cache")
-	if r.Header.Get("If-None-Match") == etag {
+	if r.Header.Get("If-None-Match") == tag {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}

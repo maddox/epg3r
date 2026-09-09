@@ -386,10 +386,14 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	s.partial(w, r, "settings", "settings_form", settingsPage{Fields: settingsFields(values, nil), Saved: true})
 }
 
-// baseURL is how the requester reaches this server, for links to paste into Channels.
+// baseURL is how the requester reaches this server: what the operator configured, else
+// what the request says. It decides where a consumer fetches the art the guide points at,
+// so it is read on every poll of the outputs.
 func (s *Server) baseURL(r *http.Request) string {
-	if v, err := s.Store.Setting(r.Context(), store.SettingPublicBaseURL); err == nil && v != "" {
-		return strings.TrimRight(v, "/")
+	if s.PublicBase != nil {
+		if v := strings.TrimRight(s.PublicBase(), "/"); v != "" {
+			return v
+		}
 	}
 	scheme := "http"
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
