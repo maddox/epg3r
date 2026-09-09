@@ -466,23 +466,31 @@ func (c *Catalog) WithOverrides(overrides map[string]Override) *Catalog {
 	for i := range out.Leagues {
 		lg := &out.Leagues[i]
 		if o, ok := overrides[lg.Key]; ok {
-			if o.AiringTitle != nil && *o.AiringTitle != "" {
-				lg.AiringTitle = *o.AiringTitle
-			}
-			if d, ok, _ := overrideDuration("duration", o.Duration, false); ok {
-				lg.Duration = d
-			}
-			if d, ok, _ := overrideDuration("start_pad", o.StartPad, true); ok {
-				lg.StartPad = d
-			}
-			if o.Logo != nil {
-				lg.Logo = *o.Logo
-			}
-			if o.Placard != nil {
-				lg.Placard = *o.Placard
-			}
+			*lg = lg.With(o)
 		}
 		out.byKey[lg.Key] = lg
 	}
 	return out
+}
+
+// With returns this league as the user's override leaves it. It is the whole of what an
+// override means, so anything that needs to know what a league will actually do — a run, or
+// a page showing what would go out — asks here rather than reading the fields itself.
+func (lg League) With(o Override) League {
+	if o.AiringTitle != nil && *o.AiringTitle != "" {
+		lg.AiringTitle = *o.AiringTitle
+	}
+	if d, ok, _ := overrideDuration("duration", o.Duration, false); ok {
+		lg.Duration = d
+	}
+	if d, ok, _ := overrideDuration("start_pad", o.StartPad, true); ok {
+		lg.StartPad = d
+	}
+	if o.Logo != nil {
+		lg.Logo = *o.Logo
+	}
+	if o.Placard != nil {
+		lg.Placard = *o.Placard
+	}
+	return lg
 }
