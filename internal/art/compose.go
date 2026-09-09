@@ -61,17 +61,9 @@ func composeLeague(lg leagueArt, mark subject) (*image.RGBA, error) {
 	ground(dst, lg.Color)
 
 	if mark.Mark != nil {
-		if err := paint(dst, lg, prepare(mark, canvasW/2, 390, 540)); err != nil {
-			return nil, err
-		}
-		if lg.Sport != "" {
-			sport, err := fit(upper(lg.Sport), 940, 46, 30, 0.12)
-			if err != nil {
-				return nil, err
-			}
-			text(dst, sport, canvasW/2, 700, white, 0.60)
-		}
-		return dst, nil
+		// The mark alone, on the middle of the card. A league's own logo already says which
+		// league it is; setting the name under it says it twice.
+		return dst, paint(dst, lg, prepare(mark, canvasW/2, canvasH/2, 620))
 	}
 
 	// No mark to draw, so the league's name is the picture.
