@@ -204,26 +204,139 @@ func alphaOf(mark *image.RGBA, pad int) (a []float64, w, h int) {
 	return a, w, h
 }
 
-// grown is a mark's silhouette swollen by radius and hardened back to a solid shape with a
-// soft edge: blur spreads the coverage outwards, and the threshold turns the faint result
-// into something with a definite edge rather than a fog.
+// grown is a mark's silhouette swollen by radius: a real dilation, taking the greatest
+// coverage within reach of each pixel, rather than a blur thresholded back to solid. A blur
+// spreads unevenly into corners and leaves the edge soft; a keyline should be as crisp as
+// the mark's own edge.
+//
+// The reach is a disc, not a square. A square is quicker and keeps a right angle square, but
+// it ends every acute point in a flat cut as wide as the window — a star loses its points
+// outright. A disc ends one in an arc, which is what a drawn keyline does.
+//
+// Even a disc rounds a point it cannot fit inside, so the result is unioned with the
+// silhouette scaled about its own centre, which is a similarity transform and so keeps every
+// angle exactly. Neither alone is right: the dilation is even along an edge and blunt at a
+// point, the scaling is sharp at a point and thin along an edge.
 func grown(a []float64, w, h, radius int) []float64 {
-	out := boxBlur(append([]float64(nil), a...), w, h, radius)
-	for i, v := range out {
-		out[i] = smoothstep(0.06, 0.22, v)
+	out := append([]float64(nil), a...)
+	within := disc(radius)
+	// Only the edge is worth spreading. A pixel deep inside the mark, and every pixel its
+	// disc would reach, is already covered by the copy above, so walking the whole canvas
+	// with a window would do the same work a few hundred thousand more times.
+	for y := range h {
+		for x := range w {
+			if !edge(a, w, h, x, y) {
+				continue
+			}
+			v := a[y*w+x]
+			for _, d := range within {
+				px, py := x+d[0], y+d[1]
+				if px < 0 || py < 0 || px >= w || py >= h {
+					continue
+				}
+				if out[py*w+px] < v {
+					out[py*w+px] = v
+				}
+			}
+		}
+	}
+	// Even a disc rounds a point it cannot fit inside, so the result is unioned with the
+	// silhouette scaled about its own centre, which is a similarity transform and so keeps
+	// every angle exactly. Neither alone is right: the dilation is even along an edge and
+	// blunt at a point, the scaling is sharp at a point and thin along an edge.
+	swollen := swelled(a, w, h, radius)
+	for i := range out {
+		out[i] = math.Max(out[i], swollen[i])
 	}
 	return out
 }
 
-func smoothstep(lo, hi, v float64) float64 {
-	t := (v - lo) / (hi - lo)
-	switch {
-	case t <= 0:
-		return 0
-	case t >= 1:
-		return 1
+// edge reports whether a pixel is covered and has something less covered beside it, which is
+// the only place a dilation can reach anywhere new.
+func edge(a []float64, w, h, x, y int) bool {
+	v := a[y*w+x]
+	if v == 0 {
+		return false
 	}
-	return t * t * (3 - 2*t)
+	for _, d := range [4][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+		px, py := x+d[0], y+d[1]
+		if px < 0 || py < 0 || px >= w || py >= h || a[py*w+px] < v {
+			return true
+		}
+	}
+	return false
+}
+
+// disc is every offset within radius of the origin, worked out once per call rather than
+// per pixel.
+func disc(radius int) [][2]int {
+	var out [][2]int
+	rr := float64(radius) * float64(radius)
+	for dy := -radius; dy <= radius; dy++ {
+		for dx := -radius; dx <= radius; dx++ {
+			if float64(dx*dx+dy*dy) <= rr {
+				out = append(out, [2]int{dx, dy})
+			}
+		}
+	}
+	return out
+}
+
+// swelled is the silhouette scaled about its centre by enough to stand radius proud at the
+// furthest point of the mark.
+func swelled(a []float64, w, h, radius int) []float64 {
+	out := make([]float64, len(a))
+	var minX, minY, maxX, maxY = w, h, -1, -1
+	for y := range h {
+		for x := range w {
+			if a[y*w+x] > 0 {
+				minX, minY = min(minX, x), min(minY, y)
+				maxX, maxY = max(maxX, x), max(maxY, y)
+			}
+		}
+	}
+	if maxX < minX {
+		return out
+	}
+	cx, cy := float64(minX+maxX)/2, float64(minY+maxY)/2
+
+	// How far the mark actually reaches, not how far its bounding box does. A star touches
+	// its box at the tips and comes nowhere near it at the corners, so the box's diagonal
+	// overstates the distance, understates the scale, and leaves the tips short of the
+	// dilation — which is to say still flat.
+	var reach float64
+	for y := range h {
+		for x := range w {
+			if a[y*w+x] > 0 {
+				reach = math.Max(reach, math.Hypot(float64(x)-cx, float64(y)-cy))
+			}
+		}
+	}
+	if reach == 0 {
+		return out
+	}
+	scale := 1 + float64(radius)/reach
+	for y := range h {
+		for x := range w {
+			out[y*w+x] = sample(a, w, h, cx+(float64(x)-cx)/scale, cy+(float64(y)-cy)/scale)
+		}
+	}
+	return out
+}
+
+// sample reads a coverage buffer between pixels, so a scaled silhouette keeps a smooth edge
+// rather than picking up the steps of the grid it came from.
+func sample(a []float64, w, h int, x, y float64) float64 {
+	x0, y0 := int(math.Floor(x)), int(math.Floor(y))
+	fx, fy := x-float64(x0), y-float64(y0)
+	at := func(px, py int) float64 {
+		if px < 0 || py < 0 || px >= w || py >= h {
+			return 0
+		}
+		return a[py*w+px]
+	}
+	return at(x0, y0)*(1-fx)*(1-fy) + at(x0+1, y0)*fx*(1-fy) +
+		at(x0, y0+1)*(1-fx)*fy + at(x0+1, y0+1)*fx*fy
 }
 
 // stamp paints a coverage buffer onto the canvas in one colour.
