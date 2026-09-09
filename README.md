@@ -96,10 +96,29 @@ setting.
   by team, by whether anything is scheduled, or search what the table shows. Click a
   channel to see all of its airings.
 - **Leagues** adjusts how a league's airings are described: airing title, game length,
-  early start, and art URLs.
+  early start, and the art the league itself wears.
 
 `/m3u` and `/xmltv` are the whole guide: every event-carrying channel epg3r recognises,
 with nothing in the app taking any of them out.
+
+### Art
+
+Every channel gets a logo and every airing a picture, served by epg3r itself at `/art`.
+A team channel wears its team's crest, an event channel its league's mark, and a game gets
+a placard with both teams on it — falling back to the league's when a side did not resolve.
+
+Crests are fetched once, cached under the data directory, and never redistributed; a team
+epg3r has no crest for is drawn from its name instead, which is most of the college
+rosters. Nothing is fetched during a refresh: a run writes paths, and a picture is drawn
+the first time something asks for it.
+
+Because the guide points at these by URL, `public_base_url` matters more than it used to.
+Leave it empty and each request is answered with links built from the host it arrived on,
+which is right for most setups; set it when more than one hostname reaches the app.
+
+A league's own logo and its fallback airing art can be replaced on the Leagues page. Each
+replaces only what epg3r draws for the league itself: a team channel still wears its own
+team, and a game still gets its matchup.
 
 **Collections** are how you choose what a consumer sees. A collection is a set of
 channels you pick out — every team channel, or just the teams you follow — served at its

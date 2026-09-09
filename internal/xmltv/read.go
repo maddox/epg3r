@@ -13,7 +13,6 @@ import (
 type Channel struct {
 	ID          string
 	DisplayName string
-	Icon        string
 }
 
 // Programme is a <programme> from a provider guide.
@@ -25,7 +24,6 @@ type Programme struct {
 	SubTitle   string
 	Desc       string
 	Categories []string
-	Icon       string
 }
 
 // Guide is a parsed provider XMLTV file.
@@ -58,7 +56,7 @@ func Read(r io.Reader) (*Guide, error) {
 			if err := dec.DecodeElement(&c, &se); err != nil {
 				return nil, fmt.Errorf("read xmltv channel: %w", err)
 			}
-			g.Channels = append(g.Channels, Channel{ID: c.ID, DisplayName: displayName(c.DisplayNames), Icon: c.Icon.Src})
+			g.Channels = append(g.Channels, Channel{ID: c.ID, DisplayName: displayName(c.DisplayNames)})
 		case "programme":
 			var p xmlProgramme
 			if err := dec.DecodeElement(&p, &se); err != nil {
@@ -80,21 +78,15 @@ func Read(r io.Reader) (*Guide, error) {
 				SubTitle:   strings.TrimSpace(p.SubTitle),
 				Desc:       strings.TrimSpace(p.Desc),
 				Categories: p.Categories,
-				Icon:       p.Icon.Src,
 			})
 		}
 	}
 	return g, nil
 }
 
-type xmlIcon struct {
-	Src string `xml:"src,attr"`
-}
-
 type xmlChannel struct {
 	ID           string   `xml:"id,attr"`
 	DisplayNames []string `xml:"display-name"`
-	Icon         xmlIcon  `xml:"icon"`
 }
 
 type xmlProgramme struct {
@@ -105,7 +97,6 @@ type xmlProgramme struct {
 	SubTitle   string   `xml:"sub-title"`
 	Desc       string   `xml:"desc"`
 	Categories []string `xml:"category"`
-	Icon       xmlIcon  `xml:"icon"`
 }
 
 // XMLTV timestamps are "20060102150405 -0700"; the offset is optional and the

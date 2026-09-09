@@ -19,7 +19,6 @@ const (
 	SettingConfidenceThreshold    = "confidence_threshold"
 	SettingEmitPlaceholderProg    = "emit_placeholder_programme"
 	SettingM3UTvcGuideTags        = "m3u_tvc_guide_tags"
-	SettingArtEnabled             = "art_enabled"
 	SettingChannelIDStyle         = "channel_id_style"
 	SettingKeepRuns               = "keep_runs"
 	SettingForgetChannelsAfter    = "forget_channels_after_days"
@@ -61,15 +60,13 @@ var SettingDefs = []SettingDef{
 		Default: "1", Kind: KindBool},
 	{Key: SettingDefaultTimezone, Label: "Default time zone", Help: "Zone for game times that do not name one. Providers almost always mean Eastern.",
 		Default: "America/New_York", Kind: KindString, Check: checkTimezone, Env: "EPG3R_TIMEZONE"},
-	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app, for absolute links in the output. Leave empty to derive it from each request.",
+	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app. Every logo and every piece of airing art is fetched from here, so set it when more than one hostname reaches the app; leave it empty to derive from each request.",
 		Default: "", Kind: KindString, Env: "EPG3R_PUBLIC_URL"},
 	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
 		Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
 	{Key: SettingEmitPlaceholderProg, Label: "Placeholder programme on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" programme instead of an empty guide.",
 		Default: "0", Kind: KindBool},
 	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
-		Default: "0", Kind: KindBool},
-	{Key: SettingArtEnabled, Label: "Generated matchup art", Help: "Reference generated team matchup artwork from the guide (not yet available).",
 		Default: "0", Kind: KindBool},
 	{Key: SettingChannelIDStyle, Label: "Channel id style", Help: "label gives ids like \"NFL 03\"; slug gives \"nfl-03\".",
 		Default: "label", Kind: KindString, Choices: []string{"label", "slug"}},
