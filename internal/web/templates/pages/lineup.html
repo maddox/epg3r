@@ -1,0 +1,144 @@
+{{define "content"}}
+{{with .Data}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight">Lineup</h1>
+    <p class="mt-1 text-sm text-ink-300">{{if .InCollection}}The channels in this collection. Its playlist and guide are served at their own URLs.{{else}}Every channel epg3r built from your sources, and what it is carrying now and next. All of them go into the guide.{{end}}</p>
+  </div>
+  <div class="flex gap-3 text-sm">
+    <a href="/preview/m3u" class="btn-ghost">Preview M3U</a>
+    <a href="/preview/xmltv" class="btn-ghost">Preview XMLTV</a>
+  </div>
+</div>
+{{if not .HasRun}}
+  <div class="mt-6">{{template "empty" dict "Icon" "📺" "Title" "No lineup yet" "Body" "The lineup appears after the first refresh finishes."}}</div>
+{{else}}
+{{template "lineup_view" .}}
+{{end}}
+{{end}}
+{{end}}
+
+{{define "lineup_view"}}
+<div id="lineup-view">
+  <div class="mt-6 flex flex-wrap items-center gap-3 text-sm text-ink-300">
+    {{with .InCollection}}
+    <span class="pill bg-accent-500/15 text-accent-300">{{.Name}}</span>
+    <a href="/lineup" class="text-xs">show the whole guide</a><span>·</span>
+    {{else}}
+    <span><span class="font-semibold text-ink-100">{{$.Total}}</span> channels in the guide</span>
+    {{end}}
+    {{if ne (len .Rows) .Total}}<span>· {{len .Rows}} shown</span>{{end}}
+  </div>
+  <form id="lineup-filters" class="mt-3 flex flex-wrap items-center gap-3" hx-get="/lineup" hx-target="#lineup-table" hx-swap="outerHTML" hx-push-url="true" hx-boost="false"
+        hx-trigger="change, input changed delay:300ms from:input[name=q]">
+    {{/* Every control filters the list and nothing else. The league also decides which
+         teams exist, so it consumes its own change and brings back the team slot with
+         the list, rather than rebuilding the bar the reader is working in. */}}
+    <span hx-get="/lineup" hx-target="#lineup-table" hx-swap="outerHTML" hx-push-url="true"
+          hx-include="closest form" hx-trigger="change consume" hx-headers='{"X-Refresh-Teams":"1"}'>{{template "picker" .League}}</span>
+    {{template "team_slot" .}}
+    {{template "picker" .Kind}}
+    {{template "picker" .Scheduled}}
+    <input type="search" name="q" value="{{.Filter.Query}}" placeholder="Search this list" class="input !w-64">
+    {{with .InCollection}}<input type="hidden" name="collection" value="{{.ID}}">{{end}}
+  </form>
+  {{/* The table lives inside this form so a tick is carried with whichever action is
+       chosen. Every action is a real control here; the menu only points at one. */}}
+  <form id="channel-actions" hx-target="#lineup-view" hx-swap="outerHTML" hx-boost="false" hx-include="#lineup-filters">
+    <input type="hidden" name="start" data-field="start">
+    <input type="hidden" name="into" data-field="into">
+    <input type="hidden" name="new" data-field="new">
+    <button hidden type="button" data-do="renumber" hx-post="/lineup/numbers" hx-include="closest form, #lineup-filters"></button>
+    <button hidden type="button" data-do="collect" hx-post="/lineup/collect" hx-include="closest form, #lineup-filters"></button>
+    <button hidden type="button" data-do="collect-new" hx-post="/lineup/collect/new" hx-include="closest form, #lineup-filters"></button>
+    {{with .InCollection}}<button hidden type="button" data-do="uncollect" hx-post="/lineup/uncollect"
+        hx-vals='{"from": "{{.ID}}"}' hx-include="closest form, #lineup-filters"></button>{{end}}
+
+    <div id="renumber-bar" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-800/60 px-4 py-3 text-sm">
+      <span class="text-ink-300"><span data-selected class="font-semibold text-ink-100">{{len .Picked}}</span> selected</span>
+      <wa-dropdown>
+        <button slot="trigger" type="button" class="btn-ghost" data-apply {{if not .Picked}}disabled{{end}}>
+          Actions
+          <svg viewBox="0 0 10 6" class="h-1.5 w-2.5 fill-current opacity-70" aria-hidden="true"><path d="M0 0h10L5 6z"/></svg>
+        </button>
+        <wa-dropdown-item data-action="renumber" data-dialog="renumber-dialog">Renumber…</wa-dropdown-item>
+        <wa-dropdown-item>Add to collection
+          {{range .Collections}}<wa-dropdown-item slot="submenu" data-action="collect" data-into="{{.ID}}">{{.Name}}</wa-dropdown-item>{{end}}
+          {{if .Collections}}<wa-divider slot="submenu"></wa-divider>{{end}}
+          <wa-dropdown-item slot="submenu" data-action="new-collection" data-dialog="new-collection-dialog">New collection…</wa-dropdown-item>
+        </wa-dropdown-item>
+        {{with .InCollection}}
+        <wa-divider></wa-divider>
+        <wa-dropdown-item variant="danger" data-action="uncollect">Remove from {{.Name}}</wa-dropdown-item>
+        {{end}}
+      </wa-dropdown>
+      <button type="button" data-clear-selection class="btn !bg-transparent !px-2 text-ink-300 hover:text-ink-100 disabled:opacity-40" {{if not .Picked}}disabled{{end}}>Clear selection</button>
+    </div>
+    {{if .Error}}<div class="mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+    {{template "lineup_table" .}}
+  </form>
+
+  {{/* The dialog is the component; what is inside it is ours. */}}
+  {{/* The dialog is the component; what is inside it is ours. Each says which field it
+       fills and which of the form's controls it then clicks, so adding an action is
+       markup rather than script. */}}
+  {{template "action_dialog" dict "ID" "renumber-dialog" "Label" "Renumber channels"
+      "Blurb" "They take consecutive numbers from here, in the order shown."
+      "Placeholder" "e.g. 200" "Type" "number" "Value" $.Start
+      "Field" "start" "Do" "renumber" "Confirm" "Renumber"}}
+  {{template "action_dialog" dict "ID" "new-collection-dialog" "Label" "New collection"
+      "Blurb" "It will be served at its own playlist and guide URLs."
+      "Placeholder" "e.g. Washington" "Type" "text" "Value" ""
+      "Field" "new" "Do" "collect-new" "Confirm" "Create and add"}}
+</div>
+{{end}}
+
+{{/* The teams on offer depend on the chosen league, so a league change brings this slot
+     back with the table, out of band. */}}
+{{define "team_slot"}}<span id="team-filter" class="contents" {{if .SwapTeams}}hx-swap-oob="true"{{end}}>{{with .Teams}}{{template "picker" .}}{{end}}</span>{{end}}
+
+{{define "lineup_table"}}
+{{if .SwapTeams}}{{template "team_slot" .}}{{end}}
+<div id="lineup-table" class="card mt-4 overflow-x-auto">
+  {{if not .Rows}}
+  <div class="no-rows">Nothing matches.</div>
+  {{else}}
+  <table class="table">
+    <thead><tr><th class="w-10"></th><th class="w-20">#</th><th>Channel</th><th>Channel Type</th><th>League</th><th>Source</th><th>Now</th><th>Next</th></tr></thead>
+    <tbody>
+    {{range .Rows}}{{template "lineup_row" .}}{{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+{{end}}
+
+{{define "lineup_row"}}
+<tr id="ch-{{.Key}}">
+  <td><input type="checkbox" name="key" value="{{.Key}}" {{if .Picked}}checked{{end}} class="tick" aria-label="Select {{.ID}}"></td>
+  <td class="mono tabular-nums text-ink-300">{{.Number}}</td>
+  <td>
+    <a href="/lineup/{{.Key}}" class="font-medium">{{.ID}}</a>
+    {{if .Team}}<div class="mt-0.5 text-xs text-ink-300">{{.Team.Name}}</div>{{end}}
+  </td>
+  <td class="whitespace-nowrap text-ink-300">{{kind .Kind}}</td>
+  <td><span class="chip" data-league="{{.LeagueKey}}">{{.League}}</span></td>
+  <td class="whitespace-nowrap text-ink-300">{{.Source}}</td>
+  <td class="max-w-xs">{{with .Now}}<div class="font-medium text-accent-300">{{.Event.SubTitle}}</div><div class="text-xs text-ink-300">until {{stamp .Event.Stop}}</div>{{else}}<span class="text-ink-500">–</span>{{end}}</td>
+  <td class="max-w-xs">{{with .Next}}<div>{{.Event.SubTitle}}</div><div class="text-xs text-ink-300">{{stamp .Event.Start}}</div>{{else}}<span class="text-ink-500">{{if .Now}}–{{else}}nothing scheduled{{end}}</span>{{end}}</td>
+</tr>
+{{end}}
+
+{{define "action_dialog"}}
+<wa-dialog id="{{.ID}}" label="{{.Label}}">
+  <div>
+    <p class="text-sm text-ink-300">{{.Blurb}}</p>
+    <input class="input mt-3" type="{{.Type}}" {{if eq .Type "number"}}min="1" step="1"{{end}}
+           placeholder="{{.Placeholder}}" value="{{.Value}}" aria-label="{{.Label}}">
+  </div>
+  <div slot="footer" class="flex items-center justify-end gap-2">
+    <button type="button" class="btn-ghost" data-close>Cancel</button>
+    <button type="button" class="btn-primary" data-confirm data-field="{{.Field}}" data-do="{{.Do}}">{{.Confirm}}</button>
+  </div>
+</wa-dialog>
+{{end}}

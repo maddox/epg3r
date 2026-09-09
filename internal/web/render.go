@@ -2,7 +2,10 @@ package web
 
 import (
 	"bytes"
+	"cmp"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -13,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonmaddox/epg3r/internal/model"
 	"github.com/jonmaddox/epg3r/internal/scheduler"
 	"github.com/jonmaddox/epg3r/internal/store"
 )
@@ -26,10 +30,32 @@ var assets embed.FS
 type templates struct {
 	fsys fs.FS
 	dev  bool
+	tag  string                // fingerprint of the built assets
 	zone func() *time.Location // zone the UI shows times in
 	mu   sync.Mutex
 	set  map[string]*template.Template
 	base *template.Template
+}
+
+// assetTag fingerprints the built stylesheet and script, so the URL the browser is
+// given changes whenever they do. A version string does not: in development it never
+// changes at all, and the browser goes on running whichever copy it has.
+func (t *templates) assetTag() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.tag != "" && !t.dev {
+		return t.tag
+	}
+	sum := sha256.New()
+	for _, name := range []string{"static/app.css", "static/app.js"} {
+		b, err := fs.ReadFile(t.fsys, name)
+		if err != nil {
+			return "dev"
+		}
+		sum.Write(b)
+	}
+	t.tag = hex.EncodeToString(sum.Sum(nil))[:10]
+	return t.tag
 }
 
 func newTemplates(dev bool, zone func() *time.Location) *templates {
@@ -107,8 +133,12 @@ func (t *templates) funcs() template.FuncMap {
 			}
 			return "under 1s"
 		},
-		"upper":    strings.ToUpper,
-		"outcome":  func(o store.Outcome) string { return outcomeLabels[o] },
+		"upper": strings.ToUpper,
+		// A run kept from an older version may carry an outcome this one no longer has;
+		// show it as it stands rather than as an empty badge.
+		"outcome":  func(o store.Outcome) string { return cmp.Or(outcomeLabels[o], string(o)) },
+		"kind":     func(k model.ChannelKind) string { return kindLabels[k] },
+		"kindName": func(k model.ChannelKind) string { return kindNames[k] },
 		"outcomes": func() []store.Outcome { return store.Outcomes },
 		"count":    func(c store.RunCounts, key string) int { return c[store.Outcome(key)] },
 		"deref": func(p *int) int {
@@ -123,6 +153,8 @@ func (t *templates) funcs() template.FuncMap {
 			}
 			return n * 100 / total
 		},
+		// choices builds a settings row's chooser, so every select in the app is one component.
+		"choices": stringPicker,
 		"dict": func(kv ...any) map[string]any {
 			m := map[string]any{}
 			for i := 0; i+1 < len(kv); i += 2 {
@@ -133,13 +165,33 @@ func (t *templates) funcs() template.FuncMap {
 	}
 }
 
+// kindLabels name the channel types: a numbered channel carrying whichever game the
+// provider puts on it, a permanent per-team feed, and a numbered channel the provider
+// has parked with nothing on it.
+var kindLabels = map[model.ChannelKind]string{
+	model.KindSlot:        "Event",
+	model.KindTeam:        "Team",
+	model.KindPlaceholder: "Unused",
+	model.KindNetwork:     "Network",
+}
+
+// kindNames are the same types standing on their own, where no column header says what
+// they are.
+var kindNames = map[model.ChannelKind]string{
+	model.KindSlot:        "Event Channel",
+	model.KindTeam:        "Team Channel",
+	model.KindPlaceholder: "Unused",
+	model.KindNetwork:     "Network Channel",
+}
+
+// outcomeLabels name every store.Outcome; the tests check none is missing.
 var outcomeLabels = map[store.Outcome]string{
 	store.OutcomeExported:  "Exported",
 	store.OutcomeIdle:      "Idle",
 	store.OutcomeLowConf:   "Low confidence",
-	store.OutcomeUnparsed:  "Unparsed",
 	store.OutcomeUnmatched: "No league",
 	store.OutcomeDuplicate: "Duplicate",
+	store.OutcomeNoNumber:  "No number",
 	store.OutcomeNetwork:   "Network",
 }
 
@@ -180,11 +232,16 @@ func (t *templates) load() (map[string]*template.Template, *template.Template, e
 // underscores, when the page defines a block by that name; otherwise the content
 // block. A boosted navigation is a plain request in this respect.
 func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data any) {
+	set, base, err := s.tpl.load()
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	block := "layout"
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
 		block = "content"
 		if target := strings.ReplaceAll(r.Header.Get("HX-Target"), "-", "_"); target != "" {
-			if set, _, err := s.tpl.load(); err == nil && set[name] != nil && set[name].Lookup(target) != nil {
+			if set[name] != nil && set[name].Lookup(target) != nil {
 				block = target
 				// Page blocks receive the page data, as they do under {{with .Data}}.
 				if v, ok := data.(view); ok {
@@ -193,7 +250,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, name string, data 
 			}
 		}
 	}
-	s.partial(w, r, name, block, data)
+	s.render(w, r, set, base, name, block, data)
 }
 
 // partial renders one named block. With an empty page name the block comes from the
@@ -204,6 +261,11 @@ func (s *Server) partial(w http.ResponseWriter, r *http.Request, pageName, block
 		s.fail(w, r, err)
 		return
 	}
+	s.render(w, r, set, base, pageName, block, data)
+}
+
+// render writes one block from an already-loaded template set.
+func (s *Server) render(w http.ResponseWriter, r *http.Request, set map[string]*template.Template, base *template.Template, pageName, block string, data any) {
 	tpl := base
 	if pageName != "" {
 		if tpl = set[pageName]; tpl == nil {
@@ -236,12 +298,13 @@ type view struct {
 	Title   string
 	Nav     string // active nav key
 	Version string
+	Assets  string // fingerprint of the built css and js, for the asset URLs
 	Status  scheduler.Status
 	Data    any
 }
 
 func (s *Server) view(title, nav string, data any) view {
-	return view{Title: title, Nav: nav, Version: s.Version, Status: s.status(), Data: data}
+	return view{Title: title, Nav: nav, Version: s.Version, Assets: s.tpl.assetTag(), Status: s.status(), Data: data}
 }
 
 func (s *Server) status() scheduler.Status {

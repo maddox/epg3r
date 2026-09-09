@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +50,17 @@ func uiServer(t *testing.T) (*Server, *store.Store, *fakeRefresher) {
 		return 42, nil
 	}
 	return s, st, ref
+}
+
+// hxGet issues an HTMX GET naming the element it targets, so the server returns just
+// that block.
+func hxGet(h http.Handler, path, target string) string {
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("HX-Request", "true")
+	req.Header.Set("HX-Target", target)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Body.String()
 }
 
 func do(h http.Handler, method, path string, form url.Values, hx bool) *httptest.ResponseRecorder {
@@ -168,34 +181,26 @@ func TestRunChannelFilters(t *testing.T) {
 	st.FinishRun(ctx, id, store.RunOK, "", rows, map[string]any{}, 10)
 
 	// A tab request targets the whole view; the filter form targets the table only.
-	hxGet := func(path, target string) string {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.Header.Set("HX-Request", "true")
-		req.Header.Set("HX-Target", target)
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, req)
-		return rec.Body.String()
-	}
-	body := hxGet("/runs/1?status=idle", "channel-view")
+	body := hxGet(h, "/runs/1?status=idle", "channel-view")
 	if !strings.Contains(body, "NBA 01") || strings.Contains(body, "NFL 04") {
 		t.Errorf("status filter wrong: %s", body)
 	}
 	if !strings.Contains(body, `id="channel-view"`) || strings.Contains(body, "<!doctype") || strings.Contains(body, "Run #1") {
 		t.Error("tab request should return only the channel view block")
 	}
-	body = hxGet("/runs/1?q=texans", "channel-table")
+	body = hxGet(h, "/runs/1?q=texans", "channel-table")
 	if !strings.Contains(body, "NFL 04") || strings.Contains(body, "NBA 01") || strings.Contains(body, `id="channel-view"`) {
 		t.Errorf("search filter should return only the table: %s", body)
 	}
-	body = hxGet("/runs/1?league=nba", "channel-table")
+	body = hxGet(h, "/runs/1?league=nba", "channel-table")
 	if !strings.Contains(body, "NBA 01") || strings.Contains(body, "NFL 04") {
 		t.Error("league filter wrong")
 	}
-	if body := hxGet("/runs/1?q=zzz", "channel-table"); !strings.Contains(body, "Nothing matches") {
+	if body := hxGet(h, "/runs/1?q=zzz", "channel-table"); !strings.Contains(body, "Nothing matches") {
 		t.Error("empty result state missing")
 	}
 	// An HTMX request for a target the page does not define falls back to the content block.
-	if body := hxGet("/runs/1", "main"); !strings.Contains(body, "Run #1") || strings.Contains(body, "<!doctype") {
+	if body := hxGet(h, "/runs/1", "main"); !strings.Contains(body, "Run #1") || strings.Contains(body, "<!doctype") {
 		t.Error("unknown target should get the content block")
 	}
 }
@@ -347,5 +352,31 @@ func TestLayoutLetsValidationBodiesSwap(t *testing.T) {
 	body := do(s.Handler(), http.MethodGet, "/settings", nil, false).Body.String()
 	if !strings.Contains(body, `name="htmx-config"`) || !strings.Contains(body, `"code":"422","swap":true`) {
 		t.Error("layout must configure HTMX to swap 422 responses, or validation errors never show")
+	}
+}
+
+// Every outcome must have a label and a pill style, or the run page renders a blank
+// tab and an unstyled badge for it.
+func TestEveryOutcomeIsPresentable(t *testing.T) {
+	css, err := os.ReadFile("static/src/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range store.Outcomes {
+		if outcomeLabels[o] == "" {
+			t.Errorf("outcome %q has no label in outcomeLabels", o)
+		}
+		if !regexp.MustCompile(`\.outcome-` + string(o) + `[\s,{]`).Match(css) {
+			t.Errorf("outcome %q has no .outcome-%s rule in app.css", o, o)
+		}
+	}
+}
+
+// Same for channel kinds, which the lineup labels.
+func TestEveryChannelKindHasALabel(t *testing.T) {
+	for _, k := range []model.ChannelKind{model.KindSlot, model.KindTeam, model.KindPlaceholder, model.KindNetwork} {
+		if kindLabels[k] == "" {
+			t.Errorf("channel kind %q has no label", k)
+		}
 	}
 }

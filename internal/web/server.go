@@ -27,7 +27,8 @@ type Health struct {
 
 // Server holds the dependencies handlers need.
 type Server struct {
-	Version    string
+	Version string
+
 	Log        *slog.Logger
 	Snapshots  *Snapshots
 	Store      *store.Store
@@ -58,11 +59,19 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+XMLTVPath, quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET /epg.xml", quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET "+M3UPath, quiet(http.HandlerFunc(s.handleM3U)))
+	// A collection is exported at its own URLs, so a consumer can be pointed at a set
+	// of channels rather than at everything.
+	mux.Handle("GET "+XMLTVPath+"/{collection}", quiet(http.HandlerFunc(s.handleXMLTV)))
+	mux.Handle("GET "+M3UPath+"/{collection}", quiet(http.HandlerFunc(s.handleM3U)))
 
 	static, _ := fs.Sub(s.tpl.fsys, "static")
 	files := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
 	mux.Handle("GET /static/", quiet(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.tpl.dev {
+		if s.tpl.dev {
+			// Without this the browser caches on its own guess and goes on running an
+			// old script against a new page.
+			w.Header().Set("Cache-Control", "no-store")
+		} else {
 			w.Header().Set("Cache-Control", "public, max-age=86400")
 		}
 		files.ServeHTTP(w, r)
@@ -83,6 +92,20 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /runs/{id}", s.handleRun)
 		mux.HandleFunc("GET /settings", s.handleSettings)
 		mux.HandleFunc("PUT /settings", s.handleSaveSettings)
+		mux.HandleFunc("GET /lineup", s.handleLineup)
+		mux.HandleFunc("GET /lineup/{key}", s.handleChannel)
+		mux.HandleFunc("POST /lineup/numbers", s.handleRenumber)
+		mux.HandleFunc("POST /lineup/collect", s.handleAddToCollection)
+		mux.HandleFunc("POST /lineup/collect/new", s.handleAddToNewCollection)
+		mux.HandleFunc("POST /lineup/uncollect", s.handleRemoveFromCollection)
+		mux.HandleFunc("GET /collections", s.handleCollections)
+		mux.HandleFunc("POST /collections", s.handleSaveCollection)
+		mux.HandleFunc("PUT /collections/{id}", s.handleSaveCollection)
+		mux.HandleFunc("DELETE /collections/{id}", s.handleDeleteCollection)
+		mux.HandleFunc("GET /leagues", s.handleLeagues)
+		mux.HandleFunc("PUT /leagues/{key}", s.handleSaveLeague)
+		mux.HandleFunc("DELETE /leagues/{key}", s.handleResetLeague)
+		mux.HandleFunc("GET /preview/{kind}", s.handlePreview)
 	}
 
 	var h http.Handler = mux

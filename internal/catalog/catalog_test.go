@@ -3,6 +3,7 @@ package catalog
 import (
 	"regexp"
 	"testing"
+	"time"
 )
 
 func load(t *testing.T) *Catalog {
@@ -260,5 +261,40 @@ rosters:
 		if _, err := Parse([]byte(doc)); err == nil {
 			t.Errorf("%s: expected an error", name)
 		}
+	}
+}
+
+func TestWithOverrides(t *testing.T) {
+	c := load(t)
+	title, dur := "Pro Football", "4h"
+	eff := c.WithOverrides(map[string]Override{"nfl": {AiringTitle: &title, Duration: &dur}})
+	nfl, _ := eff.League("nfl")
+	if nfl.AiringTitle != "Pro Football" || nfl.Duration != 4*time.Hour || nfl.SeriesID != "191277" {
+		t.Errorf("override not applied: %+v", nfl)
+	}
+	if orig, _ := c.League("nfl"); orig.AiringTitle != "NFL Football" {
+		t.Error("the base catalog must be untouched")
+	}
+	if _, ok := eff.MatchLeague("NFL", "NFL 04: A vs B"); !ok {
+		t.Error("an override must not stop a league matching")
+	}
+	if eff.Teams(nfl, false) == nil {
+		t.Error("rosters must be shared")
+	}
+	if c.WithOverrides(nil) != c {
+		t.Error("no overrides should return the same catalog")
+	}
+}
+
+func TestOverrideValidate(t *testing.T) {
+	good, bad, zero := "3h30m", "soon", "0s"
+	if err := (Override{Duration: &good, StartPad: &zero}).Validate(); err != nil {
+		t.Errorf("valid override rejected: %v", err)
+	}
+	if err := (Override{Duration: &bad}).Validate(); err == nil {
+		t.Error("bad duration accepted")
+	}
+	if err := (Override{Duration: &zero}).Validate(); err == nil {
+		t.Error("zero duration accepted")
 	}
 }

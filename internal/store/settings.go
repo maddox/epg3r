@@ -17,12 +17,12 @@ const (
 	SettingDefaultTimezone        = "default_timezone"
 	SettingPublicBaseURL          = "public_base_url"
 	SettingConfidenceThreshold    = "confidence_threshold"
-	SettingExportIdleChannels     = "export_idle_channels"
 	SettingEmitPlaceholderProg    = "emit_placeholder_programme"
 	SettingM3UTvcGuideTags        = "m3u_tvc_guide_tags"
 	SettingArtEnabled             = "art_enabled"
 	SettingChannelIDStyle         = "channel_id_style"
 	SettingKeepRuns               = "keep_runs"
+	SettingForgetChannelsAfter    = "forget_channels_after_days"
 )
 
 // Kind is a setting's value type. The UI renders controls from it and the store
@@ -65,8 +65,6 @@ var SettingDefs = []SettingDef{
 		Default: "", Kind: KindString, Env: "EPG3R_PUBLIC_URL"},
 	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
 		Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
-	{Key: SettingExportIdleChannels, Label: "Export idle channels", Help: "Keep channels with nothing scheduled in the lineup so Channels DVR does not see them appear and disappear.",
-		Default: "1", Kind: KindBool},
 	{Key: SettingEmitPlaceholderProg, Label: "Placeholder programme on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" programme instead of an empty guide.",
 		Default: "0", Kind: KindBool},
 	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
@@ -77,6 +75,8 @@ var SettingDefs = []SettingDef{
 		Default: "label", Kind: KindString, Choices: []string{"label", "slug"}},
 	{Key: SettingKeepRuns, Label: "Runs to keep", Help: "How many refresh runs to keep in history.",
 		Default: "20", Kind: KindInt, Min: f(1)},
+	{Key: SettingForgetChannelsAfter, Label: "Forget channels after (days)", Help: "A channel gone from its playlist this long is forgotten and its number freed for another. A provider that changes its stream URLs produces entirely new channels, so numbers have to be reclaimed or a league eventually runs out of them.",
+		Default: "14", Kind: KindInt, Min: f(1)},
 }
 
 var settingDefs = func() map[string]SettingDef {

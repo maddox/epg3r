@@ -46,20 +46,6 @@ CREATE TABLE team_overrides (
     PRIMARY KEY (league_key, team_key)
 );
 
-CREATE TABLE groups (
-    id                  INTEGER PRIMARY KEY,
-    source_id           INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
-    name                TEXT NOT NULL,
-    enabled             INTEGER,            -- NULL = automatic (enabled iff it maps to a league)
-    league_key          TEXT,               -- user override: force this group to a league
-    -- derived
-    first_seen_at       TEXT NOT NULL,
-    last_seen_at        TEXT NOT NULL,
-    channel_count       INTEGER NOT NULL DEFAULT 0,
-    matched_league_key  TEXT,
-    UNIQUE (source_id, name)
-);
-
 CREATE TABLE title_patterns (
     id         INTEGER PRIMARY KEY,
     name       TEXT NOT NULL,
@@ -85,20 +71,6 @@ CREATE TABLE slot_families (
     created_at  TEXT NOT NULL,
     PRIMARY KEY (source_id, league_key, label_shape, sched_shape),
     UNIQUE (source_id, league_key, family)
-);
-
--- Sticky channel identity for channels that have no slot number of their own (team
--- channels). Once a feed gets an id and number it keeps them across runs.
-CREATE TABLE channel_alloc (
-    source_id  INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
-    league_key TEXT NOT NULL,
-    feed_key   TEXT NOT NULL,   -- what the provider keeps stable for the feed, usually its title
-    channel_id TEXT NOT NULL,
-    number     INTEGER NOT NULL,
-    created_at TEXT NOT NULL,
-    PRIMARY KEY (source_id, league_key, feed_key),
-    UNIQUE (channel_id),
-    UNIQUE (number)
 );
 
 CREATE TABLE runs (

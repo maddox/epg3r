@@ -191,7 +191,7 @@ func (s *Store) RecordSourceFetch(ctx context.Context, id int64, r SourceFetchRe
 	return err
 }
 
-// DeleteSource removes a source and, through foreign keys, its groups and allocations.
+// DeleteSource removes a source and, through foreign keys, its channels and families.
 func (s *Store) DeleteSource(ctx context.Context, id int64) error {
 	_, err := s.w.ExecContext(ctx, `DELETE FROM sources WHERE id = ?`, id)
 	return err

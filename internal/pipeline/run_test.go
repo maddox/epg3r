@@ -299,16 +299,14 @@ func TestTeamChannelsWithoutTvgNameStayDistinct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := map[string]int{}
+	ids := map[string]bool{}
 	nums := map[int]int{}
 	for _, ch := range snap.Channels {
-		ids[ch.ID]++
-		nums[ch.Number]++
-	}
-	for id, n := range ids {
-		if n > 1 {
-			t.Errorf("channel id %q exported %d times", id, n)
+		if ids[ch.ID] {
+			t.Errorf("channel id %q exported twice", ch.ID)
 		}
+		ids[ch.ID] = true
+		nums[ch.Number]++
 	}
 	for num, n := range nums {
 		if n > 1 {
@@ -324,7 +322,34 @@ func TestTeamChannelsWithoutTvgNameStayDistinct(t *testing.T) {
 	if teams != 4 {
 		t.Errorf("expected 4 distinct team channels, got %d", teams)
 	}
-	// The repeated slot entry is a duplicate, not a second channel.
+	// Two lines with the same title but different URLs are two channels: the URL is
+	// what makes a channel, and the title is only what it is called.
+	if rep.Counts[store.OutcomeDuplicate] != 0 {
+		t.Errorf("duplicates = %d, want 0", rep.Counts[store.OutcomeDuplicate])
+	}
+	if len(snap.Channels) != 6 {
+		t.Errorf("channels = %d, want 6", len(snap.Channels))
+	}
+	if !ids["NFL 04"] || !ids["NFL 04 2"] {
+		t.Errorf("both slot channels should be published, under distinct ids: %v", ids)
+	}
+}
+
+// The same URL twice in one playlist is one channel, listed twice.
+func TestRepeatedURLIsOneChannel(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 05: Bears vs Packers (09.14 8:15PM ET)\nhttp://x/1\n")
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: url})
+	snap, rep, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Channels) != 1 {
+		t.Errorf("channels = %d, want 1", len(snap.Channels))
+	}
 	if rep.Counts[store.OutcomeDuplicate] != 1 {
 		t.Errorf("duplicates = %d, want 1", rep.Counts[store.OutcomeDuplicate])
 	}
@@ -367,5 +392,296 @@ func TestProbe(t *testing.T) {
 	}
 	if _, err := r.Probe(context.Background(), srv.URL+"/guide.xml"); err == nil || !strings.Contains(err.Error(), "not an M3U") {
 		t.Errorf("probe of a non-playlist should say so: %v", err)
+	}
+}
+
+// Everything epg3r recognises goes into the guide. There is no way to keep a channel
+// out: what a consumer sees will be curated with collections instead.
+func TestEverythingRecognisedIsExported(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 05: Bears vs Packers (09.14 8:15PM ET)\nhttp://x/2\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/3\n"+
+		"#EXTINF:-1 group-title=\"NBA\",NBA 01: Lakers vs Celtics (10.22 7:30PM ET)\nhttp://x/4\n"+
+		"#EXTINF:-1 group-title=\"MLB\",MLB 03: Yankees vs Red Sox (09.13 7:05PM ET)\nhttp://x/5\n")
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: url})
+
+	snap, rep, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for _, ch := range snap.Channels {
+		ids[ch.ID] = true
+	}
+	for _, want := range []string{"NFL 04", "NFL 05", "NFL Bills", "NBA 01", "MLB 03"} {
+		if !ids[want] {
+			t.Errorf("%s should be in the guide: %v", want, ids)
+		}
+	}
+	if len(ids) != 5 {
+		t.Errorf("exported ids: %v", ids)
+	}
+
+	// A league override changes how airings read, never whether they are exported.
+	title := "Pro Basketball"
+	st.SetLeagueOverride(ctx, "nba", catalog.Override{AiringTitle: &title})
+	snap, rep, err = r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Channels) != 5 {
+		t.Errorf("channels after an override: %d, want 5", len(snap.Channels))
+	}
+	nba := findChannel(snap, "NBA 01")
+	if nba == nil || len(nba.Programmes) == 0 || nba.Programmes[0].Event.Title != "Pro Basketball" {
+		t.Errorf("the override should reach the airing: %+v", nba)
+	}
+	if rep.Counts[store.OutcomeExported] != 5 {
+		t.Errorf("exported count %d, want 5: %v", rep.Counts[store.OutcomeExported], rep.Counts)
+	}
+}
+
+// The point of keying a channel on its URL: next week every title on the playlist is
+// different, and not one channel moves.
+func TestNumbersSurviveTotalTitleChurn(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	week1 := "#EXTM3U\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/a\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 05: Bears vs Packers (09.14 8:15PM ET)\nhttp://x/b\n" +
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/c\n" +
+		"#EXTINF:-1 group-title=\"MLB\",MLB 03: Yankees vs Red Sox (09.13 7:05PM ET)\nhttp://x/d\n"
+	// A week later: different games, different slots, a renamed team feed, a different
+	// league on one line, and the lines in a different order.
+	week2 := "#EXTM3U\n" +
+		"#EXTINF:-1 group-title=\"NFL\",(NFL) Buffalo Bills (FHD)\nhttp://x/c\n" +
+		"#EXTINF:-1 group-title=\"MLB\",MLB 11: Cubs vs Brewers (09.20 2:20PM ET)\nhttp://x/d\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 09: Rams vs 49ers (09.20 4:25PM ET)\nhttp://x/a\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 12: Chiefs vs Broncos (09.21 8:20PM ET)\nhttp://x/b\n"
+	body := week1
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { w.Write([]byte(body)) }))
+	t.Cleanup(srv.Close)
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: srv.URL + "/list.m3u"})
+
+	byURL := func(snap *model.Snapshot) map[string][2]any {
+		out := map[string][2]any{}
+		for _, ch := range snap.Channels {
+			out[ch.StreamURL] = [2]any{ch.ID, ch.Number}
+		}
+		return out
+	}
+	first, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := byURL(first)
+	if len(before) != 4 {
+		t.Fatalf("first run: %v", before)
+	}
+
+	body = week2
+	second, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after := byURL(second)
+	if len(after) != 4 {
+		t.Fatalf("second run: %v", after)
+	}
+	for url, was := range before {
+		if now, ok := after[url]; !ok || now != was {
+			t.Errorf("%s was %v, is now %v", url, was, now)
+		}
+	}
+}
+
+// A channel that leaves the playlist keeps its number for a while, and takes it back
+// when it returns. It is only forgotten, and its number freed, once it has been gone
+// long enough that nothing is coming back for it.
+func TestANumberIsHeldWhileAChannelIsAway(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	full := "#EXTM3U\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/a\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 05: Bears vs Packers (09.14 8:15PM ET)\nhttp://x/b\n"
+	gone := "#EXTM3U\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 05: Bears vs Packers (09.14 8:15PM ET)\nhttp://x/b\n"
+	body := full
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { w.Write([]byte(body)) }))
+	t.Cleanup(srv.Close)
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: srv.URL + "/list.m3u"})
+
+	first, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var was model.Channel
+	for _, ch := range first.Channels {
+		if ch.StreamURL == "http://x/a" {
+			was = ch
+		}
+	}
+	if was.Number == 0 {
+		t.Fatal("the channel should have been numbered")
+	}
+
+	// Off the playlist: gone from the guide, but its number is not handed to anyone.
+	body = gone
+	if _, _, err = r.Run(ctx, store.TriggerManual); err != nil {
+		t.Fatal(err)
+	}
+	body = full
+	third, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ch := range third.Channels {
+		if ch.StreamURL == "http://x/a" && (ch.Number != was.Number || ch.ID != was.ID) {
+			t.Errorf("came back as %s/%d, was %s/%d", ch.ID, ch.Number, was.ID, was.Number)
+		}
+	}
+}
+
+// A slot number beyond the league's span is a preference the store cannot honour, not a
+// reason to drop the channel: what the label says has no bearing on whether a URL is a
+// channel.
+func TestAnAwkwardSlotLabelStillGetsAChannel(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 104: Bears vs Packers (09.14 8:15PM ET)\nhttp://x/2\n")
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: url})
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Channels) != 2 {
+		t.Fatalf("both lines should be channels, got %d", len(snap.Channels))
+	}
+	nums := map[int]bool{}
+	for _, ch := range snap.Channels {
+		if ch.Number == 0 || ch.ID == "" || ch.Key == "" {
+			t.Errorf("channel published without an identity: %+v", ch)
+		}
+		if nums[ch.Number] {
+			t.Errorf("two channels on number %d", ch.Number)
+		}
+		nums[ch.Number] = true
+	}
+}
+
+// A provider's XMLTV is the most expensive thing a run reads, and most refreshes are
+// told nothing has changed. The parse from last time answers those.
+func TestGuideIsParsedOncePerChange(t *testing.T) {
+	r, _ := newRunner(t)
+	body := []byte(`<tv><programme start="20260913164500 +0000" stop="20260913194500 +0000" channel="c1"><title>NFL Football</title></programme></tv>`)
+
+	first, err := r.guide(1, FetchResult{Body: body, Status: store.FetchFresh})
+	if err != nil || first == nil {
+		t.Fatalf("first parse: %v", err)
+	}
+	// Nothing changed: the same guide comes back, and the bytes are not looked at.
+	again, err := r.guide(1, FetchResult{Body: []byte("not xml at all"), Status: store.FetchNotModified})
+	if err != nil || again != first {
+		t.Errorf("an unchanged guide should not be parsed again: %v", err)
+	}
+	// A different source keeps its own.
+	other, err := r.guide(2, FetchResult{Body: body, Status: store.FetchFresh})
+	if err != nil || other == first {
+		t.Errorf("guides are cached per source: %v", err)
+	}
+	// Fresh bytes are always parsed.
+	changed, err := r.guide(1, FetchResult{Body: body, Status: store.FetchFresh})
+	if err != nil || changed == first {
+		t.Errorf("a fresh guide should be parsed: %v", err)
+	}
+	// A first sighting that is already unchanged still has to be parsed.
+	cold, err := r.guide(3, FetchResult{Body: body, Status: store.FetchNotModified})
+	if err != nil || cold == nil {
+		t.Errorf("nothing cached yet, so parse it: %v", err)
+	}
+
+	// A source that no longer has a guide does not keep its programmes in memory.
+	r.forgetGuides(map[int64]bool{1: true})
+	if len(r.guides) != 1 || r.guides[1] == nil {
+		t.Errorf("only the guides still in use should be kept: %v", r.guides)
+	}
+}
+
+// Numbers are reclaimed, because nothing can map a provider's new stream URLs onto the
+// channels they replaced: without this, one URL change would leave a league's block
+// full of channels that no longer exist and new ones would go unnumbered.
+func TestForgottenChannelsGiveTheirNumbersBack(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	first := "#EXTM3U\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://old.example/1\n" +
+		"#EXTINF:-1 group-title=\"NFL\",NFL 05: Bears vs Packers (09.14 8:15PM ET)\nhttp://old.example/2\n"
+	// The provider moves house: the same channels, entirely new URLs, so entirely new
+	// channels as far as anything here can tell.
+	moved := strings.ReplaceAll(first, "http://old.example", "http://new.example")
+	body := first
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { w.Write([]byte(body)) }))
+	t.Cleanup(srv.Close)
+	st.CreateSource(ctx, store.NewSource{Name: "p", URL: srv.URL + "/list.m3u"})
+	st.SetSetting(ctx, store.SettingForgetChannelsAfter, "1")
+	clock := time.Now()
+	st.SetClock(func() time.Time { return clock })
+	r.Now = func() time.Time { return clock }
+
+	before, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	was := map[string]int{}
+	for _, ch := range before.Channels {
+		was[ch.ID] = ch.Number
+	}
+	if len(was) != 2 {
+		t.Fatalf("first run: %v", was)
+	}
+
+	// Straight after the move both sets are on the books, so the new channels take
+	// numbers beside the old rather than on top of them.
+	body = moved
+	if _, _, err = r.Run(ctx, store.TriggerManual); err != nil {
+		t.Fatal(err)
+	}
+	all, _ := st.Channels(ctx, 1)
+	if len(all) != 4 {
+		t.Fatalf("old and new channels should both be held: %d", len(all))
+	}
+
+	// Two days on, the ones that moved away are past the setting's grace, so the run
+	// forgets them and their numbers are free for whoever comes next.
+	clock = clock.Add(48 * time.Hour)
+	if _, _, err = r.Run(ctx, store.TriggerManual); err != nil {
+		t.Fatal(err)
+	}
+	if all, _ = st.Channels(ctx, 1); len(all) != 2 {
+		t.Errorf("only the channels that exist should be left: %d rows", len(all))
+	}
+	// A third set of URLs now takes the numbers the first set gave up.
+	body = strings.ReplaceAll(first, "http://old.example", "http://newer.example")
+	clock = clock.Add(96 * time.Hour)
+	if _, _, err = r.Run(ctx, store.TriggerManual); err != nil {
+		t.Fatal(err)
+	}
+	final, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	free := map[int]bool{}
+	for _, ch := range final.Channels {
+		free[ch.Number] = true
+	}
+	for id, num := range was {
+		if !free[num] {
+			t.Errorf("%s's number %d was never handed out again: %v", id, num, free)
+		}
 	}
 }

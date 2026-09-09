@@ -141,7 +141,7 @@ func TestSetSettingIfUnset(t *testing.T) {
 func TestSettingValidation(t *testing.T) {
 	ok := map[string][2]string{
 		SettingRefreshOnStart:      {"YES", "1"},
-		SettingExportIdleChannels:  {"off", "0"},
+		SettingEmitPlaceholderProg: {"off", "0"},
 		SettingConfidenceThreshold: {"0.75", "0.75"},
 		SettingKeepRuns:            {"007", "7"},
 		SettingChannelIDStyle:      {"slug", "slug"},

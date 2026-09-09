@@ -69,9 +69,9 @@ epg3r version
 ## What it understands
 
 Leagues: NFL, MLB, NBA, NHL, WNBA, MLS, NCAA Football, NCAA Basketball (men's and
-women's). Channel kinds:
+women's). Channel types:
 
-- **Slot channels** (`NFL 04`, `NCAAF 008 | WEST GEORGIA AT KENNESAW STATE | 09/03 07:00PM | ESPN+`).
+- **Event channels** (`NFL 04`, `NCAAF 008 | WEST GEORGIA AT KENNESAW STATE | 09/03 07:00PM | ESPN+`).
   Dozens of provider formats are handled through normalization and segment
   classification rather than one regex per provider. Several providers in one playlist
   may all have an "NFL 04"; each provider style gets its own family of channels
@@ -79,10 +79,55 @@ women's). Channel kinds:
 - **Team channels** (`US NFL Buffalo Bills (HD)`, `NBALP: Oklahoma City Thunder`). Their
   games come from the provider's XMLTV when it has them, and otherwise from the slot
   channels: if a slot says Bills vs Texans on Sunday, both team channels carry it.
-- **Placeholders** (`Offline`, `No Event Scheduled`, bare labels) stay in the lineup as
-  idle channels so Channels DVR does not see channels appear and disappear.
+- **Unused channels** (`Offline`, `No Event Scheduled`, bare labels) are numbered slots
+  the provider has parked. They stay in the lineup so the consumer does not see channels
+  appear and disappear.
 - **Network channels** (NFL Network, ESPN, local affiliates) are recognised and listed
   but not exported; they have real guide data elsewhere.
+
+### Looking at what you get
+
+A channel's properties come from parsing: which league it belongs to, whether it is an
+event channel or a team channel, which teams it carries. None of that is configurable. If
+a channel lands in the wrong league, that is a bug in the catalog or the parser, not a
+setting.
+
+- **Lineup** lists every channel with what is on now and next. Filter by league, by type,
+  by team, by whether anything is scheduled, or search what the table shows. Click a
+  channel to see all of its airings.
+- **Leagues** adjusts how a league's airings are described: airing title, game length,
+  early start, and art URLs.
+
+`/m3u` and `/xmltv` are the whole guide: every event-carrying channel epg3r recognises,
+with nothing in the app taking any of them out.
+
+**Collections** are how you choose what a consumer sees. A collection is a set of
+channels you pick out — every team channel, or just the teams you follow — served at its
+own `/m3u/<name>` and `/xmltv/<name>`. Point one consumer at the whole guide and another
+at a collection, or use collections only. Tick channels in the Lineup — shift-click takes a
+range — then Actions › Add to collection, picking an existing one or naming a new one; open a collection to see just its
+channels and take any back out. A collection is a view of channels, not a copy: deleting
+one leaves the channels alone, and a channel that goes for good leaves the collections it
+was in.
+
+Each change on the Leagues page triggers a refresh, so the guide follows within a second
+or two.
+
+A channel is its stream URL: identity is a hash of the source and that URL, and nothing
+about the title takes part, because a provider rewrites titles every week. The number a
+channel is published under is written once and read back for the life of the row.
+
+When a provider changes its stream URLs, though, the channels behind them are new as far
+as epg3r can tell — there is no identifier the two have in common. So numbers are not
+held forever: a channel gone from every playlist for longer than **Forget channels after
+(days)** is dropped and its number freed for another. Set that longer if your provider
+drops channels out of season, shorter if it churns URLs often.
+
+Numbers are yours to set. Tick channels in the Lineup, shift-click to take a range, give a starting number, and they
+take consecutive numbers in the order shown; a number you set is marked with a dot and is
+never reassigned. Playlists carry no channel numbers of their own, so what epg3r hands
+out is only a starting point — the numbers that suit the lineup you are inserting into
+are the ones only you know.
 
 Channel numbers: each league owns a block of 1,000 starting at 8500 for the NFL
 (so `NFL 03` is 8503), then 9500 MLB, 10500 MLS, 11500 NBA, 12500 NHL, 13500 WNBA,

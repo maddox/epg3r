@@ -7,34 +7,116 @@ import (
 	"time"
 )
 
-func TestAllocateChannel(t *testing.T) {
+// A channel is its URL. Its number is written once and read back for the life of the
+// row, whatever the provider does to the title.
+func TestChannelIdentity(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
 	src, _ := s.CreateSource(ctx, NewSource{Name: "p", URL: "http://p/1"})
+	urls := []string{"http://p/a/b/1", "http://p/a/b/2", "http://p/a/b/3"}
+	all, err := s.SeeChannels(ctx, src, urls)
+	if err != nil || len(all) != 3 {
+		t.Fatalf("channels: %d %v", len(all), err)
+	}
+	for _, u := range urls {
+		c, ok := all[ChannelKey(src, u)]
+		if !ok || c.URL != u || c.Number != 0 {
+			t.Fatalf("a new channel starts unnumbered: %+v", c)
+		}
+	}
 
-	a, err := s.AllocateChannel(ctx, src, "nfl", "US NFL Buffalo Bills (HD)", "NFL Bills", 8550)
-	if err != nil || a.ChannelID != "NFL Bills" || a.Number != 8550 {
-		t.Fatalf("first alloc: %+v %v", a, err)
+	// Numbers are handed out where asked when free, and never over another channel.
+	k := func(u string) string { return ChannelKey(src, u) }
+	got, err := s.AssignNumbers(ctx, []Assignment{
+		{Key: k(urls[0]), PreferredID: "NFL 04", PreferredNumber: 8504, Base: 8500, Limit: 9300},
+		{Key: k(urls[1]), PreferredID: "NFL 04", PreferredNumber: 8504, Base: 8500, Limit: 9300},
+		{Key: k(urls[2]), PreferredID: "NFL Bills", Base: 9300, Limit: 9500},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	b, err := s.AllocateChannel(ctx, src, "nfl", "(NFL) Buffalo Bills (P)", "NFL Bills", 8550)
-	if err != nil || b.ChannelID != "NFL Bills 2" || b.Number != 8551 {
-		t.Fatalf("second feed of the same team: %+v %v", b, err)
+	if c := got[k(urls[0])]; c.ChannelID != "NFL 04" || c.Number != 8504 {
+		t.Errorf("first claim on a number: %+v", c)
 	}
-	c, err := s.AllocateChannel(ctx, src, "nfl", "US NFL Houston Texans (HD)", "NFL Texans", 8550)
-	if err != nil || c.ChannelID != "NFL Texans" || c.Number != 8552 {
-		t.Fatalf("other team: %+v %v", c, err)
+	if c := got[k(urls[1])]; c.ChannelID != "NFL 04 2" || c.Number != 8500 {
+		t.Errorf("second channel wanting the same number and id: %+v", c)
 	}
-	again, err := s.AllocateChannel(ctx, src, "nfl", "US NFL Buffalo Bills (HD)", "NFL Bills", 8550)
-	if err != nil || again != a {
-		t.Fatalf("allocation must be sticky: %+v vs %+v", again, a)
+	if c := got[k(urls[2])]; c.ChannelID != "NFL Bills" || c.Number != 9300 {
+		t.Errorf("no preferred number: %+v", c)
 	}
-	other, err := s.AllocateChannel(ctx, src, "nba", "NBALP: Boston Celtics", "NBA Celtics", 8850)
-	if err != nil || other.Number != 8850 {
-		t.Fatalf("leagues allocate independently: %+v %v", other, err)
+
+	// Asking again changes nothing. What comes back is the identity the row holds, not
+	// the one asked for, so a key missing from the result means one thing only: there
+	// was no free number for it.
+	again, _ := s.AssignNumbers(ctx, []Assignment{{Key: k(urls[0]), PreferredID: "NFL 09", PreferredNumber: 8509, Base: 8500, Limit: 9300}})
+	if c := again[k(urls[0])]; c.ChannelID != "NFL 04" || c.Number != 8504 {
+		t.Errorf("an identity is written once and reported as it stands: %+v", again)
 	}
-	all, err := s.ChannelAllocs(ctx, src)
-	if err != nil || len(all) != 4 || all[[2]string{"nfl", "US NFL Buffalo Bills (HD)"}] != a {
-		t.Errorf("ChannelAllocs: %v %v", all, err)
+	all, _ = s.Channels(ctx, src)
+	if c := all[k(urls[0])]; c.Number != 8504 || c.ChannelID != "NFL 04" {
+		t.Errorf("a numbered channel must not move: %+v", c)
+	}
+
+	// The user moves one by hand, and it stays moved.
+	if err := s.SetChannelNumbers(ctx, map[string]int{k(urls[0]): 205}); err != nil {
+		t.Fatal(err)
+	}
+	all, _ = s.Channels(ctx, src)
+	if c := all[k(urls[0])]; c.Number != 205 || !c.ByUser {
+		t.Errorf("hand-set number: %+v", c)
+	}
+	if err := s.SetChannelNumbers(ctx, map[string]int{"nope": 300}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown channel: %v", err)
+	}
+	if err := s.SetChannelNumbers(ctx, map[string]int{k(urls[0]): 0}); err == nil {
+		t.Error("zero is not a channel number")
+	}
+
+	// Seeing the playlist again neither duplicates rows nor disturbs numbers.
+	after, err := s.SeeChannels(ctx, src, urls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != 3 || after[k(urls[0])].Number != 205 || after[k(urls[2])].Number != 9300 {
+		t.Errorf("a second sighting changed something: %+v", after)
+	}
+
+	// A block can be shifted onto itself: each channel takes the number of the one
+	// before it, which would collide if the moves were applied one at a time.
+	if err := s.SetChannelNumbers(ctx, map[string]int{k(urls[1]): 8504, k(urls[0]): 8500}); err != nil {
+		t.Fatalf("shifting a block onto itself: %v", err)
+	}
+	all, _ = s.Channels(ctx, src)
+	if all[k(urls[0])].Number != 8500 || all[k(urls[1])].Number != 8504 {
+		t.Errorf("after the shift: %+v", all)
+	}
+	// A number held by a channel outside the move is a conflict, and nothing is written.
+	err = s.SetChannelNumbers(ctx, map[string]int{k(urls[1]): 9300})
+	var verr *ValidationError
+	if !errors.As(err, &verr) {
+		t.Errorf("taking another channel's number: %v", err)
+	}
+	if all, _ = s.Channels(ctx, src); all[k(urls[1])].Number != 8504 {
+		t.Errorf("a refused move must change nothing: %+v", all[k(urls[1])])
+	}
+
+	// A channel gone from the playlist gives its number back once it has been away long
+	// enough, so a provider that changes its stream URLs cannot fill a league's block
+	// with channels that no longer exist.
+	if n, err := s.ForgetChannels(ctx, time.Now().Add(-time.Hour)); err != nil || n != 0 {
+		t.Errorf("nothing has been away yet: %d %v", n, err)
+	}
+	if n, err := s.ForgetChannels(ctx, time.Now().Add(time.Hour)); err != nil || n != 3 {
+		t.Errorf("every channel is past the cutoff: %d %v", n, err)
+	}
+	if left, _ := s.Channels(ctx, src); len(left) != 0 {
+		t.Errorf("forgotten channels should be gone: %+v", left)
+	}
+	// Their numbers are free for whoever comes next.
+	s.SeeChannels(ctx, src, urls[:1]) //nolint:errcheck
+	got, _ = s.AssignNumbers(ctx, []Assignment{{Key: k(urls[0]), PreferredID: "NFL 04", PreferredNumber: 8504, Base: 8500, Limit: 9300}})
+	if c := got[k(urls[0])]; c.Number != 8504 {
+		t.Errorf("a reclaimed number should be handed out again: %+v", c)
 	}
 }
 
@@ -101,23 +183,6 @@ func TestRunsLifecycle(t *testing.T) {
 	s.r.QueryRowContext(ctx, `SELECT COUNT(*) FROM run_channels WHERE run_id NOT IN (SELECT id FROM runs)`).Scan(&orphans)
 	if orphans != 0 {
 		t.Errorf("%d orphan run_channels rows", orphans)
-	}
-}
-
-func TestUpsertGroup(t *testing.T) {
-	ctx := context.Background()
-	s := openTemp(t)
-	src, _ := s.CreateSource(ctx, NewSource{Name: "p", URL: "http://p/1"})
-	if err := s.UpsertGroup(ctx, src, "NFL", 176, "nfl"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.UpsertGroup(ctx, src, "NFL", 180, "nfl"); err != nil {
-		t.Fatal(err)
-	}
-	var n, count int
-	s.r.QueryRowContext(ctx, `SELECT COUNT(*), MAX(channel_count) FROM groups WHERE source_id = ?`, src).Scan(&n, &count)
-	if n != 1 || count != 180 {
-		t.Errorf("groups: n=%d count=%d", n, count)
 	}
 }
 
@@ -259,14 +324,14 @@ func TestRunChannelFilterAndSourceCRUD(t *testing.T) {
 	if !ok || one.Name != "renamed" || one.URL != "http://p/2" || one.Enabled || one.Timezone != "America/Chicago" || one.DateOrder != DefaultDateOrder {
 		t.Errorf("UpdateSource: %+v", one)
 	}
-	s.AllocateChannel(ctx, src, "nfl", "US NFL Bills", "NFL Bills", 9300)
+	s.SeeChannels(ctx, src, []string{"http://p/2/1"}) //nolint:errcheck // only the cascade matters here
 	if err := s.DeleteSource(ctx, src); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok, _ := s.GetSource(ctx, src); ok {
 		t.Error("source should be gone")
 	}
-	if allocs, _ := s.ChannelAllocs(ctx, src); len(allocs) != 0 {
-		t.Error("allocations should cascade on delete")
+	if chans, _ := s.Channels(ctx, src); len(chans) != 0 {
+		t.Error("channels should cascade on delete")
 	}
 }

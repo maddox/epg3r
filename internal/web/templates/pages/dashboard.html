@@ -21,7 +21,7 @@
     <div class="space-y-3">
       {{range .Leagues}}
       <div class="grid grid-cols-[7rem_1fr_6rem] items-center gap-4">
-        <span class="chip" data-league="{{.Key}}">{{.Name}}</span>
+        <a href="/lineup?league={{.Key}}" class="chip" data-league="{{.Key}}">{{.Name}}</a>
         <div class="h-2.5 overflow-hidden rounded-full bg-ink-700">
           <div class="h-full rounded-full bg-accent-500" style="width: {{pct .WithGames .Channels}}%"></div>
         </div>
@@ -57,7 +57,7 @@
         <td><span class="pill status-pill-{{.Status}}">{{.Status}}</span></td>
         <td class="tabular-nums">{{count .Counts "exported"}}</td>
         <td class="tabular-nums">{{count .Counts "idle"}}</td>
-        <td class="tabular-nums">{{count .Counts "unparsed"}} unparsed · {{count .Counts "low_confidence"}} low · {{count .Counts "duplicate"}} dup</td>
+        <td class="tabular-nums">{{count .Counts "unmatched_group"}} no league · {{count .Counts "low_confidence"}} low · {{count .Counts "duplicate"}} dup</td>
         <td class="text-right"><a href="/runs/{{.ID}}">Details</a></td>
       </tr>
       {{end}}
@@ -74,7 +74,7 @@
       {{range .Sources}}
       <li class="flex items-start justify-between gap-3">
         <div>
-          <div class="font-medium {{if not .Enabled}}text-ink-500 line-through{{end}}">{{.Name}}</div>
+          <div class="font-medium">{{.Name}}</div>
           <div class="mono truncate text-ink-300" style="max-width: 16rem">{{.URL}}</div>
         </div>
         <div class="whitespace-nowrap text-right text-xs text-ink-300">

@@ -224,11 +224,15 @@ func (ti *TeamIndex) Match(name string) (*Team, MatchMethod, float64) {
 		return t, MatchExact, 1
 	}
 
+	// Every alias is scored, including the ones that cannot win: the runner-up decides
+	// whether the best score is clear enough to trust, so skipping the field would
+	// change which matches are accepted.
 	var best, second float64
 	var bestTeam *Team
+	nr := []rune(n)
 	for _, t := range ti.Teams { // deterministic order
 		for _, a := range ti.aliases[t] {
-			s := jaroWinkler(n, a)
+			s := jaroWinklerRunes(nr, []rune(a))
 			switch {
 			case s > best:
 				if bestTeam != t {
@@ -274,12 +278,9 @@ func Normalize(s string) string {
 
 func slug(s string) string { return strings.ReplaceAll(Normalize(s), " ", "-") }
 
-// jaroWinkler returns string similarity in [0,1].
-func jaroWinkler(a, b string) float64 {
-	if a == b {
-		return 1
-	}
-	ra, rb := []rune(a), []rune(b)
+// jaroWinklerRunes returns string similarity in [0,1], taking runes so a caller
+// comparing one string against many converts it once.
+func jaroWinklerRunes(ra, rb []rune) float64 {
 	la, lb := len(ra), len(rb)
 	if la == 0 || lb == 0 {
 		return 0
