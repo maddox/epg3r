@@ -13,6 +13,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jonmaddox/epg3r/internal/art"
 	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/config"
 	"github.com/jonmaddox/epg3r/internal/model"
@@ -91,6 +92,15 @@ func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log
 	srv.Snapshots.GuideTags = func() bool {
 		v, _ := app.Store.SettingBool(context.Background(), store.SettingM3UTvcGuideTags)
 		return v
+	}
+	srv.Art, err = art.New(art.Options{
+		Catalog:  app.Catalog,
+		CacheDir: filepath.Join(cfg.DataDir, "cache", "art"),
+		Log:      log,
+		Dev:      dev,
+	})
+	if err != nil {
+		return err
 	}
 	srv.PublicBase = func() string {
 		v, _ := app.Store.Setting(context.Background(), store.SettingPublicBaseURL)

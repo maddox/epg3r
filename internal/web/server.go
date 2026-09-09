@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jonmaddox/epg3r/internal/art"
 	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/store"
 )
@@ -35,6 +36,7 @@ type Server struct {
 	Catalog    *catalog.Catalog
 	Refresher  Refresher
 	TestSource SourceTester
+	Art        *art.Service
 
 	// PublicBase reads the public_base_url setting. It arrives as a function, the way
 	// Snapshots.GuideTags does, because the output routes are deliberately registered
@@ -68,6 +70,18 @@ func (s *Server) Handler() http.Handler {
 	// of channels rather than at everything.
 	mux.Handle("GET "+XMLTVPath+"/{collection}", quiet(http.HandlerFunc(s.handleXMLTV)))
 	mux.Handle("GET "+M3UPath+"/{collection}", quiet(http.HandlerFunc(s.handleM3U)))
+
+	// Art is served beside the outputs and, like them, needs no store: a consumer fetches
+	// these as it reads the guide, so they are quiet too.
+	if s.Art != nil {
+		// Two kinds of picture: a logo identifies a channel, a placard is what an airing
+		// looks like. Under each, one segment names a league and more name what is playing.
+		base := art.Prefix + "/" + art.Version
+		mux.Handle("GET "+base+"/logo/{league}", quiet(http.HandlerFunc(s.handleLeagueLogo)))
+		mux.Handle("GET "+base+"/logo/{league}/{team}", quiet(http.HandlerFunc(s.handleTeamLogo)))
+		mux.Handle("GET "+base+"/placard/{league}", quiet(http.HandlerFunc(s.handleLeaguePlacard)))
+		mux.Handle("GET "+base+"/placard/{league}/{away}/{home}", quiet(http.HandlerFunc(s.handleMatchupPlacard)))
+	}
 
 	static, _ := fs.Sub(s.tpl.fsys, "static")
 	files := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
