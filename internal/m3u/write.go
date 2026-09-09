@@ -16,6 +16,9 @@ type WriteOptions struct {
 	// next programme, for setups that load the M3U without the XMLTV.
 	GuideTags bool
 	Now       time.Time
+
+	// BaseURL makes root-relative logo paths absolute. Empty leaves them as they are.
+	BaseURL string
 }
 
 // Write renders a snapshot as an extended M3U that Channels DVR can import: every
@@ -32,7 +35,7 @@ func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
 			attr("channel-number", fmt.Sprint(ch.Number)),
 		}
 		if ch.LogoURL != "" {
-			attrs = append(attrs, attr("tvg-logo", ch.LogoURL))
+			attrs = append(attrs, attr("tvg-logo", model.Abs(opts.BaseURL, ch.LogoURL)))
 		}
 		attrs = append(attrs, attr("group-title", strings.ToUpper(ch.LeagueKey)))
 		if opts.GuideTags {

@@ -6,6 +6,7 @@ package model
 import (
 	"cmp"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -122,6 +123,17 @@ func (e Event) SideName(i int) string {
 		return e.Teams[i].Name
 	}
 	return e.TeamsRaw[i]
+}
+
+// Abs turns a root-relative reference into an absolute URL under base. A reference that
+// is already absolute, or empty, is returned unchanged, so a URL the user supplied passes
+// through and an unset one stays unset. Art is addressed by a path so that nothing
+// persisted has to know the host it will be served from; this is where the host arrives.
+func Abs(base, ref string) string {
+	if base == "" || ref == "" || ref[0] != '/' {
+		return ref
+	}
+	return strings.TrimRight(base, "/") + ref
 }
 
 // SortChannels orders channels by number, in place.

@@ -12,24 +12,32 @@ import (
 // Stamp is the XMLTV timestamp layout. Output is always UTC.
 const Stamp = "20060102150405 -0700"
 
+// WriteOptions tune the guide output.
+type WriteOptions struct {
+	Generator string // generator-info-name
+
+	// BaseURL makes root-relative icon paths absolute. Empty leaves them as they are.
+	BaseURL string
+}
+
 // Write renders a snapshot as Channels DVR friendly XMLTV: one <channel> per exported
 // channel and, per programme, a
 // title, sub-title, description, series-id, episode-num, date, icon, video quality,
 // <new/>, <live/>, categories, and Gracenote team ids.
-func Write(w io.Writer, snap *model.Snapshot, generator string) error {
+func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
 	var buf bytes.Buffer
 	buf.WriteString(xml.Header)
 	buf.WriteString(`<!DOCTYPE tv SYSTEM "xmltv.dtd">` + "\n")
 
-	doc := tvDoc{GeneratorName: generator}
+	doc := tvDoc{GeneratorName: opts.Generator}
 	for _, ch := range snap.Channels {
 		xc := xChannel{ID: ch.ID, DisplayName: []string{ch.Name}}
 		if ch.LogoURL != "" {
-			xc.Icon = &xIcon{Src: ch.LogoURL}
+			xc.Icon = &xIcon{Src: model.Abs(opts.BaseURL, ch.LogoURL)}
 		}
 		doc.Channels = append(doc.Channels, xc)
 		for _, p := range ch.SortedProgrammes() {
-			doc.Programmes = append(doc.Programmes, programme(ch, p))
+			doc.Programmes = append(doc.Programmes, programme(ch, p, opts.BaseURL))
 		}
 	}
 
@@ -43,7 +51,7 @@ func Write(w io.Writer, snap *model.Snapshot, generator string) error {
 	return err
 }
 
-func programme(ch model.Channel, p model.Programme) xProgramme {
+func programme(ch model.Channel, p model.Programme, base string) xProgramme {
 	ev := p.Event
 	xp := xProgramme{
 		Start:   ev.Start.UTC().Format(Stamp),
@@ -70,7 +78,7 @@ func programme(ch model.Channel, p model.Programme) xProgramme {
 	xp.EpisodeNum = &xSystem{System: "epg3r", Text: ev.ID}
 	xp.Date = ev.Kickoff.Format("2006-01-02")
 	if ev.PlacardURL != "" {
-		xp.Icon = &xIcon{Src: ev.PlacardURL}
+		xp.Icon = &xIcon{Src: model.Abs(base, ev.PlacardURL)}
 	}
 	xp.Video = &xVideo{Quality: "HDTV"}
 	xp.New = &struct{}{}

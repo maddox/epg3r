@@ -3,12 +3,15 @@
 <tv generator-info-name="epg3r test">
   <channel id="NFL 04">
     <display-name>NFL 04</display-name>
+    <icon src="http://epg3r.test/art/league/nfl.png"></icon>
   </channel>
   <channel id="NFL 06">
     <display-name>NFL 06</display-name>
+    <icon src="http://epg3r.test/art/league/nfl.png"></icon>
   </channel>
   <channel id="NFL Bills">
     <display-name>NFL Bills</display-name>
+    <icon src="http://epg3r.test/art/team/nfl/buffalo-bills.png"></icon>
   </channel>
   <programme start="20260913164500 +0000" stop="20260913203000 +0000" channel="NFL 04">
     <title lang="en">NFL Football</title>
@@ -17,7 +20,7 @@
     <series-id>191277</series-id>
     <episode-num system="epg3r">191277-abc123def456</episode-num>
     <date>2026-09-13</date>
-    <icon src="http://epg3r.test/art/league/nfl.png"></icon>
+    <icon src="http://epg3r.test/art/matchup/nfl/buffalo-bills/houston-texans.png"></icon>
     <video>
       <quality>HDTV</quality>
     </video>
@@ -36,7 +39,7 @@
     <series-id>191277</series-id>
     <episode-num system="epg3r">191277-abc123def456</episode-num>
     <date>2026-09-13</date>
-    <icon src="http://epg3r.test/art/league/nfl.png"></icon>
+    <icon src="http://epg3r.test/art/matchup/nfl/buffalo-bills/houston-texans.png"></icon>
     <video>
       <quality>HDTV</quality>
     </video>
