@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonmaddox/epg3r/internal/art"
 	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/m3u"
 	"github.com/jonmaddox/epg3r/internal/model"
@@ -451,7 +452,7 @@ func (r *Runner) classify(ctx context.Context, cfg runConfig, run *sourceRun, e 
 
 	channel := func(kind model.ChannelKind) *model.Channel {
 		return &model.Channel{Key: en.key, Kind: kind, LeagueKey: lg.Key,
-			LogoURL: e.Attr("tvg-logo"), StreamURL: e.URL, SourceID: run.src.ID}
+			StreamURL: e.URL, SourceID: run.src.ID}
 	}
 
 	switch res.Kind {
@@ -467,7 +468,6 @@ func (r *Runner) classify(ctx context.Context, cfg runConfig, run *sourceRun, e 
 			return nil, err
 		}
 		en.ch = channel(res.Kind)
-		en.ch.LogoURL = cmp.Or(en.ch.LogoURL, lg.Logo)
 		from, to := lg.SlotRange()
 		run.propose(en, store.Assignment{
 			PreferredID:     run.slotID(lg, family, res.Slot),
@@ -550,6 +550,10 @@ func assemble(cfg runConfig, entries []*entry, ix *eventIndex, now time.Time) []
 			if en.row.Status == store.OutcomeExported {
 				en.row.Status = store.OutcomeIdle
 			}
+		}
+		ch.LogoURL = art.ForChannel(en.league, &ch)
+		for i := range ch.Programmes {
+			ch.Programmes[i].Event.PlacardURL = art.ForAiring(en.league, &ch.Programmes[i].Event)
 		}
 		channels = append(channels, ch)
 	}

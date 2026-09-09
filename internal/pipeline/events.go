@@ -24,7 +24,6 @@ func newLeagueEvent(lg *catalog.League, womens bool, origin model.EventOrigin) m
 		Title:      lg.AiringTitleFor(womens),
 		Genre:      lg.Genre,
 		Categories: lg.Categories,
-		PlacardURL: lg.Placard,
 		Source:     origin,
 	}
 }

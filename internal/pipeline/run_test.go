@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonmaddox/epg3r/internal/art"
 	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/model"
 	"github.com/jonmaddox/epg3r/internal/store"
@@ -683,5 +684,126 @@ func TestForgottenChannelsGiveTheirNumbersBack(t *testing.T) {
 		if !free[num] {
 			t.Errorf("%s's number %d was never handed out again: %v", id, num, free)
 		}
+	}
+}
+
+// Every channel and every airing points at a picture, and which one is decided here rather
+// than by whatever the provider happened to send.
+func TestArtIsPointedAt(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		// A provider logo on the slot channel: ours wins, but the run still records theirs.
+		"#EXTINF:-1 tvg-logo=\"http://provider/nfl04.png\" tvg-name=\"NFL 04\" group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/2\n"+
+		// Nothing scheduled, and a matchup whose second side is not a team we know.
+		"#EXTINF:-1 tvg-name=\"NFL 07\" group-title=\"NFL\",NFL 07: No Event Scheduled\nhttp://x/3\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 08\" group-title=\"NFL\",NFL 08: Bills vs Sheffield Steelers (09.13 1:00PM ET)\nhttp://x/4\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSetting(ctx, store.SettingEmitPlaceholderProg, "1"); err != nil {
+		t.Fatal(err)
+	}
+	snap, rep, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slot := findChannel(snap, "NFL 04")
+	if slot == nil {
+		t.Fatal("no slot channel")
+	}
+	if slot.LogoURL != art.LeagueLogoPath("nfl") {
+		t.Errorf("slot logo = %q, want the league's", slot.LogoURL)
+	}
+	// Both sides resolved, so the airing wears the matchup, in the order the title read.
+	if got, want := slot.Programmes[0].Event.PlacardURL,
+		art.MatchupPlacardPath("nfl", "buffalo-bills", "houston-texans"); got != want {
+		t.Errorf("matchup art = %q, want %q", got, want)
+	}
+
+	// A team channel wears its own team, not its league.
+	var team *model.Channel
+	for i := range snap.Channels {
+		if snap.Channels[i].Kind == model.KindTeam {
+			team = &snap.Channels[i]
+		}
+	}
+	if team == nil {
+		t.Fatal("no team channel")
+	}
+	if got, want := team.LogoURL, art.TeamLogoPath("nfl", "buffalo-bills"); got != want {
+		t.Errorf("team logo = %q, want %q", got, want)
+	}
+
+	// One side unresolved, and a channel carrying nothing at all, both fall to the league.
+	for _, id := range []string{"NFL 07", "NFL 08"} {
+		ch := findChannel(snap, id)
+		if ch == nil {
+			t.Fatalf("no channel %s", id)
+		}
+		if len(ch.Programmes) == 0 {
+			t.Fatalf("%s carries nothing", id)
+		}
+		if got := ch.Programmes[0].Event.PlacardURL; got != art.LeaguePlacardPath("nfl") {
+			t.Errorf("%s art = %q, want the league's", id, got)
+		}
+	}
+
+	// The provider's logo is not thrown away, it is just not what goes out.
+	rows, err := st.RunChannels(ctx, rep.RunID, store.RunChannelFilter{Query: "NFL 04"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sent string
+	for _, row := range rows {
+		if row.ChannelID == "NFL 04" {
+			sent = row.TvgLogo
+		}
+	}
+	if sent != "http://provider/nfl04.png" {
+		t.Errorf("the run should still record what the provider sent, got %q", sent)
+	}
+}
+
+// The league art fields are overrides over what epg3r draws, and each replaces only what it
+// stands in for: a league logo is not every team's logo, and a league placard is not a game.
+func TestLeagueArtOverrides(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 04\" group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/2\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 07\" group-title=\"NFL\",NFL 07: No Event Scheduled\nhttp://x/3\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSetting(ctx, store.SettingEmitPlaceholderProg, "1"); err != nil {
+		t.Fatal(err)
+	}
+	logo, placard := "http://mine/logo.png", "http://mine/placard.png"
+	if err := st.SetLeagueOverride(ctx, "nfl", catalog.Override{Logo: &logo, Placard: &placard}); err != nil {
+		t.Fatal(err)
+	}
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := findChannel(snap, "NFL 04").LogoURL; got != logo {
+		t.Errorf("slot logo = %q, want the override", got)
+	}
+	for i := range snap.Channels {
+		if snap.Channels[i].Kind == model.KindTeam && snap.Channels[i].LogoURL != art.TeamLogoPath("nfl", "buffalo-bills") {
+			t.Errorf("a league logo override reached a team channel: %q", snap.Channels[i].LogoURL)
+		}
+	}
+	if got := findChannel(snap, "NFL 07").Programmes[0].Event.PlacardURL; got != placard {
+		t.Errorf("unresolved airing art = %q, want the override", got)
+	}
+	if got, want := findChannel(snap, "NFL 04").Programmes[0].Event.PlacardURL,
+		art.MatchupPlacardPath("nfl", "buffalo-bills", "houston-texans"); got != want {
+		t.Errorf("a placard override beat a matchup: %q", got)
 	}
 }

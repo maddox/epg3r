@@ -59,6 +59,11 @@ func programme(ch model.Channel, p model.Programme, base string) xProgramme {
 		Channel: ch.ID,
 		Title:   xLang{Lang: "en", Text: ev.Title},
 	}
+	// The icon is set before the idle short-circuit: a filler carries no episode and is not
+	// live or new, but a guide cell with nothing in it at all looks broken rather than empty.
+	if ev.PlacardURL != "" {
+		xp.Icon = &xIcon{Src: model.Abs(base, ev.PlacardURL)}
+	}
 	if p.Idle {
 		xp.Desc = &xLang{Lang: "en", Text: "No event currently scheduled on this channel."}
 		return xp
@@ -77,9 +82,6 @@ func programme(ch model.Channel, p model.Programme, base string) xProgramme {
 	xp.SeriesID = &xSystem{Text: ev.SeriesID}
 	xp.EpisodeNum = &xSystem{System: "epg3r", Text: ev.ID}
 	xp.Date = ev.Kickoff.Format("2006-01-02")
-	if ev.PlacardURL != "" {
-		xp.Icon = &xIcon{Src: model.Abs(base, ev.PlacardURL)}
-	}
 	xp.Video = &xVideo{Quality: "HDTV"}
 	xp.New = &struct{}{}
 	xp.Live = &struct{}{}

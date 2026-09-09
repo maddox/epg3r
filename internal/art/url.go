@@ -5,7 +5,13 @@
 // fetch, and a lettermark is a designed answer rather than a placeholder.
 package art
 
-import "strings"
+import (
+	"cmp"
+	"strings"
+
+	"github.com/jonmaddox/epg3r/internal/catalog"
+	"github.com/jonmaddox/epg3r/internal/model"
+)
 
 // Version is bumped by hand whenever what the compositor draws changes. It leads every URL
 // because plenty of things cache a picture by the URL it came from and never ask again, so
@@ -58,4 +64,32 @@ func safeKey(s string) bool {
 		}
 	}
 	return true
+}
+
+// ForChannel is a channel's logo, and with ForAiring below it is the whole of what the guide
+// points at. Both live here, beside the paths they build, so the rule is in one place rather
+// than in both writers, and both are pure, so the pipeline calls them with no art service in
+// existence at all.
+//
+// A team channel wears its team's mark; anything else wears the league's. A league logo set
+// by hand replaces the league's mark, not its teams' — one URL should not flatten every team
+// channel in the league to the same picture.
+func ForChannel(lg *catalog.League, ch *model.Channel) string {
+	if ch.Kind == model.KindTeam && ch.Team != nil {
+		return TeamLogoPath(lg.Key, ch.Team.Key)
+	}
+	return cmp.Or(lg.Logo, LeagueLogoPath(lg.Key))
+}
+
+// ForAiring is an airing's art: the matchup when both sides resolved, the league otherwise.
+// A placard set by hand replaces the league's, not a matchup — otherwise pasting one URL
+// would quietly turn off the thing this is all for.
+//
+// Both sides are tested by index rather than through ResolvedTeams, which compacts and so
+// loses which side is which. A placard has a left and a right.
+func ForAiring(lg *catalog.League, ev *model.Event) string {
+	if ev.Teams[0] != nil && ev.Teams[1] != nil {
+		return MatchupPlacardPath(lg.Key, ev.Teams[0].Key, ev.Teams[1].Key)
+	}
+	return cmp.Or(lg.Placard, LeaguePlacardPath(lg.Key))
 }
