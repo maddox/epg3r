@@ -91,6 +91,10 @@ func (s *Store) stamp() string { return formatStamp(s.now()) }
 
 func formatStamp(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
+// preciseStamp is for a value something compares to decide whether its copy is stale.
+// Seconds are too coarse for that: two changes in the same second would read as one.
+func (s *Store) preciseStamp() string { return s.now().UTC().Format(time.RFC3339Nano) }
+
 func parseStamp(v string) time.Time {
 	t, _ := time.Parse(time.RFC3339, v)
 	return t

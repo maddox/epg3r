@@ -260,8 +260,14 @@ func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
 
-func scanSet[T comparable](ctx context.Context, tx *sql.Tx, q string) (map[T]bool, error) {
-	rows, err := tx.QueryContext(ctx, q)
+// querier is whatever can run a query: the store's pools, or a transaction.
+type querier interface {
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
+}
+
+// scanSet reads a single-column query into a set.
+func scanSet[T comparable](ctx context.Context, q querier, query string, args ...any) (map[T]bool, error) {
+	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
