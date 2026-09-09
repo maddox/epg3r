@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"regexp"
 	"testing"
 )
 
@@ -30,3 +31,51 @@ func TestEveryLeagueDescribesItsArt(t *testing.T) {
 		t.Error("a non-hex should not parse")
 	}
 }
+
+// logo_id is written by `make logo-ids` and committed. These assert the shape the mark
+// source addresses each league by, and a floor under how many resolved — so a generator run
+// that silently matched nothing cannot be committed unnoticed.
+func TestLogoIDs(t *testing.T) {
+	c := load(t)
+	shapeByPath := map[string]*regexp.Regexp{
+		"nfl": reAbbr, "mlb": reAbbr, "nba": reAbbr, "nhl": reAbbr, "wnba": reAbbr,
+		"soccer": reNumeric, "ncaa": reNumeric,
+	}
+	floors := map[string]int{
+		"NFL": 32, "MLB": 30, "NBA": 30, "NHL": 32, "WNBA": 15, "MLS": 30,
+		"NCAA Football": 300, "NCAA Basketball": 320, "NCAA Womens Basketball": 320,
+	}
+	counted := map[string]int{}
+	for _, lg := range c.Leagues {
+		shape := shapeByPath[lg.LogoPath]
+		if shape == nil {
+			t.Errorf("league %s: no expected id shape for logo_path %q", lg.Key, lg.LogoPath)
+			continue
+		}
+		for _, ti := range []*TeamIndex{c.Teams(&lg, false), c.Teams(&lg, true)} {
+			if ti == nil {
+				continue
+			}
+			for _, team := range ti.Teams {
+				if team.LogoID == "" {
+					continue
+				}
+				counted[ti.Roster]++
+				if !shape.MatchString(team.LogoID) {
+					t.Errorf("%s: %s has logo_id %q, which is not how %s marks are addressed",
+						ti.Roster, team.Name, team.LogoID, lg.LogoPath)
+				}
+			}
+		}
+	}
+	for roster, floor := range floors {
+		if n := counted[roster]; n < floor {
+			t.Errorf("roster %s has %d logo ids, fewer than the %d expected; re-run make logo-ids", roster, n, floor)
+		}
+	}
+}
+
+var (
+	reAbbr    = regexp.MustCompile(`^[a-z]+$`)
+	reNumeric = regexp.MustCompile(`^[0-9]+$`)
+)

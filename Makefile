@@ -8,7 +8,7 @@ DEV     := $(COMPOSE) run --rm
 IMAGE   ?= epg3r:dev
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: help cache need-env test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check
+.PHONY: help cache need-env test vet tidy fmt run reset-dev sh build up logs stop reset down clean css css-check logo-ids
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-10s %s\n", $$1, $$2}'
@@ -23,7 +23,7 @@ vet: cache ## go vet
 	$(DEV) dev go vet ./...
 
 fmt: cache ## gofmt -l (fails if anything is unformatted)
-	$(DEV) dev sh -c 'test -z "$$(gofmt -l cmd internal)" || (gofmt -l cmd internal; exit 1)'
+	$(DEV) dev sh -c 'test -z "$$(gofmt -l cmd internal scripts)" || (gofmt -l cmd internal scripts; exit 1)'
 
 tidy: cache ## go mod tidy
 	$(DEV) dev go mod tidy
@@ -67,3 +67,6 @@ down: ## Stop the dev compose project
 
 clean: down ## Remove caches and local data
 	rm -rf .cache data
+
+logo-ids: cache ## Resolve team logo ids into the catalog (run by hand; commit the result)
+	$(DEV) dev go run ./scripts/logoids
