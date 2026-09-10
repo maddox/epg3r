@@ -73,3 +73,6 @@ font: cache ## Vendor the art typeface into internal/art/data (run by hand; comm
 
 logo-ids: cache ## Resolve team logo ids into the catalog (run by hand; commit the result)
 	$(DEV) dev go run ./scripts/logoids
+
+zones: cache ## Regenerate the time zone list from the Go toolchain's tzdata (commit the result)
+	$(DEV) dev go run ./scripts/zones

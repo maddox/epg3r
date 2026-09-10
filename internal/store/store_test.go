@@ -132,6 +132,49 @@ func TestTypedSettingAccessors(t *testing.T) {
 	}
 }
 
+// A zone is the one setting nobody can check for themselves, so the list the picker offers
+// and the list the store accepts are the same one, everything in it loads, and none of
+// tzdata's alternate spellings are in it — a picker showing Asmara and Asmera, or Kolkata
+// and Calcutta, looks broken whichever one you pick.
+func TestZonesAreCanonicalAndLoadable(t *testing.T) {
+	if len(Zones) < 300 {
+		t.Fatalf("only %d zones; the generated list looks wrong", len(Zones))
+	}
+	if Zones[0] != "UTC" {
+		t.Errorf("UTC should lead the list, got %q", Zones[0])
+	}
+	seen := map[string]bool{}
+	for _, z := range Zones {
+		if seen[z] {
+			t.Errorf("%s appears twice", z)
+		}
+		seen[z] = true
+		if _, err := time.LoadLocation(z); err != nil {
+			t.Errorf("%s does not load: %v", z, err)
+		}
+	}
+	for _, alias := range []string{
+		"US/Eastern", "Canada/Pacific", "Etc/GMT+5", // legacy groupings
+		"Africa/Asmera", "Asia/Calcutta", "America/Buenos_Aires", "America/Shiprock", // older spellings
+	} {
+		if seen[alias] {
+			t.Errorf("%s is an alias and should not be offered", alias)
+		}
+	}
+	for _, want := range []string{
+		"America/New_York", "America/Los_Angeles", "America/Chicago", "America/Denver",
+		"America/Anchorage", "Pacific/Honolulu", "America/Toronto",
+		"Europe/London", "Australia/Sydney", "Asia/Kolkata",
+		// Merged into a neighbour upstream, so zone1970.tab alone would drop it; someone
+		// in Oslo should not have to know their zone is called Berlin now.
+		"Europe/Oslo",
+	} {
+		if !seen[want] {
+			t.Errorf("%s should be offered", want)
+		}
+	}
+}
+
 func TestSettingValidation(t *testing.T) {
 	ok := map[string][2]string{
 		SettingConfidenceThreshold: {"0.75", "0.75"},
