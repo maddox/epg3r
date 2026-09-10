@@ -86,7 +86,7 @@ Most settings can be left as they are. Two that sometimes matter:
 
 - **How often to check for new listings.** Hourly by default.
 - **The address other apps use to reach epg3r.** Leave this empty unless epg3r answers on
-  more than one address. If artwork isn't showing up in Channels DVR, this is usually why.
+  more than one address. If artwork isn't showing up in your other software, this is usually why.
 
 ## Keeping it up to date
 
