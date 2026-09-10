@@ -857,3 +857,100 @@ func TestGuideTagsDescribeTheChannel(t *testing.T) {
 		t.Error("a channel carrying nothing should still describe itself")
 	}
 }
+
+// Setting a league's start hands its numbering to epg3r. Nothing in the pipeline knows about
+// the setting: every number is derived from the league's base, so an override of the base is
+// all it takes.
+func TestManagedLeagueStartsWhereTheUserSaid(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 04\" group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 tvg-name=\"NFL 09\" group-title=\"NFL\",NFL 09: Jets vs Bears (09.13 1:00PM ET)\nhttp://x/2\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL Buffalo Bills (HD)\nhttp://x/3\n"+
+		"#EXTINF:-1 tvg-name=\"MLB 02\" group-title=\"MLB\",MLB 02: Reds vs Cubs (09.13 1:00PM ET)\nhttp://x/4\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	start := "3000"
+	if err := st.SetLeagueOverride(ctx, "nfl", catalog.Override{ChannelBase: &start}); err != nil {
+		t.Fatal(err)
+	}
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The slot is the number: NFL 04 is start+4 and NFL 09 is start+9, with the numbers
+	// between them left for the slots that own them.
+	for id, want := range map[string]int{"NFL 04": 3004, "NFL 09": 3009} {
+		ch := findChannel(snap, id)
+		if ch == nil {
+			t.Fatalf("no channel %s", id)
+		}
+		if ch.Number != want {
+			t.Errorf("%s = %d, want %d", id, ch.Number, want)
+		}
+	}
+	for _, n := range []int{3005, 3006, 3007, 3008} {
+		for _, ch := range snap.Channels {
+			if ch.Number == n {
+				t.Errorf("%d should be a hole, but %s has it", n, ch.ID)
+			}
+		}
+	}
+
+	// Team channels keep their own band, 800 above the start.
+	for _, ch := range snap.Channels {
+		if ch.Kind == model.KindTeam && (ch.Number < 3800 || ch.Number >= 4000) {
+			t.Errorf("team channel %s at %d, want the 3800 band", ch.ID, ch.Number)
+		}
+	}
+
+	// A league nobody handed over is untouched.
+	if mlb := findChannel(snap, "MLB 02"); mlb == nil || mlb.Number != 11002 {
+		t.Errorf("mlb should still be shipped-numbered: %+v", mlb)
+	}
+}
+
+// A slot that was missing when the league was numbered gets its own number the moment it
+// turns up. This is the whole point of deriving numbers rather than handing them out in
+// order: nothing has to move to make room.
+func TestMissingSlotsLeaveHoles(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	line := func(slot string) string {
+		return "#EXTINF:-1 tvg-name=\"NFL " + slot + "\" group-title=\"NFL\",NFL " + slot +
+			": Bills vs Texans (09.13 1:00PM ET)\nhttp://x/" + slot + "\n"
+	}
+	// The same source, serving a different playlist the second time round.
+	body := "#EXTM3U\n" + line("04") + line("09")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { w.Write([]byte(body)) }))
+	t.Cleanup(srv.Close)
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: srv.URL + "/list.m3u"}); err != nil {
+		t.Fatal(err)
+	}
+	start := "3000"
+	if err := st.SetLeagueOverride(ctx, "nfl", catalog.Override{ChannelBase: &start}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := r.Run(ctx, store.TriggerManual); err != nil {
+		t.Fatal(err)
+	}
+
+	// NFL 06 shows up later and takes 3006, which was waiting for it.
+	body = "#EXTM3U\n" + line("04") + line("06") + line("09")
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch := findChannel(snap, "NFL 06"); ch == nil || ch.Number != 3006 {
+		t.Fatalf("NFL 06 should land on 3006: %+v", ch)
+	}
+	// And the ones that were already there did not move to make room.
+	for id, want := range map[string]int{"NFL 04": 3004, "NFL 09": 3009} {
+		if ch := findChannel(snap, id); ch == nil || ch.Number != want {
+			t.Errorf("%s moved: %+v", id, ch)
+		}
+	}
+}

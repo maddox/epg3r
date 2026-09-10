@@ -344,6 +344,17 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A league that epg3r numbers is not the reader's to move.
+	refusal, err := s.managedRefusal(r.Context(), keys)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if refusal != "" {
+		s.refuseLineup(w, r, refusal)
+		return
+	}
+
 	// The numbers run from the start in the order the reader is looking at, which is the
 	// order the form posts them in.
 	want := make(map[string]int, len(keys))
@@ -364,7 +375,7 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The guide follows at once; the refresh then rebuilds it from the store.
-	s.Snapshots.Renumber(want)
+	s.Snapshots.Renumber(want, true)
 	s.refreshSoon()
 	toast(w, "ok", fmt.Sprintf("%s renumbered from %d", plural(len(keys), "channel"), start))
 	// Done with, so the selection goes rather than inviting a second pass.
@@ -375,6 +386,80 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 
 // refuseLineup re-renders the Lineup with a message and the reader's selection intact,
 // so correcting a mistake costs a keystroke rather than choosing the channels again.
+// leagueKeys is every channel the guide currently has for a league. It is how a re-home
+// reaches a channel someone moved out of the league's block by hand: the store has no notion
+// of leagues, but every channel in the snapshot knows which one it belongs to.
+func leagueKeys(snap *model.Snapshot, league string) []string {
+	if snap == nil {
+		return nil
+	}
+	var keys []string
+	for _, ch := range snap.Channels {
+		if ch.LeagueKey == league {
+			keys = append(keys, ch.Key)
+		}
+	}
+	return keys
+}
+
+// managedRefusal names the leagues in a selection whose numbers epg3r owns, or "" when none
+// of them do. The whole pass is refused rather than moving the rest: the numbers run
+// consecutively from the start in the order posted, so dropping rows out of the middle would
+// hand the survivors a run nobody asked for.
+func (s *Server) managedRefusal(ctx context.Context, keys []string) (string, error) {
+	snap := s.Snapshots.Get()
+	if snap == nil {
+		return "", nil
+	}
+	overrides, err := s.Store.LeagueOverrides(ctx)
+	if err != nil {
+		return "", err
+	}
+	managed, free := map[string]bool{}, false
+	for _, k := range keys {
+		ch, ok := snap.ByKey(k)
+		if !ok {
+			continue // SetChannelNumbers answers for a channel that has gone
+		}
+		if overrides[ch.LeagueKey].Managed() {
+			managed[ch.LeagueKey] = true
+		} else {
+			free = true
+		}
+	}
+	if len(managed) == 0 {
+		return "", nil
+	}
+	// Catalog order, so the same selection always reads the same way.
+	var names []string
+	for _, lg := range s.Catalog.Leagues {
+		if managed[lg.Key] {
+			names = append(names, lg.Name)
+		}
+	}
+	what := "that league's starting number"
+	if len(names) > 1 {
+		what = "their starting numbers"
+	}
+	fix := "Clear " + what + " on the Leagues page."
+	if free {
+		fix = "Untick those channels, or clear " + what + " on the Leagues page."
+	}
+	return "epg3r numbers " + andList(names) + " channels, so nothing was renumbered. " + fix, nil
+}
+
+// andList writes a short list the way a sentence would: "NFL", "NFL and NBA",
+// "NFL, NBA and NHL".
+func andList(items []string) string {
+	switch len(items) {
+	case 0, 1:
+		return strings.Join(items, "")
+	case 2:
+		return items[0] + " and " + items[1]
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
+}
+
 func (s *Server) refuseLineup(w http.ResponseWriter, r *http.Request, msg string) {
 	d, ok := s.lineupView(w, r)
 	if !ok {
@@ -411,6 +496,9 @@ type leagueCard struct {
 	WithGames int
 	Logo      string // what this league's channels and airings actually wear, override or not
 	Placard   string
+	Managed   bool   // epg3r numbers this league; the Lineup will not renumber it by hand
+	SlotShown string // a worked example of the numbering, when there is a start to work from
+	TeamStart int
 	Error     string
 }
 
@@ -485,6 +573,13 @@ func (s *Server) leagueCard(base catalog.League, o catalog.Override, st leagueSt
 	effective := base.With(o)
 	card.Logo = art.ForChannel(&effective, &model.Channel{Kind: model.KindSlot})
 	card.Placard = art.ForAiring(&effective, &model.Event{})
+
+	// The card does the arithmetic from the chosen start rather than restating the rule, so
+	// what it promises is what the pipeline would actually hand out.
+	if card.Managed = o.Managed(); card.Managed {
+		card.SlotShown = fmt.Sprintf("%s is %d", effective.ChannelID(0, 3), effective.SlotChannelNumber(0, 3))
+		card.TeamStart = effective.TeamChannelBase()
+	}
 	return card
 }
 
@@ -527,6 +622,13 @@ func leagueOverrideForm(r *http.Request, base catalog.League) catalog.Override {
 	o.StartPad = changed("start_pad", base.StartPad.String())
 	o.Logo = changed("logo", base.Logo)
 	o.Placard = changed("placard", base.Placard)
+
+	// Not a changed() field. "The same as the shipped start" is a real choice here — storing
+	// it is what hands the league's numbering over — so an empty box is the only thing that
+	// means unset, and typing a league's own base still manages it.
+	if v := strings.TrimSpace(r.FormValue("channel_base")); v != "" {
+		o.ChannelBase = &v
+	}
 	return o
 }
 
@@ -552,14 +654,40 @@ func (s *Server) handleResetLeague(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) applyLeagueOverride(w http.ResponseWriter, r *http.Request, base catalog.League, o catalog.Override, msg string) {
 	counts := leagueCounts(s.Snapshots.Get())
-	if err := s.Store.SetLeagueOverride(r.Context(), base.Key, o); err != nil {
+	refuse := func(errMsg string) {
+		card := s.leagueCard(base, o, counts[base.Key])
+		card.Error = errMsg
+		s.partial(w, r, "leagues", "league_card", card)
+	}
+
+	before, err := s.Store.LeagueOverrides(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	// Where the league's channels are now, and how far they have to move. A league is
+	// numbered from its base, so shifting the base by delta shifts every derived number in
+	// it by the same amount — the layout survives, holes and team band included.
+	old, next := base.With(before[base.Key]), base.With(o)
+	rh := store.Rehome{
+		Key: base.Key, Override: o,
+		From: old.ChannelBase, To: old.ChannelBase + catalog.BlockSize,
+		Delta: next.ChannelBase - old.ChannelBase,
+		Keys:  leagueKeys(s.Snapshots.Get(), base.Key),
+		// A managed league holds no hand-set numbers at all, so this is true whenever it
+		// ends up managed rather than only when it just became so.
+		DropByUser: o.Managed(),
+	}
+	moved, _, err := s.Store.RehomeLeague(r.Context(), rh, s.Catalog.ValidateOverrides)
+	if err != nil {
 		if errMsg, fatal := s.storeErr(w, r, err); !fatal {
-			card := s.leagueCard(base, o, counts[base.Key])
-			card.Error = errMsg
-			s.partial(w, r, "leagues", "league_card", card)
+			refuse(errMsg)
 		}
 		return
 	}
+	// The guide follows at once rather than at the next refresh. These numbers are derived
+	// from the league's start, so they are not anyone's choice.
+	s.Snapshots.Renumber(moved, false)
 	s.refreshSoon()
 	toast(w, "ok", msg)
 	s.partial(w, r, "leagues", "league_card", s.leagueCard(base, o, counts[base.Key]))
