@@ -107,6 +107,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /sources/{id}", s.sourceRow("source_row"))
 		mux.HandleFunc("GET /sources/{id}/edit", s.sourceRow("source_row_edit"))
 		mux.HandleFunc("PUT /sources/{id}", s.handleUpdateSource)
+		mux.HandleFunc("POST /sources/{id}/enabled", s.handleToggleSource)
 		mux.HandleFunc("DELETE /sources/{id}", s.handleDeleteSource)
 		mux.HandleFunc("GET /runs", s.handleRuns)
 		mux.HandleFunc("GET /runs/{id}", s.handleRun)

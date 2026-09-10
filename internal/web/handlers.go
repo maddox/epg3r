@@ -144,9 +144,8 @@ func sourceForm(r *http.Request, from store.NewSource) store.NewSource {
 	from.XMLTVURL = r.FormValue("xmltv_url")
 	from.Timezone = r.FormValue("timezone")
 	from.IDPrefix = r.FormValue("id_prefix")
-	if _, present := r.Form["enabled"]; present || r.FormValue("editing") != "" {
-		from.Disabled = r.FormValue("enabled") == ""
-	}
+	// Whether a source is on is not in this form: it is a switch on the list, so editing a
+	// source leaves it however the switch left it.
 	return from
 }
 
@@ -178,6 +177,32 @@ func (s *Server) handleCreateSource(w http.ResponseWriter, r *http.Request) {
 	}
 	toast(w, "ok", "Source added. Refresh to build the guide.")
 	s.partial(w, r, "sources", "source_created", sourceView{Sources: list})
+}
+
+// handleToggleSource flips a source on or off from the list. An unchecked box is not posted
+// at all, so its absence is the "off" the browser sends.
+func (s *Server) handleToggleSource(w http.ResponseWriter, r *http.Request) {
+	src, ok := pathID(s, w, r, s.Store.GetSource)
+	if !ok {
+		return
+	}
+	on := r.FormValue("enabled") != ""
+	if err := s.Store.SetSourceEnabled(r.Context(), src.ID, on); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	updated, _, err := s.Store.GetSource(r.Context(), src.ID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.refreshSoon()
+	if on {
+		toast(w, "ok", updated.Name+" is on. Its channels come back on the next refresh.")
+	} else {
+		toast(w, "ok", updated.Name+" is off. Its channels leave on the next refresh.")
+	}
+	s.partial(w, r, "sources", "source_row", sourceView{Source: &updated})
 }
 
 // sourceRow renders a source's row in the given block.

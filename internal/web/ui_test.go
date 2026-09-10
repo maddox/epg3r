@@ -266,16 +266,39 @@ func TestSourcesFlow(t *testing.T) {
 	if body := do(h, http.MethodGet, "/sources/2/edit", nil, true).Body.String(); !strings.Contains(body, `name="url"`) {
 		t.Error("edit form missing")
 	}
-	rec = do(h, http.MethodPut, "/sources/2", url.Values{"editing": {"1"}, "name": {"Renamed"}, "url": {"http://p/2"}}, true)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Renamed") || !strings.Contains(rec.Body.String(), "disabled") {
+	rec = do(h, http.MethodPut, "/sources/2", url.Values{"name": {"Renamed"}, "url": {"http://p/2"}}, true)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Renamed") {
 		t.Errorf("update: %d %s", rec.Code, rec.Body.String())
 	}
 	got, _, _ := st.GetSource(ctx, id)
-	if got.Enabled || got.URL != "http://p/2" || got.XMLTVURL != "" {
+	// Whether a source is on lives on the switch in the list, so saving the form must not
+	// touch it: an edit that quietly turned a source off would take its channels with it.
+	if !got.Enabled || got.URL != "http://p/2" || got.XMLTVURL != "" {
 		t.Errorf("update not stored: %+v", got)
 	}
+
+	// The switch. An unchecked box is not posted at all, so its absence is what turns a
+	// source off, and the row comes back showing the new state.
+	rec = do(h, http.MethodPost, "/sources/2/enabled", url.Values{}, true)
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "checked") {
+		t.Errorf("turning off: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, _, _ := st.GetSource(ctx, id); got.Enabled {
+		t.Error("the source should be off")
+	}
+	rec = do(h, http.MethodPost, "/sources/2/enabled", url.Values{"enabled": {"1"}}, true)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "checked") {
+		t.Errorf("turning on: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, _, _ := st.GetSource(ctx, id); !got.Enabled {
+		t.Error("the source should be on")
+	}
+	// Nothing else about it moved.
+	if got, _, _ := st.GetSource(ctx, id); got.Name != "Renamed" || got.URL != "http://p/2" {
+		t.Errorf("the switch rewrote the row: %+v", got)
+	}
 	// Validation on update keeps the edit form open with the message.
-	rec = do(h, http.MethodPut, "/sources/2", url.Values{"editing": {"1"}, "url": {"nope"}}, true)
+	rec = do(h, http.MethodPut, "/sources/2", url.Values{"url": {"nope"}}, true)
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "must start with http") {
 		t.Errorf("update validation: %d", rec.Code)
 	}

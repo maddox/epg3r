@@ -22,7 +22,7 @@
   <div class="no-rows">No sources yet. Add one on the right.</div>
 {{else}}
 <table class="table">
-  <thead><tr><th>Source</th><th class="whitespace-nowrap">Last fetch</th><th class="whitespace-nowrap">Channels</th><th class="w-px"></th></tr></thead>
+  <thead><tr><th class="w-px">Enabled</th><th>Source</th><th class="whitespace-nowrap">Last fetch</th><th class="whitespace-nowrap">Channels</th><th class="w-px"></th></tr></thead>
   <tbody id="source-rows">
     {{range .Sources}}{{template "source_row" dict "Source" .}}{{end}}
   </tbody>
@@ -32,8 +32,13 @@
 
 {{define "source_row"}}{{with .Source}}
 <tr id="source-{{.ID}}">
+  <td class="w-px">
+    <input type="checkbox" class="switch" name="enabled" value="1" {{if .Enabled}}checked{{end}}
+           aria-label="Enable {{.Name}}" hx-post="/sources/{{.ID}}/enabled" hx-trigger="change" hx-include="this"
+           hx-target="#source-{{.ID}}" hx-swap="outerHTML" hx-boost="false">
+  </td>
   <td>
-    <div class="font-medium {{if not .Enabled}}text-ink-500{{end}}">{{.Name}}{{if not .Enabled}} <span class="pill bg-ink-700 text-ink-300">disabled</span>{{end}}</div>
+    <div class="font-medium {{if not .Enabled}}text-ink-500{{end}}">{{.Name}}</div>
     {{if or .Timezone .IDPrefix}}<div class="mt-1 flex flex-wrap gap-2 text-xs text-ink-500">{{if .Timezone}}<span>{{.Timezone}}</span>{{end}}{{if .IDPrefix}}<span>prefix &ldquo;{{.IDPrefix}}&rdquo;</span>{{end}}</div>{{end}}
   </td>
   <td class="whitespace-nowrap text-ink-200">
@@ -61,12 +66,10 @@
 
 {{define "source_row_edit"}}
 <tr id="source-{{.Source.ID}}">
-  <td colspan="4">
+  <td colspan="5">
     <form hx-put="/sources/{{.Source.ID}}" hx-target="#source-{{.Source.ID}}" hx-swap="outerHTML" hx-boost="false" class="grid gap-3 md:grid-cols-2">
       {{if .Error}}<div class="md:col-span-2 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
-      <input type="hidden" name="editing" value="1">
       {{template "source_fields" .Form}}
-      <div class="flex items-end"><label class="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled" value="1" {{if not .Form.Disabled}}checked{{end}} class="h-4 w-4 accent-accent-500"> Enabled</label></div>
       <div class="md:col-span-2 flex gap-2">
         <button class="btn-primary">Save</button>
         <button type="button" class="btn-ghost" hx-get="/sources/{{.Source.ID}}" hx-target="#source-{{.Source.ID}}" hx-swap="outerHTML">Cancel</button>

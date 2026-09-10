@@ -67,6 +67,12 @@
   /* Sits beside a loud button without competing with it: no ground of its own, and it
      recedes rather than greying out when there is nothing for it to do. */
   .btn-quiet { @apply btn px-2 text-ink-300 hover:text-ink-100 disabled:opacity-40; }
+  /* A checkbox wearing a switch, so a row says whether a source is on without a word. */
+  .switch { @apply relative h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-ink-600 transition-colors; }
+  .switch:checked { @apply bg-accent-500; }
+  .switch::after { content: ""; @apply absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-ink-100 transition-transform; }
+  .switch:checked::after { @apply translate-x-4; }
+  .switch:focus-visible { @apply outline-none ring-2 ring-accent-500/40; }
   .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-300; }
   .help { @apply mt-1 text-xs text-ink-300; }
   .stat { @apply card p-5; }

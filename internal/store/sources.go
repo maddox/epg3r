@@ -180,6 +180,15 @@ func (s *Store) UpdateSource(ctx context.Context, id int64, in NewSource) error 
 	return err
 }
 
+// SetSourceEnabled turns a source on or off without touching anything else about it. The
+// switch is on the list, where the rest of a source's fields are not on screen to be posted
+// back, so this writes the one column rather than rewriting the row from a form.
+func (s *Store) SetSourceEnabled(ctx context.Context, id int64, enabled bool) error {
+	_, err := s.w.ExecContext(ctx, `UPDATE sources SET enabled = ?, updated_at = ? WHERE id = ?`,
+		enabled, s.stamp(), id)
+	return err
+}
+
 // SourceFetchResult records what the last fetch of a source did.
 type SourceFetchResult struct {
 	Status       FetchStatus
