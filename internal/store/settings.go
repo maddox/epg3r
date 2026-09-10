@@ -16,7 +16,7 @@ const (
 	SettingDefaultTimezone        = "default_timezone"
 	SettingPublicBaseURL          = "public_base_url"
 	SettingConfidenceThreshold    = "confidence_threshold"
-	SettingEmitPlaceholderProg    = "emit_placeholder_programme"
+	SettingEmitPlaceholderProg    = "emit_placeholder_program"
 	SettingM3UTvcGuideTags        = "m3u_tvc_guide_tags"
 	SettingChannelStart           = "channel_start"
 )
