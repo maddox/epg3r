@@ -300,13 +300,13 @@ func TestSettingsSaveAndValidate(t *testing.T) {
 
 	form.Set(store.SettingRefreshIntervalMinutes, "30")
 	form.Del(store.SettingRefreshOnStart) // unchecked checkbox is absent from the form
-	form.Set(store.SettingChannelIDStyle, "slug")
+	form.Set(store.SettingDefaultTimezone, "Europe/London")
 	rec = do(h, http.MethodPut, "/settings", form, true)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Saved.") {
 		t.Errorf("save: %d %s", rec.Code, rec.Body.String()[:min(300, rec.Body.Len())])
 	}
 	all, _ := st.Settings(context.Background())
-	if all.RefreshInterval() != 30*time.Minute || all.Bool(store.SettingRefreshOnStart) || all[store.SettingChannelIDStyle] != "slug" {
+	if all.RefreshInterval() != 30*time.Minute || all.Bool(store.SettingRefreshOnStart) || all[store.SettingDefaultTimezone] != "Europe/London" {
 		t.Errorf("settings not saved: %v", all)
 	}
 }

@@ -144,7 +144,6 @@ func TestSettingValidation(t *testing.T) {
 		SettingEmitPlaceholderProg: {"off", "0"},
 		SettingConfidenceThreshold: {"0.75", "0.75"},
 		SettingKeepRuns:            {"007", "7"},
-		SettingChannelIDStyle:      {"slug", "slug"},
 		SettingDefaultTimezone:     {"Europe/London", "Europe/London"},
 		SettingPublicBaseURL:       {"  https://x.example ", "https://x.example"},
 	}
@@ -160,7 +159,6 @@ func TestSettingValidation(t *testing.T) {
 		SettingRefreshOnStart:         "maybe",
 		SettingConfidenceThreshold:    "1.5",
 		SettingKeepRuns:               "ten",
-		SettingChannelIDStyle:         "fancy",
 		SettingDefaultTimezone:        "Mars/Olympus",
 	}
 	for key, in := range bad {

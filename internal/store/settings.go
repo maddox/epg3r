@@ -19,7 +19,6 @@ const (
 	SettingConfidenceThreshold    = "confidence_threshold"
 	SettingEmitPlaceholderProg    = "emit_placeholder_programme"
 	SettingM3UTvcGuideTags        = "m3u_tvc_guide_tags"
-	SettingChannelIDStyle         = "channel_id_style"
 	SettingKeepRuns               = "keep_runs"
 	SettingForgetChannelsAfter    = "forget_channels_after_days"
 	SettingChannelStart           = "channel_start"
@@ -69,8 +68,6 @@ var SettingDefs = []SettingDef{
 		Default: "0", Kind: KindBool},
 	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
 		Default: "0", Kind: KindBool},
-	{Key: SettingChannelIDStyle, Label: "Channel id style", Help: "label gives ids like \"NFL 03\"; slug gives \"nfl-03\".",
-		Default: "label", Kind: KindString, Choices: []string{"label", "slug"}},
 	{Key: SettingChannelStart, Label: "Channel numbers start at", Help: "The first channel number epg3r uses. Each league gets a thousand numbers from here, in the order the Leagues page lists them, so moving this moves every sports channel together. Pick a range your other providers leave alone.",
 		Default: "10000", Kind: KindInt, Min: f(1), Max: f(900000), Env: "EPG3R_CHANNEL_START"},
 	{Key: SettingKeepRuns, Label: "Runs to keep", Help: "How many refresh runs to keep in history.",
