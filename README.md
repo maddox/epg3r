@@ -1,173 +1,144 @@
 # epg3r
 
-Channels DVR friendly guide data for the sports channels IPTV providers hand out.
+Real guide data for the sports channels your IPTV provider gives you.
 
-IPTV providers carry live sports on channels that exist only for one game: a numbered
-slot whose name changes to whatever is on ("NFL 04: Bills vs Texans (Sunday 09/13) 1:00PM
-ET"), or a channel dedicated to one team. Their guide data for those channels is empty,
-so Channels DVR shows nothing and cannot record them. epg3r reads the provider's M3U
-(and their XMLTV if they have one), works out which league, teams, and kickoff each
-channel carries, and serves an M3U and XMLTV that Channels DVR understands: stable
-channel ids and numbers, one airing per game with the matchup, categories, Gracenote
-team ids, and a shared episode id so the same game on three channels records once.
+## The problem
 
-## Run it
+Most IPTV providers carry live sports on channels that only exist for one game. The channel
+is called something like `NFL 04: Bills vs Texans (09/13) 1:00PM ET` today, and something
+else entirely tomorrow. Some providers also give each team its own channel.
 
-From a checkout: `make up`. `make logs` follows the log, `make stop` stops it, `make reset`
-also wipes its data.
+Those channels almost never come with guide data. In Channels DVR they show up blank — you
+can't see what's on, and you can't record anything.
 
-Or with the published image:
+## What epg3r does
+
+epg3r reads your provider's channel list, works out what each channel actually is, and
+builds a proper guide from it.
+
+It figures out the league, the teams, and when the game starts. It gives every channel a
+stable number and a logo, and every game a listing with both teams, artwork, and a start
+time. If the same game is on three different channels, they share one listing, so recording
+it once is enough.
+
+Then it hands Channels DVR two links, and your sports channels look like every other channel
+you have.
+
+## Getting it running
+
+You need Docker and a playlist link from your provider.
+
+Make a `docker-compose.yml`:
 
 ```yaml
 services:
   epg3r:
     image: ghcr.io/maddox/epg3r:latest
-    ports: ["8080:8080"]
+    container_name: epg3r
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
     volumes:
       - epg3r-data:/data
+
 volumes:
   epg3r-data:
 ```
 
-Open `http://<host>:8080` and epg3r asks for your provider's playlist URL, checks it can
-read it, and offers you a refresh interval and a starting channel number. Nothing else is
-needed to get a guide.
-
-Then add a custom channel source in Channels DVR:
-
-- Playlist: `http://<host>:8080/m3u`
-- Guide: `http://<host>:8080/xmltv`
-
-### Environment
-
-Only what the process needs before it has a database. Everything a person would tune is a
-setting, set in the app and owned by it.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `EPG3R_DATA_DIR` | `/data` | SQLite database and caches |
-| `EPG3R_LISTEN` | `:8080` | HTTP listen address |
-| `EPG3R_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
-| `EPG3R_LOG_FORMAT` | `text` | `text` or `json` |
-
-
-### Commands
+Then start it:
 
 ```
-epg3r serve                              run the server and scheduler (default)
-epg3r run-once                           one refresh, print the report, exit
-epg3r parse-title -group NFL "<title>"   show how a channel title is parsed
-epg3r healthcheck                        used by the Docker HEALTHCHECK
-epg3r version
+docker compose up -d
 ```
 
-## What it understands
+Open `http://localhost:8080` (or your server's address) and epg3r asks you two things:
 
-Leagues: NFL, MLB, NBA, NHL, WNBA, MLS, NCAA Football, NCAA Basketball (men's and
-women's). Channel types:
+1. **Your provider's links.** The playlist link is required — it usually ends in `.m3u`. If
+   your provider also publishes a guide, add that too; it ends in `.xml` and helps epg3r get
+   game times right. epg3r checks both before moving on, so you'll know right away if a link
+   is wrong.
+2. **Where to start your channel numbers.** 10000 by default. Pick a range nothing else on
+   your system is using.
 
-- **Event channels** (`NFL 04`, `NCAAF 008 | WEST GEORGIA AT KENNESAW STATE | 09/03 07:00PM | ESPN+`).
-  Dozens of provider formats are handled through normalization and segment
-  classification rather than one regex per provider. Several providers in one playlist
-  may all have an "NFL 04"; each provider style gets its own family of channels
-  (`NFL 04`, `NFL 04 B`, ...) with stable numbers.
-- **Team channels** (`US NFL Buffalo Bills (HD)`, `NBALP: Oklahoma City Thunder`). Their
-  games come from the provider's XMLTV when it has them, and otherwise from the slot
-  channels: if a slot says Bills vs Texans on Sunday, both team channels carry it.
-- **Unused channels** (`Offline`, `No Event Scheduled`, bare labels) are numbered slots
-  the provider has parked. They stay in the lineup so the consumer does not see channels
-  appear and disappear.
-- **Network channels** (NFL Network, ESPN, local affiliates) are recognized and listed
-  but not exported; they have real guide data elsewhere.
+That's it. epg3r builds your guide, which takes a minute or two the first time.
 
-### Looking at what you get
+## Connecting it to Channels DVR
 
-A channel's properties come from parsing: which league it belongs to, whether it is an
-event channel or a team channel, which teams it carries. None of that is configurable. If
-a channel lands in the wrong league, that is a bug in the catalog or the parser, not a
-setting.
+In Channels DVR, add a custom channel source using these two links:
 
-- **Lineup** lists every channel with what is on now and next. Filter by league, by type,
-  by team, by whether anything is scheduled, or search what the table shows. Click a
-  channel to see all of its airings.
-- **Leagues** adjusts how a league's airings are described: airing title, game length,
-  early start, and the art the league itself wears.
+- **Playlist:** `http://your-server:8080/m3u`
+- **Guide:** `http://your-server:8080/xmltv`
 
-`/m3u` and `/xmltv` are the whole guide: every event-carrying channel epg3r recognizes,
-with nothing in the app taking any of them out.
+Both links are on the epg3r dashboard, ready to copy.
 
-### Art
+## What you'll see
 
-Every channel gets a logo and every airing a picture, served by epg3r itself at `/art`.
-A team channel wears its team's crest, an event channel its league's mark, and a game gets
-a placard with both teams on it — falling back to the league's when a side did not resolve.
+**Lineup** is every channel epg3r found, with what's on now and what's next. You can filter
+by league, search, and click any channel to see everything scheduled on it.
 
-Crests are fetched once, cached under the data directory, and never redistributed; a team
-epg3r has no crest for is drawn from its name instead, which is most of the college
-rosters. Nothing is fetched during a refresh: a run writes paths, and a picture is drawn
-the first time something asks for it.
+**Channel numbers** are handed out automatically. Each league gets its own block of a
+thousand, so NFL channels sit together, MLB channels sit together, and so on. You can move
+the whole set by changing where the numbers start, or renumber individual channels yourself.
 
-Because the guide points at these by URL, `public_base_url` matters more than it used to.
-Leave it empty and each request is answered with links built from the host it arrived on,
-which is right for most setups; set it when more than one hostname reaches the app.
+**Artwork** is drawn by epg3r. Team channels get their team's logo, event channels get their
+league's, and each game gets a picture with both teams on it.
 
-A league's own logo and its fallback airing art can be replaced on the Leagues page. Each
-replaces only what epg3r draws for the league itself: a team channel still wears its own
-team, and a game still gets its matchup.
+**Collections** let you group channels and give that group its own pair of links. Handy if
+you only want football in one place, or want to hand a smaller set to something else.
 
-**Collections** are how you choose what a consumer sees. A collection is a set of
-channels you pick out — every team channel, or just the teams you follow — served at its
-own `/m3u/<name>` and `/xmltv/<name>`. Point one consumer at the whole guide and another
-at a collection, or use collections only. Tick channels in the Lineup — shift-click takes a
-range — then Actions › Add to collection, picking an existing one or naming a new one; open a collection to see just its
-channels and take any back out. A collection is a view of channels, not a copy: deleting
-one leaves the channels alone, and a channel that goes for good leaves the collections it
-was in.
+**History** shows every time epg3r rebuilt your guide and what happened to each channel — a
+good first stop if something looks wrong.
 
-Each change on the Leagues page triggers a refresh, so the guide follows within a second
-or two.
+## Leagues it knows
 
-A channel is its stream URL: identity is a hash of the source and that URL, and nothing
-about the title takes part, because a provider rewrites titles every week. The number a
-channel is published under is written once and read back for the life of the row.
+NFL, MLB, NBA, NHL, WNBA, MLS, and NCAA football and basketball, men's and women's.
 
-When a provider changes its stream URLs, though, the channels behind them are new as far
-as epg3r can tell — there is no identifier the two have in common. So numbers are not
-held forever: a channel gone from every playlist for a fortnight is dropped and its number
-freed for another.
+Channels epg3r doesn't recognize are left alone. Real networks like ESPN or NFL Network are
+identified but skipped, since they already have guide data from somewhere else.
 
-Numbers are yours to set. Tick channels in the Lineup, shift-click to take a range, give a starting number, and they
-take consecutive numbers in the order shown; a number you set is marked with a dot and is
-never reassigned. Playlists carry no channel numbers of their own, so what epg3r hands
-out is only a starting point — the numbers that suit the lineup you are inserting into
-are the ones only you know.
+## Settings worth knowing
 
-Channel numbers: each league owns a block of 1,000 starting at 8500 for the NFL
-(so `NFL 03` is 8503), then 9500 MLB, 10500 MLS, 11500 NBA, 12500 NHL, 13500 WNBA,
-14500 NCAAF, 15500 NCAAB. Team channels sit at the top of each block.
+Most settings can be left as they are. Two that sometimes matter:
 
-Leagues and rosters live in one manifest, `internal/catalog/data/catalog.yaml`: league
-settings first, then a roster per Gracenote team list with each team's id (emitted as
-`<team-id system="tms">`) and any extra spellings providers use. Add an alias there when
-a team name goes unmatched. Each league's airings share a Gracenote series id
-(NFL 191277, MLB 191273, MLS 191274, NBA 191276, NHL 448880, WNBA 191289, NCAA Football
-191261, NCAA Basketball 191260, NCAA Women's Basketball 191292); women's college games
-are told apart by the `(W)` marker in their titles.
+- **How often to check for new listings.** Hourly by default.
+- **The address other apps use to reach epg3r.** Leave this empty unless epg3r answers on
+  more than one address. If artwork isn't showing up in Channels DVR, this is usually why.
 
-## Develop
+## Keeping it up to date
 
-Everything runs in Docker; nothing is installed on the host.
+epg3r tells you in the header when a newer version is out, with a link to what changed. To
+update:
 
 ```
-./dev         # run from source with hot reload, using .env; ./dev reset wipes ./data
-make test     # go test -race in the dev container
-make vet
-make css      # rebuild the committed Tailwind CSS after editing internal/web/static/src/app.css
-make build    # production image
-make help
+docker compose pull
+docker compose up -d
 ```
 
-Test fixtures under `testdata/` are a real aggregated playlist (stream URLs replaced)
-and the provider guide that came with it. `internal/titleparse/testdata/titles.yaml`
-holds title examples with expected parses; add a case there when a provider's format
-misparses.
+Your settings, channel numbers, and collections are kept in the `epg3r-data` volume, so
+nothing is lost.
+
+## Other things
+
+Nothing about how epg3r reads your channels is configurable — which league a channel belongs
+to, and which teams are playing, are worked out from the channel's own name. If something
+lands in the wrong league, that's a bug worth
+[reporting](https://github.com/maddox/epg3r/issues), not a setting to change.
+
+Team logos are fetched once and cached. A team epg3r has no logo for gets one drawn from its
+name instead, which covers most college teams.
+
+If you'd rather run it without Docker Compose:
+
+```
+docker run -d --name epg3r -p 8080:8080 -v epg3r-data:/data ghcr.io/maddox/epg3r:latest
+```
+
+## Building it yourself
+
+Everything runs in Docker; nothing gets installed on your machine.
+
+```
+make run     start it from source, with live reload
+make test    run the tests
+make help    everything else
+```
