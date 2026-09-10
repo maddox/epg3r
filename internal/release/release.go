@@ -24,10 +24,11 @@ const Repo = "maddox/epg3r"
 // behind: there is no telling what is in it.
 const DevVersion = "dev"
 
-// every is how often the latest release is looked up. Releases are cut on a merge, so a
-// person is at most this far behind knowing, and 60 unauthenticated requests an hour is
-// four times what this needs.
-const every = 6 * time.Hour
+// every is how often the latest release is looked up, and so the longest someone can be
+// behind without being told. Releases are cut on every push to main, so this has to be short
+// enough that a release landing an hour after a container started is not invisible until the
+// next day. One request an hour against a limit of sixty is not worth economizing on.
+const every = time.Hour
 
 // stamp matches the version a release carries: a UTC timestamp, minute precision, with
 // seconds appended only when two releases landed inside one minute. Fixed width and zero
