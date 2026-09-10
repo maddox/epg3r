@@ -208,6 +208,117 @@ func (s *Store) AssignNumbers(ctx context.Context, as []Assignment) (map[string]
 	return out, tx.Commit()
 }
 
+// translateBlock moves every channel numbered in [from, to) by delta. Like SetChannelNumbers
+// it vacates every destination first, so a block sliding onto itself does not collide halfway
+// through. A destination held by a channel outside the block is a conflict and nothing is
+// written. The moved numbers are derived from a league's start rather than chosen, so by_user
+// is cleared. It reports where each moved channel landed.
+func translateBlock(ctx context.Context, tx *sql.Tx, from, to, delta int) (map[string]int, error) {
+	moved := map[string]int{}
+	if delta == 0 || from >= to {
+		return moved, nil
+	}
+	rows, err := tx.QueryContext(ctx,
+		`SELECT key, number FROM channels WHERE number >= ? AND number < ? ORDER BY key`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	type move struct {
+		key string
+		to  int
+	}
+	var moves []move
+	for rows.Next() {
+		var m move
+		var was int
+		if err := rows.Scan(&m.key, &was); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		m.to = was + delta
+		if m.to <= 0 {
+			rows.Close()
+			return nil, &ValidationError{Msg: "that start would put a channel below number 1"}
+		}
+		moves = append(moves, m)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(moves) == 0 {
+		return moved, nil
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE channels SET number = NULL WHERE number >= ? AND number < ?`, from, to); err != nil {
+		return nil, err
+	}
+	set, err := tx.PrepareContext(ctx, `UPDATE channels SET number = ?, by_user = 0 WHERE key = ?`)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	for _, m := range moves {
+		if _, err := set.ExecContext(ctx, m.to, m.key); err != nil {
+			if isUniqueViolation(err) {
+				return nil, &ValidationError{Msg: fmt.Sprintf(
+					"channel number %d is already taken by a channel outside this league", m.to)}
+			}
+			return nil, err
+		}
+		moved[m.key] = m.to
+	}
+	return moved, nil
+}
+
+// clearHandSet frees the numbers a person chose among these channels, wherever those numbers
+// are, and keeps their ids: an id is what a consumer's recordings hang on, so it is the one
+// thing about a published channel that must not move. A range cannot serve here — the whole
+// point is to find a channel moved out of its league's block by hand, which is the one place
+// a range will not look. It reports the keys it freed.
+func clearHandSet(ctx context.Context, tx *sql.Tx, keys []string) ([]string, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	args := make([]any, 0, len(keys))
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	in := placeholders(len(keys))
+	found, err := scanList[string](ctx, tx,
+		`SELECT key FROM channels WHERE by_user = 1 AND number IS NOT NULL AND key IN (`+in+`) ORDER BY key`, args...)
+	if err != nil || len(found) == 0 {
+		return found, err
+	}
+	_, err = tx.ExecContext(ctx,
+		`UPDATE channels SET number = NULL, by_user = 0 WHERE key IN (`+in+`) AND by_user = 1`, args...)
+	return found, err
+}
+
+// placeholders is "?, ?, ?" for an IN clause of n values.
+func placeholders(n int) string {
+	return strings.TrimSuffix(strings.Repeat("?, ", n), ", ")
+}
+
+// scanList reads a single-column query into a slice, where scanSet reads it into a set.
+func scanList[T any](ctx context.Context, q querier, query string, args ...any) ([]T, error) {
+	rows, err := q.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []T
+	for rows.Next() {
+		var v T
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 // ForgetChannels drops channels no playlist has carried since before, freeing their
 // numbers. A provider that changes its stream URLs produces entirely new channels, and
 // nothing can map the old ones onto them, so numbers are reclaimed rather than held
