@@ -41,14 +41,10 @@ type App struct {
 	Log     *slog.Logger
 }
 
-// Open assembles the store, catalog, and runner, applying first-boot seeds.
+// Open assembles the store, catalog, and runner.
 func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error) {
 	st, err := store.Open(ctx, cfg.DataDir)
 	if err != nil {
-		return nil, err
-	}
-	if err := seed(ctx, st, cfg, log); err != nil {
-		st.Close()
 		return nil, err
 	}
 	if n, err := st.FailStaleRuns(ctx); err != nil {
@@ -220,34 +216,6 @@ func ParseTitle(ctx context.Context, cfg config.Config, group, title string) err
 		League string `json:"league"`
 		titleparse.Result
 	}{lg.Key, res})
-}
-
-// seed applies environment seeds. Each seed is idempotent on its own key: a setting
-// is written only if it has never been set, and a source only if none has that URL,
-// so seeds never overwrite what the user later changes in the UI.
-func seed(ctx context.Context, st *store.Store, cfg config.Config, log *slog.Logger) error {
-	for key, raw := range cfg.SeedSettings {
-		wrote, err := st.SetSettingIfUnset(ctx, key, raw)
-		if err != nil {
-			return fmt.Errorf("seed setting: %w", err)
-		}
-		if wrote {
-			log.Info("seeded setting from environment", "key", key, "value", raw)
-		}
-	}
-	if cfg.SeedM3UURL != "" {
-		exists, err := st.SourceExistsByURL(ctx, cfg.SeedM3UURL)
-		if err != nil {
-			return fmt.Errorf("seed source: %w", err)
-		}
-		if !exists {
-			if _, err := st.CreateSource(ctx, store.NewSource{Name: "Default", URL: cfg.SeedM3UURL, XMLTVURL: cfg.SeedXMLTVURL}); err != nil {
-				return fmt.Errorf("seed source: %w", err)
-			}
-			log.Info("seeded source from environment", "url", cfg.SeedM3UURL)
-		}
-	}
-	return nil
 }
 
 // Healthcheck probes the running server; used by the Docker HEALTHCHECK.

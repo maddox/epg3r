@@ -1,4 +1,5 @@
-# Local run: `cp .env.example .env`, edit it, then `make up` (or `docker compose up -d --build`).
+# Local run: `make up` (or `docker compose up -d --build`), then open the app and it will
+# ask for your provider's URLs.
 # For a published image replace `build: .` with `image: ghcr.io/jonmaddox/epg3r:latest`.
 # Channels DVR pulls http://<host>:${EPG3R_PORT}/m3u and http://<host>:${EPG3R_PORT}/xmltv
 name: epg3r-dev
@@ -11,11 +12,6 @@ services:
     ports:
       - "${EPG3R_PORT:-8080}:8080"
     environment:
-      EPG3R_M3U_URL: ${EPG3R_M3U_URL:-}
-      EPG3R_XMLTV_URL: ${EPG3R_XMLTV_URL:-}
-      EPG3R_REFRESH_INTERVAL: ${EPG3R_REFRESH_INTERVAL:-}
-      EPG3R_TIMEZONE: ${EPG3R_TIMEZONE:-}
-      EPG3R_PUBLIC_URL: ${EPG3R_PUBLIC_URL:-}
       EPG3R_LOG_LEVEL: ${EPG3R_LOG_LEVEL:-}
     volumes:
       - epg3r-data:/data

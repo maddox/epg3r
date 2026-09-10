@@ -112,13 +112,6 @@ func (s *Store) CreateSource(ctx context.Context, in NewSource) (int64, error) {
 	return res.LastInsertId()
 }
 
-// SourceExistsByURL reports whether any source has this URL.
-func (s *Store) SourceExistsByURL(ctx context.Context, url string) (bool, error) {
-	var n int
-	err := s.r.QueryRowContext(ctx, `SELECT COUNT(*) FROM sources WHERE url = ?`, url).Scan(&n)
-	return n > 0, err
-}
-
 const sourceColumns = `id, name, url, xmltv_url, enabled, provider, timezone, date_order, vs_order, id_prefix,
 	created_at, updated_at, last_fetched_at, last_status, last_error, last_channel_count`
 

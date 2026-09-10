@@ -111,26 +111,20 @@ func TestSettings(t *testing.T) {
 	}
 }
 
-func TestSetSettingIfUnset(t *testing.T) {
+// A setting that has never been written reads as its shipped default, so nothing has to be
+// seeded for the app to start with sensible values.
+func TestTypedSettingAccessors(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
 
-	wrote, err := s.SetSettingIfUnset(ctx, SettingRefreshIntervalMinutes, "45")
-	if err != nil || !wrote {
-		t.Fatalf("first write: %v %v", wrote, err)
+	if err := s.SetSetting(ctx, SettingRefreshIntervalMinutes, "45"); err != nil {
+		t.Fatal(err)
 	}
-	wrote, err = s.SetSettingIfUnset(ctx, SettingRefreshIntervalMinutes, "5")
-	if err != nil || wrote {
-		t.Fatalf("second write should be a no-op: %v %v", wrote, err)
+	if err := s.SetSetting(ctx, SettingRefreshIntervalMinutes, "0"); err == nil {
+		t.Error("an invalid value should be rejected")
 	}
 	if v, _ := s.Setting(ctx, SettingRefreshIntervalMinutes); v != "45" {
-		t.Errorf("value overwritten: %q", v)
-	}
-	if _, err := s.SetSettingIfUnset(ctx, SettingRefreshIntervalMinutes, "0"); err == nil {
-		t.Error("invalid value should be rejected even when unset")
-	}
-	if wrote, err := s.SetSettingIfUnset(ctx, SettingChannelStart, "10000"); err != nil || wrote {
-		t.Errorf("a seed equal to the default should not be written: %v %v", wrote, err)
+		t.Errorf("a refused write changed the value: %q", v)
 	}
 	all, _ := s.Settings(ctx)
 	if all.RefreshInterval() != 45*time.Minute || all.Int(SettingChannelStart) != 10000 || all.Bool(SettingEmitPlaceholderProg) || all.Location().String() != "America/New_York" {
@@ -184,20 +178,12 @@ func TestSources(t *testing.T) {
 	fixed := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return fixed })
 
-	exists, err := s.SourceExistsByURL(ctx, "http://p.example/list.m3u")
-	if err != nil || exists {
-		t.Fatalf("exists before insert: %v %v", exists, err)
-	}
-
 	id, err := s.CreateSource(ctx, NewSource{Name: "Provider", URL: "http://p.example/list.m3u"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != 1 {
 		t.Errorf("first id should be 1, got %d", id)
-	}
-	if exists, _ := s.SourceExistsByURL(ctx, "http://p.example/list.m3u"); !exists {
-		t.Error("SourceExistsByURL should find the new source")
 	}
 
 	list, err := s.ListSources(ctx)

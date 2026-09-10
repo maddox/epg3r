@@ -13,8 +13,8 @@ team ids, and a shared episode id so the same game on three channels records onc
 
 ## Run it
 
-From a checkout: `cp .env.example .env`, put your playlist URL in it, then `make up`.
-`make logs` follows the log, `make stop` stops it, `make reset` also wipes its data.
+From a checkout: `make up`. `make logs` follows the log, `make stop` stops it, `make reset`
+also wipes its data.
 
 Or with the published image:
 
@@ -23,23 +23,25 @@ services:
   epg3r:
     image: ghcr.io/jonmaddox/epg3r:latest
     ports: ["8080:8080"]
-    environment:
-      EPG3R_M3U_URL: "http://provider.example/playlist.m3u"
-      # EPG3R_XMLTV_URL: "http://provider.example/guide.xml"   # optional
     volumes:
       - epg3r-data:/data
 volumes:
   epg3r-data:
 ```
 
+Open `http://<host>:8080` and epg3r asks for your provider's playlist URL, checks it can
+read it, and offers you a refresh interval and a starting channel number. Nothing else is
+needed to get a guide.
+
 Then add a custom channel source in Channels DVR:
 
 - Playlist: `http://<host>:8080/m3u`
 - Guide: `http://<host>:8080/xmltv`
 
-The guide refreshes hourly (setting `refresh_interval_minutes`) and on start.
-
 ### Environment
+
+Only what the process needs before it has a database. Everything a person would tune is a
+setting, set in the app and owned by it.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -47,14 +49,7 @@ The guide refreshes hourly (setting `refresh_interval_minutes`) and on start.
 | `EPG3R_LISTEN` | `:8080` | HTTP listen address |
 | `EPG3R_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `EPG3R_LOG_FORMAT` | `text` | `text` or `json` |
-| `EPG3R_M3U_URL` | | First-boot seed: creates a source |
-| `EPG3R_XMLTV_URL` | | First-boot seed: the source's provider guide |
-| `EPG3R_REFRESH_INTERVAL` | | First-boot seed, in minutes |
-| `EPG3R_TIMEZONE` | | First-boot seed for the default zone (`America/New_York`) |
-| `EPG3R_PUBLIC_URL` | | First-boot seed for absolute URLs in the output |
 
-Seeds apply only to values never set before, so anything you later change in the
-database (or the web UI, when it lands) wins over the environment.
 
 ### Commands
 

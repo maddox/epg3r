@@ -40,7 +40,6 @@ type SettingDef struct {
 	Help    string // one sentence under the control
 	Default string
 	Kind    Kind
-	Env     string   // optional first-boot seed, e.g. "EPG3R_REFRESH_INTERVAL"
 	Min     *float64 // numeric kinds
 	Max     *float64
 	Choices []string           // string kind: allowed values
@@ -52,11 +51,11 @@ func f(v float64) *float64 { return &v }
 // SettingDefs is the registry of settings, in display order.
 var SettingDefs = []SettingDef{
 	{Key: SettingRefreshIntervalMinutes, Label: "Refresh every (minutes)", Help: "How often sources are fetched and the guide rebuilt.",
-		Default: "60", Kind: KindInt, Min: f(1), Env: "EPG3R_REFRESH_INTERVAL"},
+		Default: "60", Kind: KindInt, Min: f(1)},
 	{Key: SettingDefaultTimezone, Label: "Default time zone", Help: "Zone for game times that do not name one. Providers almost always mean Eastern.",
-		Default: "America/New_York", Kind: KindString, Check: checkTimezone, Env: "EPG3R_TIMEZONE"},
+		Default: "America/New_York", Kind: KindString, Check: checkTimezone},
 	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app. Every logo and every piece of airing art is fetched from here, so set it when more than one hostname reaches the app; leave it empty to derive from each request.",
-		Default: "", Kind: KindString, Env: "EPG3R_PUBLIC_URL"},
+		Default: "", Kind: KindString},
 	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
 		Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
 	{Key: SettingEmitPlaceholderProg, Label: "Placeholder programme on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" programme instead of an empty guide.",
@@ -64,7 +63,7 @@ var SettingDefs = []SettingDef{
 	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
 		Default: "0", Kind: KindBool},
 	{Key: SettingChannelStart, Label: "Channel numbers start at", Help: "The first channel number epg3r uses. Each league gets a thousand numbers from here, in the order the Leagues page lists them, so moving this moves every sports channel together. Pick a range your other providers leave alone.",
-		Default: "10000", Kind: KindInt, Min: f(1), Max: f(900000), Env: "EPG3R_CHANNEL_START"},
+		Default: "10000", Kind: KindInt, Min: f(1), Max: f(900000)},
 }
 
 var settingDefs = func() map[string]SettingDef {
@@ -252,27 +251,6 @@ func (s *Store) SetSettingsMoving(ctx context.Context, values map[string]string,
 	}
 	moved, err := s.writeSettings(ctx, normalized, shelf)
 	return nil, moved, err
-}
-
-// SetSettingIfUnset validates and writes a value only when the key has never been
-// written. A value equal to the default is not written, so a later default change
-// still reaches that installation. It reports whether the write happened.
-func (s *Store) SetSettingIfUnset(ctx context.Context, key, raw string) (bool, error) {
-	v, err := s.normalize(key, raw)
-	if err != nil {
-		return false, err
-	}
-	if v == settingDefs[key].Default {
-		return false, nil
-	}
-	res, err := s.w.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(key) DO NOTHING`, key, v, s.stamp())
-	if err != nil {
-		return false, err
-	}
-	s.loc.Store(nil)
-	n, err := res.RowsAffected()
-	return n > 0, err
 }
 
 func (s *Store) normalize(key, raw string) (string, error) {

@@ -4,14 +4,14 @@
 #   ./dev            start (Ctrl-C stops)
 #   ./dev reset      delete ./data (database and caches) and start fresh
 #
-# Reads .env (created from .env.example on first use) for the source seed and EPG3R_PORT.
+# Reads .env (created from .env.example on first use) for EPG3R_PORT and the log level.
 # Go and catalog changes rebuild and restart the app; templates and static files reload on
 # every request. Nothing runs on the host except docker. The real work is `make run`.
 set -e
 cd "$(dirname "$0")"
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "created .env from .env.example; set EPG3R_M3U_URL there, or add a source in the UI"
+  echo "created .env from .env.example"
 fi
 [ "$1" = "reset" ] && make reset-dev
 . ./.env

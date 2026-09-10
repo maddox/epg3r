@@ -4,8 +4,6 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
-
-	"github.com/jonmaddox/epg3r/internal/store"
 )
 
 func env(pairs ...string) Lookup {
@@ -24,9 +22,6 @@ func TestDefaults(t *testing.T) {
 	if cfg.DataDir != "/data" || cfg.Listen != ":8080" || cfg.LogFormat != "text" || cfg.LogLevel != slog.LevelInfo {
 		t.Errorf("unexpected defaults: %+v", cfg)
 	}
-	if cfg.SeedM3UURL != "" || len(cfg.SeedSettings) != 0 {
-		t.Errorf("seeds should be empty by default: %+v", cfg)
-	}
 	if got := cfg.LoopbackAddr(); got != "127.0.0.1:8080" {
 		t.Errorf("LoopbackAddr = %q", got)
 	}
@@ -38,30 +33,12 @@ func TestOverrides(t *testing.T) {
 		"EPG3R_LISTEN", "0.0.0.0:9000",
 		"EPG3R_LOG_LEVEL", "DEBUG",
 		"EPG3R_LOG_FORMAT", "json",
-		"EPG3R_M3U_URL", "http://p.example/list.m3u",
-		"EPG3R_REFRESH_INTERVAL", "90",
-		"EPG3R_PUBLIC_URL", "https://epg.example.com",
 	))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.LogLevel != slog.LevelDebug || cfg.LogFormat != "json" {
 		t.Errorf("logging not parsed: %+v", cfg)
-	}
-	if cfg.SeedM3UURL != "http://p.example/list.m3u" {
-		t.Errorf("SeedM3UURL = %q", cfg.SeedM3UURL)
-	}
-	want := map[string]string{
-		store.SettingRefreshIntervalMinutes: "90",
-		store.SettingPublicBaseURL:          "https://epg.example.com",
-	}
-	if len(cfg.SeedSettings) != len(want) {
-		t.Fatalf("SeedSettings = %v", cfg.SeedSettings)
-	}
-	for k, v := range want {
-		if cfg.SeedSettings[k] != v {
-			t.Errorf("SeedSettings[%s] = %q, want %q", k, cfg.SeedSettings[k], v)
-		}
 	}
 	if got := cfg.LoopbackAddr(); got != "127.0.0.1:9000" {
 		t.Errorf("LoopbackAddr = %q", got)

@@ -23,7 +23,7 @@
         <input id="s-{{.Key}}" class="input" name="{{.Key}}" value="{{.Value}}" placeholder="{{.Default}}">
       {{end}}
       {{if .Error}}<p class="mt-1 text-xs text-bad">{{.Error}}</p>{{end}}
-      <p class="mt-1 text-xs text-ink-500">default {{if .Default}}{{.Default}}{{else}}empty{{end}}{{if .Env}} · seed {{.Env}}{{end}}</p>
+      <p class="mt-1 text-xs text-ink-500">default {{if .Default}}{{.Default}}{{else}}empty{{end}}</p>
     </div>
   </div>
   {{end}}
