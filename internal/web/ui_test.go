@@ -311,6 +311,46 @@ func TestSettingsSaveAndValidate(t *testing.T) {
 	}
 }
 
+// Moving the start moves every channel that already has a number, and the Leagues page
+// reports the blocks it actually handed out rather than the shipped ones. One number does the
+// whole shelf: there is no arrangement of leagues for a reader to get wrong.
+func TestChannelStartMovesTheShelf(t *testing.T) {
+	s, st, _ := uiServer(t)
+	h := s.Handler()
+	ctx := context.Background()
+	s.Snapshots.Set(lineupSnapshot())
+
+	body := do(h, http.MethodGet, "/leagues", nil, false).Body.String()
+	if !strings.Contains(body, "numbered 10000-10999") {
+		t.Errorf("the NFL card should name its block: %s", body[:min(900, len(body))])
+	}
+
+	form := url.Values{}
+	for _, d := range store.SettingDefs {
+		form.Set(d.Key, d.Default)
+	}
+	form.Set(store.SettingChannelStart, "10500")
+	if rec := do(h, http.MethodPut, "/settings", form, true); rec.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String()[:min(300, rec.Body.Len())])
+	}
+	if v, _ := st.Setting(ctx, store.SettingChannelStart); v != "10500" {
+		t.Fatalf("start = %s", v)
+	}
+	// A start 500 above the last one is nobody's problem now: every league moves with it.
+	body = do(h, http.MethodGet, "/leagues", nil, false).Body.String()
+	if !strings.Contains(body, "numbered 10500-11499") {
+		t.Errorf("the NFL card should follow the start: %s", body[:min(900, len(body))])
+	}
+	// And a start that cannot be read is refused without moving anything.
+	form.Set(store.SettingChannelStart, "nope")
+	if rec := do(h, http.MethodPut, "/settings", form, true); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("bad start: %d", rec.Code)
+	}
+	if v, _ := st.Setting(ctx, store.SettingChannelStart); v != "10500" {
+		t.Errorf("a refused start changed the setting: %s", v)
+	}
+}
+
 func TestRefreshAndStatusPill(t *testing.T) {
 	s, _, ref := uiServer(t)
 	h := s.Handler()

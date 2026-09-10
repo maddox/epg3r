@@ -15,24 +15,13 @@
       <div>
         <div class="flex items-center gap-2"><span class="chip" data-league="{{.Base.Key}}">{{.Base.Name}}</span>
           {{if not .Override.IsZero}}<span class="pill bg-accent-500/15 text-accent-300">customised</span>{{end}}
-          {{if .Managed}}<span class="pill bg-info/15 text-info">auto-numbered</span>{{end}}</div>
-        <p class="mt-2 text-xs text-ink-300">{{.WithGames}} of {{.Channels}} channels carrying a game</p>
+        </div>
+        <p class="mt-2 text-xs text-ink-300">{{.WithGames}} of {{.Channels}} channels carrying a game, numbered {{.Block}}</p>
       </div>
     </div>
     {{if .Error}}<div class="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
     <div class="grid gap-3 md:grid-cols-3">
       <label class="md:col-span-3"><span class="label">Airing title</span><input class="input" name="airing_title" value="{{with .Override.AiringTitle}}{{.}}{{end}}" placeholder="{{.Base.AiringTitle}}"></label>
-      {{/* Not a "differs from the default" field: typing this league's own start is still a
-           choice to hand its numbering over, so only an empty box means unset. */}}
-      <div class="md:col-span-3">
-        <label class="block w-40"><span class="label">Channel numbers from</span>
-          <input class="input mono" type="number" name="channel_base" min="1" step="1" inputmode="numeric"
-                 value="{{with .Override.ChannelBase}}{{.}}{{end}}" placeholder="{{.Base.ChannelBase}}"></label>
-        <p class="mt-1.5 text-xs text-ink-300">
-          {{if .Managed}}epg3r numbers {{.Base.Name}}: {{.SlotShown}}, team channels from {{.TeamStart}}. The Lineup refuses to renumber them by hand — clear this to take them back.
-          {{else}}Set a number and epg3r takes this league's numbering over: an event channel lands at that number plus its slot, team channels 800 above, and the Lineup then refuses to renumber them by hand.{{end}}
-        </p>
-      </div>
       <div><span class="label">Game length</span>
         {{template "picker" .Durations}}
       </div>
@@ -41,7 +30,7 @@
       </div>
       <div class="flex items-end gap-2">
         <button class="btn-primary">Save</button>
-        {{if not .Override.IsZero}}<button type="button" class="btn-ghost" hx-delete="/leagues/{{.Base.Key}}" hx-target="#league-{{.Base.Key}}" hx-swap="outerHTML" hx-confirm="Reset {{.Base.Name}} to the shipped defaults{{if .Managed}}, and stop epg3r numbering its channels{{end}}?">Reset</button>{{end}}
+        {{if not .Override.IsZero}}<button type="button" class="btn-ghost" hx-delete="/leagues/{{.Base.Key}}" hx-target="#league-{{.Base.Key}}" hx-swap="outerHTML" hx-confirm="Reset {{.Base.Name}} to the shipped defaults?">Reset</button>{{end}}
       </div>
       {{/* The thumbnails show what the league actually wears, so pasting an override and
            saving shows the result rather than only the URL. */}}

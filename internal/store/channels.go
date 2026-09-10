@@ -113,10 +113,10 @@ type Assignment struct {
 	PreferredNumber int
 	Base, Limit     int
 
-	// KeepID means this channel already answers to PreferredID and wants only a number.
-	// It happens when a league's numbering moves out from under a channel: the number is
-	// cleared and re-derived, but the id must not move — it is what a consumer's
-	// recordings hang on.
+	// KeepID means this channel already answers to PreferredID and wants only a number:
+	// a row that knows its identity but holds no number. The id must not move — it is what
+	// a consumer's recordings hang on — so the de-duplication that would rename it to
+	// "NFL 04 2" for colliding with itself is skipped.
 	KeepID bool
 }
 
@@ -270,53 +270,6 @@ func translateBlock(ctx context.Context, tx *sql.Tx, from, to, delta int) (map[s
 		moved[m.key] = m.to
 	}
 	return moved, nil
-}
-
-// clearHandSet frees the numbers a person chose among these channels, wherever those numbers
-// are, and keeps their ids: an id is what a consumer's recordings hang on, so it is the one
-// thing about a published channel that must not move. A range cannot serve here — the whole
-// point is to find a channel moved out of its league's block by hand, which is the one place
-// a range will not look. It reports the keys it freed.
-func clearHandSet(ctx context.Context, tx *sql.Tx, keys []string) ([]string, error) {
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	args := make([]any, 0, len(keys))
-	for _, k := range keys {
-		args = append(args, k)
-	}
-	in := placeholders(len(keys))
-	found, err := scanList[string](ctx, tx,
-		`SELECT key FROM channels WHERE by_user = 1 AND number IS NOT NULL AND key IN (`+in+`) ORDER BY key`, args...)
-	if err != nil || len(found) == 0 {
-		return found, err
-	}
-	_, err = tx.ExecContext(ctx,
-		`UPDATE channels SET number = NULL, by_user = 0 WHERE key IN (`+in+`) AND by_user = 1`, args...)
-	return found, err
-}
-
-// placeholders is "?, ?, ?" for an IN clause of n values.
-func placeholders(n int) string {
-	return strings.TrimSuffix(strings.Repeat("?, ", n), ", ")
-}
-
-// scanList reads a single-column query into a slice, where scanSet reads it into a set.
-func scanList[T any](ctx context.Context, q querier, query string, args ...any) ([]T, error) {
-	rows, err := q.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []T
-	for rows.Next() {
-		var v T
-		if err := rows.Scan(&v); err != nil {
-			return nil, err
-		}
-		out = append(out, v)
-	}
-	return out, rows.Err()
 }
 
 // ForgetChannels drops channels no playlist has carried since before, freeing their

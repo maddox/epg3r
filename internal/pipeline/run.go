@@ -257,7 +257,7 @@ func (r *Runner) loadConfig(ctx context.Context) (runConfig, error) {
 		emitIdle:  s.Bool(store.SettingEmitPlaceholderProg),
 		keepRuns:  s.Int(store.SettingKeepRuns),
 		loc:       s.Location(),
-		catalog:   r.Catalog.WithOverrides(overrides),
+		catalog:   r.Catalog.WithOverrides(overrides).WithChannelStart(s.Int(store.SettingChannelStart)),
 	}, nil
 }
 
@@ -370,9 +370,8 @@ func (run *sourceRun) propose(en *entry, want store.Assignment) {
 			en.ch.ByUser = c.ByUser
 			return
 		}
-		// An identity but no number: this channel's league was re-homed and its number
-		// cleared, so it asks for one again while keeping the id a consumer knows it by.
-		// Without this it would settle on number 0 and be published on it.
+		// An identity but no number: it asks for one again while keeping the id a consumer
+		// knows it by. Without this it would settle on number 0 and be published on it.
 		want.PreferredID, want.KeepID = c.ChannelID, true
 	}
 	want.Key = en.key

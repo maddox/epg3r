@@ -858,10 +858,10 @@ func TestGuideTagsDescribeTheChannel(t *testing.T) {
 	}
 }
 
-// Setting a league's start hands its numbering to epg3r. Nothing in the pipeline knows about
-// the setting: every number is derived from the league's base, so an override of the base is
-// all it takes.
-func TestManagedLeagueStartsWhereTheUserSaid(t *testing.T) {
+// The one start the user picks decides every channel number. Nothing in the pipeline knows
+// about the setting: numbers are derived from each league's base, and the base is the start
+// plus the league's place on the shelf.
+func TestChannelsStartWhereTheUserSaid(t *testing.T) {
 	ctx := context.Background()
 	r, st := newRunner(t)
 	url := serveM3U(t, "#EXTM3U\n"+
@@ -872,8 +872,7 @@ func TestManagedLeagueStartsWhereTheUserSaid(t *testing.T) {
 	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
 		t.Fatal(err)
 	}
-	start := "3000"
-	if err := st.SetLeagueOverride(ctx, "nfl", catalog.Override{ChannelBase: &start}); err != nil {
+	if err := st.SetSetting(ctx, store.SettingChannelStart, "3000"); err != nil {
 		t.Fatal(err)
 	}
 	snap, _, err := r.Run(ctx, store.TriggerManual)
@@ -907,9 +906,9 @@ func TestManagedLeagueStartsWhereTheUserSaid(t *testing.T) {
 		}
 	}
 
-	// A league nobody handed over is untouched.
-	if mlb := findChannel(snap, "MLB 02"); mlb == nil || mlb.Number != 11002 {
-		t.Errorf("mlb should still be shipped-numbered: %+v", mlb)
+	// Every other league moves with it, keeping its own block one along the shelf.
+	if mlb := findChannel(snap, "MLB 02"); mlb == nil || mlb.Number != 4002 {
+		t.Errorf("mlb should be in the second block: %+v", mlb)
 	}
 }
 
@@ -930,8 +929,7 @@ func TestMissingSlotsLeaveHoles(t *testing.T) {
 	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: srv.URL + "/list.m3u"}); err != nil {
 		t.Fatal(err)
 	}
-	start := "3000"
-	if err := st.SetLeagueOverride(ctx, "nfl", catalog.Override{ChannelBase: &start}); err != nil {
+	if err := st.SetSetting(ctx, store.SettingChannelStart, "3000"); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := r.Run(ctx, store.TriggerManual); err != nil {

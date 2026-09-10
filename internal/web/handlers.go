@@ -371,7 +371,15 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		submitted[d.Key] = raw
 	}
-	problems, err := s.Store.SetSettings(r.Context(), submitted)
+	// Moving the start moves every channel that already has a number, in the same
+	// transaction that stores it. The numbers are derived from the start, so a channel keeps
+	// the place its slot earned it; nothing is reordered and no id changes.
+	shelf, err := s.shelfMove(r.Context(), submitted[store.SettingChannelStart])
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	problems, moved, err := s.Store.SetSettingsMoving(r.Context(), submitted, shelf)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -381,9 +389,34 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		s.partial(w, r, "settings", "settings_form", settingsPage{Fields: settingsFields(submitted, problems)})
 		return
 	}
+	if len(moved) > 0 {
+		// The guide follows at once rather than at the next refresh. These numbers are
+		// derived from the start, so they are not anyone's choice.
+		s.Snapshots.Renumber(moved, false)
+	}
 	values, _ := s.Store.Settings(r.Context())
 	toast(w, "ok", "Settings saved")
 	s.partial(w, r, "settings", "settings_form", settingsPage{Fields: settingsFields(values, nil), Saved: true})
+}
+
+// shelfMove reports the translation a new channel start implies, or nil when it is unchanged
+// or unreadable — a value the store is about to reject as a validation problem must not move
+// anything first.
+func (s *Server) shelfMove(ctx context.Context, raw string) (*store.Shelf, error) {
+	want, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return nil, nil
+	}
+	cur, err := s.Store.Setting(ctx, store.SettingChannelStart)
+	if err != nil {
+		return nil, err
+	}
+	have, err := strconv.Atoi(cur)
+	if err != nil || have == want {
+		return nil, nil
+	}
+	from, to := s.Catalog.WithChannelStart(have).ShelfRange()
+	return &store.Shelf{From: from, To: to, Delta: want - have}, nil
 }
 
 // baseURL is how the requester reaches this server: what the operator configured, else
