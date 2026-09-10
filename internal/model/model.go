@@ -84,7 +84,7 @@ type Channel struct {
 	GuideArt   string    `json:"guide_art,omitempty"`
 	StreamURL  string    `json:"stream_url"`
 	SourceID   int64     `json:"source_id"`
-	Programs   []Program `json:"programmes"`
+	Programs   []Program `json:"programs"`
 	FeedNote   string    `json:"feed_note,omitempty"` // e.g. "Bears broadcast"
 }
 
