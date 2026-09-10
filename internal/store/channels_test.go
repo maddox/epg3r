@@ -2,9 +2,8 @@ package store
 
 import (
 	"context"
+	"strconv"
 	"testing"
-
-	"github.com/jonmaddox/epg3r/internal/catalog"
 )
 
 // numbered puts a channel in the guide with a derived number, the state every channel is in
@@ -33,8 +32,6 @@ func numbered(t *testing.T, s *Store, url, channelID string, number int) (key st
 	return key, id
 }
 
-func startAt(n string) catalog.Override { return catalog.Override{ChannelBase: &n} }
-
 // A re-homed channel keeps the id a consumer already knows it by. Channels DVR keys
 // recordings to the channel id, so an id that churns silently breaks them — this is the one
 // thing in the whole numbering path that must not move.
@@ -43,17 +40,11 @@ func TestAssignNumbersKeepsAnExistingID(t *testing.T) {
 	s := openTemp(t)
 	key, source := numbered(t, s, "a", "NFL 04", 10004)
 
-	// A number someone chose, which handing the league to epg3r discards.
-	if err := s.SetChannelNumbers(ctx, map[string]int{key: 10500}); err != nil {
+	// A row that knows its identity but has no number. Every writer that produces this does
+	// so inside a transaction, so it is built here directly: the point of the test is what
+	// AssignNumbers does when handed one, not how one comes about.
+	if _, err := s.w.ExecContext(ctx, `UPDATE channels SET number = NULL WHERE key = ?`, key); err != nil {
 		t.Fatal(err)
-	}
-	_, cleared, err := s.RehomeLeague(ctx, Rehome{
-		Key: "nfl", Override: startAt("3000"), Keys: []string{key}, DropByUser: true}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cleared) != 1 || cleared[0] != key {
-		t.Fatalf("cleared %v, want the hand-set channel", cleared)
 	}
 	all, err := s.Channels(ctx, source)
 	if err != nil {
@@ -98,10 +89,24 @@ func TestAssignNumbersLeavesANumberedChannelAlone(t *testing.T) {
 	}
 }
 
-// A league shifting up by one is every channel taking the number of the one before it, which
+// shelfMove writes the start and translates the numbers, the way the settings page does.
+func shelfMove(t *testing.T, s *Store, from, to, delta int) map[string]int {
+	t.Helper()
+	problems, moved, err := s.SetSettingsMoving(context.Background(),
+		map[string]string{SettingChannelStart: strconv.Itoa(from + delta)},
+		&Shelf{From: from, To: to, Delta: delta})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(problems) > 0 {
+		t.Fatalf("problems: %v", problems)
+	}
+	return moved
+}
+
+// Moving the shelf up by one is every channel taking the number of the one before it, which
 // collides if applied a row at a time. Every destination is vacated first.
-func TestRehomeSlidesABlockOntoItself(t *testing.T) {
-	ctx := context.Background()
+func TestShelfSlidesOntoItself(t *testing.T) {
 	s := openTemp(t)
 	var keys []string
 	for i := range 4 {
@@ -109,11 +114,7 @@ func TestRehomeSlidesABlockOntoItself(t *testing.T) {
 		keys = append(keys, key)
 	}
 
-	moved, _, err := s.RehomeLeague(ctx, Rehome{
-		Key: "nfl", Override: startAt("10001"), From: 10000, To: 11000, Delta: 1, Keys: keys}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	moved := shelfMove(t, s, 10000, 18000, 1)
 	if len(moved) != 4 {
 		t.Fatalf("moved %d channels, want 4", len(moved))
 	}
@@ -122,28 +123,44 @@ func TestRehomeSlidesABlockOntoItself(t *testing.T) {
 			t.Errorf("channel %d landed on %d, want %d", i, moved[key], 10002+i)
 		}
 	}
-	// A translated number is derived from the league's start, not chosen by anyone.
-	all, err := s.Channels(ctx, 1)
+}
+
+// A number someone chose moves with the shelf and stays theirs. The move relocates the whole
+// range; it is not a decision to take the number back.
+func TestShelfMoveCarriesAHandSetNumber(t *testing.T) {
+	ctx := context.Background()
+	s := openTemp(t)
+	key, source := numbered(t, s, "a", "NFL 04", 10004)
+	if err := s.SetChannelNumbers(ctx, map[string]int{key: 10500}); err != nil {
+		t.Fatal(err)
+	}
+
+	moved := shelfMove(t, s, 10000, 18000, 1000)
+	if moved[key] != 11500 {
+		t.Errorf("moved to %d, want 11500", moved[key])
+	}
+	all, err := s.Channels(ctx, source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range all {
-		if c.ByUser {
-			t.Errorf("%s should no longer be marked hand-set", c.ChannelID)
-		}
+	if !all[key].ByUser {
+		t.Error("the number is still the one the user chose, just somewhere else")
+	}
+	if all[key].ChannelID != "NFL 04" {
+		t.Errorf("id = %q, want it unchanged", all[key].ChannelID)
 	}
 }
 
-// A destination held by a channel that is not moving is a conflict, and the whole re-home is
-// abandoned — the override included — rather than half-applied.
-func TestRehomeRefusesAnOutsideCollision(t *testing.T) {
+// A destination held by a channel outside the shelf is a conflict, and the whole move is
+// abandoned — the setting included — rather than half-applied.
+func TestShelfMoveRefusesAnOutsideCollision(t *testing.T) {
 	ctx := context.Background()
 	s := openTemp(t)
 	nfl, nflSource := numbered(t, s, "a", "NFL 04", 10004)
-	stray, straySource := numbered(t, s, "b", "MLB 04", 3004) // in the way
+	stray, straySource := numbered(t, s, "b", "Local 4", 3004) // outside the shelf, in the way
 
-	_, _, err := s.RehomeLeague(ctx, Rehome{
-		Key: "nfl", Override: startAt("3000"), From: 10000, To: 11000, Delta: -7000, Keys: []string{nfl}}, nil)
+	_, _, err := s.SetSettingsMoving(ctx, map[string]string{SettingChannelStart: "3000"},
+		&Shelf{From: 10000, To: 18000, Delta: -7000})
 	if err == nil {
 		t.Fatal("moving onto an occupied number was allowed")
 	}
@@ -159,46 +176,14 @@ func TestRehomeRefusesAnOutsideCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 	if left[nfl].Number != 10004 || blocking[stray].Number != 3004 {
-		t.Errorf("a refused re-home changed something: %d %d", left[nfl].Number, blocking[stray].Number)
+		t.Errorf("a refused move changed something: %d %d", left[nfl].Number, blocking[stray].Number)
 	}
 	// And the setting did not land either, or the page would disagree with the guide.
-	overrides, err := s.LeagueOverrides(ctx)
+	got, err := s.Setting(ctx, SettingChannelStart)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, stored := overrides["nfl"]; stored {
-		t.Error("the override was written despite the move failing")
-	}
-}
-
-// Handing a league over discards the numbers a person chose and leaves the derived ones to be
-// translated, so only the hand-set rows come back for a new number.
-func TestRehomeDiscardsOnlyHandSetNumbers(t *testing.T) {
-	ctx := context.Background()
-	s := openTemp(t)
-	derived, derivedSource := numbered(t, s, "a", "NFL 04", 10004)
-	chosen, _ := numbered(t, s, "b", "NFL 05", 10005)
-	if err := s.SetChannelNumbers(ctx, map[string]int{chosen: 10700}); err != nil {
-		t.Fatal(err)
-	}
-
-	moved, cleared, err := s.RehomeLeague(ctx, Rehome{
-		Key: "nfl", Override: startAt("3000"), From: 10000, To: 11000, Delta: -7000,
-		Keys: []string{derived, chosen}, DropByUser: true}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cleared) != 1 || cleared[0] != chosen {
-		t.Fatalf("cleared %v, want just the hand-set one", cleared)
-	}
-	if moved[derived] != 3004 {
-		t.Errorf("the derived channel should have moved with the league: %d", moved[derived])
-	}
-	all, err := s.Channels(ctx, derivedSource)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if all[derived].Number != 3004 {
-		t.Errorf("derived number = %d, want 3004", all[derived].Number)
+	if got != "10000" {
+		t.Errorf("start = %s, want the move to have rolled it back", got)
 	}
 }

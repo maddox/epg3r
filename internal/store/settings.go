@@ -22,6 +22,7 @@ const (
 	SettingChannelIDStyle         = "channel_id_style"
 	SettingKeepRuns               = "keep_runs"
 	SettingForgetChannelsAfter    = "forget_channels_after_days"
+	SettingChannelStart           = "channel_start"
 )
 
 // Kind is a setting's value type. The UI renders controls from it and the store
@@ -70,6 +71,8 @@ var SettingDefs = []SettingDef{
 		Default: "0", Kind: KindBool},
 	{Key: SettingChannelIDStyle, Label: "Channel id style", Help: "label gives ids like \"NFL 03\"; slug gives \"nfl-03\".",
 		Default: "label", Kind: KindString, Choices: []string{"label", "slug"}},
+	{Key: SettingChannelStart, Label: "Channel numbers start at", Help: "The first channel number epg3r uses. Each league gets a thousand numbers from here, in the order the Leagues page lists them, so moving this moves every sports channel together. Pick a range your other providers leave alone.",
+		Default: "10000", Kind: KindInt, Min: f(1), Max: f(900000), Env: "EPG3R_CHANNEL_START"},
 	{Key: SettingKeepRuns, Label: "Runs to keep", Help: "How many refresh runs to keep in history.",
 		Default: "20", Kind: KindInt, Min: f(1)},
 	{Key: SettingForgetChannelsAfter, Label: "Forget channels after (days)", Help: "A channel gone from its playlist this long is forgotten and its number freed for another. A provider that changes its stream URLs produces entirely new channels, so numbers have to be reclaimed or a league eventually runs out of them.",
@@ -175,29 +178,44 @@ func (s *Store) SetSetting(ctx context.Context, key, raw string) error {
 	if err != nil {
 		return &ValidationError{err.Error()}
 	}
-	return s.writeSettings(ctx, map[string]string{key: v})
+	_, err = s.writeSettings(ctx, map[string]string{key: v}, nil)
+	return err
 }
 
-// writeSettings stores normalized values in one transaction and drops the zone cache
-// once they are committed. Every settings writer ends here.
-func (s *Store) writeSettings(ctx context.Context, values map[string]string) error {
+// Shelf is the span of channel numbers the leagues occupy and how far it is moving. A zero
+// Delta is no move.
+type Shelf struct{ From, To, Delta int }
+
+// writeSettings stores normalized values in one transaction and drops the zone cache once
+// they are committed. Every settings writer ends here.
+//
+// A shelf move rides along inside the same transaction: where the channel numbers start and
+// what the channels are published under are one fact, and a half-applied move would leave the
+// guide disagreeing with the page that set it.
+func (s *Store) writeSettings(ctx context.Context, values map[string]string, shelf *Shelf) (map[string]int, error) {
 	tx, err := s.w.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 	now := s.stamp()
 	for key, v := range values {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
 			ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`, key, v, now); err != nil {
-			return err
+			return nil, err
+		}
+	}
+	var moved map[string]int
+	if shelf != nil && shelf.Delta != 0 {
+		if moved, err = translateBlock(ctx, tx, shelf.From, shelf.To, shelf.Delta); err != nil {
+			return nil, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 	s.loc.Store(nil) // after commit, so a concurrent reader cannot re-cache the old value
-	return nil
+	return moved, nil
 }
 
 // Location is the configured default zone. The store is the only writer of settings,
@@ -219,6 +237,14 @@ func (s *Store) Location(ctx context.Context) *time.Location {
 // SetSettings validates every value and, only if all pass, writes them in one
 // transaction. Problems are returned per key; nothing is written when any fail.
 func (s *Store) SetSettings(ctx context.Context, values map[string]string) (map[string]string, error) {
+	problems, _, err := s.SetSettingsMoving(ctx, values, nil)
+	return problems, err
+}
+
+// SetSettingsMoving is SetSettings with a shelf move applied in the same transaction, for the
+// setting that decides where every channel number starts. It reports the numbers that changed
+// so the guide in memory can follow without waiting for a refresh.
+func (s *Store) SetSettingsMoving(ctx context.Context, values map[string]string, shelf *Shelf) (map[string]string, map[string]int, error) {
 	problems := map[string]string{}
 	normalized := map[string]string{}
 	for key, raw := range values {
@@ -230,9 +256,10 @@ func (s *Store) SetSettings(ctx context.Context, values map[string]string) (map[
 		normalized[key] = v
 	}
 	if len(problems) > 0 {
-		return problems, nil
+		return problems, nil, nil
 	}
-	return nil, s.writeSettings(ctx, normalized)
+	moved, err := s.writeSettings(ctx, normalized, shelf)
+	return nil, moved, err
 }
 
 // SetSettingIfUnset validates and writes a value only when the key has never been

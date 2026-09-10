@@ -254,7 +254,7 @@ func translateBlock(ctx context.Context, tx *sql.Tx, from, to, delta int) (map[s
 		`UPDATE channels SET number = NULL WHERE number >= ? AND number < ?`, from, to); err != nil {
 		return nil, err
 	}
-	set, err := tx.PrepareContext(ctx, `UPDATE channels SET number = ?, by_user = 0 WHERE key = ?`)
+	set, err := tx.PrepareContext(ctx, `UPDATE channels SET number = ? WHERE key = ?`)
 	if err != nil {
 		return nil, err
 	}
