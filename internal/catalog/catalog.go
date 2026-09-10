@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -221,11 +222,6 @@ func (lg *League) RGB() (r, g, b uint8, ok bool) {
 
 func (c *Catalog) validate() error {
 	seenSeries := map[string]string{}
-	type block struct {
-		lo, hi int
-		key    string
-	}
-	var blocks []block
 	for _, lg := range c.Leagues {
 		switch {
 		case lg.Key == "" || strings.ToLower(lg.Key) != lg.Key:
@@ -267,6 +263,34 @@ func (c *Catalog) validate() error {
 				return fmt.Errorf("league %s: womens_roster %q not found", lg.Key, lg.WomensRoster)
 			}
 		}
+	}
+	return c.checkBlocks()
+}
+
+// ValidateOverrides reports the first problem with a set of overrides taken together — the
+// kind no single override can answer for, because it is about two leagues at once. Every
+// league is read as its override leaves it, so a start the user chose is checked against the
+// blocks other leagues actually occupy rather than the ones they shipped with.
+func (c *Catalog) ValidateOverrides(overrides map[string]Override) error {
+	for key, o := range overrides {
+		if err := o.Validate(); err != nil {
+			return fmt.Errorf("%s: %w", key, err)
+		}
+	}
+	return c.WithOverrides(overrides).checkBlocks()
+}
+
+// checkBlocks rejects two leagues whose thousand-wide number blocks would share a number.
+// It is separate from validate so the same rule can be applied to a set of user overrides,
+// where a league's start is chosen rather than shipped: one algorithm, one message, and no
+// way for a hand-picked start to be held to a laxer standard than the manifest is.
+func (c *Catalog) checkBlocks() error {
+	type block struct {
+		lo, hi int
+		key    string
+	}
+	blocks := make([]block, 0, len(c.Leagues))
+	for _, lg := range c.Leagues {
 		blocks = append(blocks, block{lg.ChannelBase, lg.ChannelBase + BlockSize, lg.Key})
 	}
 	slices.SortFunc(blocks, func(a, b block) int { return cmp.Compare(a.lo, b.lo) })
@@ -424,6 +448,18 @@ type Override struct {
 	StartPad    *string `json:"start_pad,omitempty"`
 	Logo        *string `json:"logo,omitempty"`
 	Placard     *string `json:"placard,omitempty"`
+
+	// ChannelBase is where this league's numbers start. Setting it hands the league's
+	// numbering to epg3r: every channel in it is numbered from here, and the Lineup refuses
+	// to renumber them by hand. Unset means the shipped start and numbers the user owns.
+	ChannelBase *string `json:"channel_base,omitempty"`
+}
+
+// Managed reports whether the user has handed this league's numbering over. A league with a
+// start of its own has no numbers set by hand: they are all derived from it.
+func (o Override) Managed() bool {
+	_, ok, _ := overrideNumber("channel_base", o.ChannelBase)
+	return ok
 }
 
 // IsZero reports whether nothing is overridden. Every field is a pointer, so the
@@ -435,13 +471,38 @@ func (o Override) Validate() error {
 	if _, _, err := overrideDuration("duration", o.Duration, false); err != nil {
 		return err
 	}
-	_, _, err := overrideDuration("start_pad", o.StartPad, true)
+	if _, _, err := overrideDuration("start_pad", o.StartPad, true); err != nil {
+		return err
+	}
+	_, _, err := overrideNumber("channel_base", o.ChannelBase)
 	return err
 }
 
 // overrideDuration reads one of the two duration fields. ok is false when the field is
 // not overridden at all, so callers can tell "leave it alone" from "use this". Both the
 // form and the run go through here, so they cannot disagree on what is acceptable.
+// maxChannelBase keeps a start and the block above it inside sane numbers, so a fat-fingered
+// 85000000 is caught here rather than producing a guide nobody can navigate.
+const maxChannelBase = 999_000
+
+// overrideNumber reads a channel number the user typed. Like overrideDuration, ok is false
+// when the field is not overridden at all, so a caller can tell "leave it alone" from "use
+// this" — and both the form and the run reach the value through here, so they cannot disagree
+// about what is acceptable.
+func overrideNumber(name string, s *string) (n int, ok bool, err error) {
+	if s == nil || strings.TrimSpace(*s) == "" {
+		return 0, false, nil
+	}
+	n, err = strconv.Atoi(strings.TrimSpace(*s))
+	if err != nil {
+		return 0, false, fmt.Errorf("%s: %q is not a whole number", name, *s)
+	}
+	if n <= 0 || n > maxChannelBase {
+		return 0, false, fmt.Errorf("%s must be a channel number between 1 and %d", name, maxChannelBase)
+	}
+	return n, true, nil
+}
+
 func overrideDuration(name string, s *string, allowZero bool) (d time.Duration, ok bool, err error) {
 	if s == nil || *s == "" {
 		return 0, false, nil
@@ -491,6 +552,9 @@ func (lg League) With(o Override) League {
 	}
 	if o.Placard != nil {
 		lg.Placard = *o.Placard
+	}
+	if n, ok, _ := overrideNumber("channel_base", o.ChannelBase); ok {
+		lg.ChannelBase = n
 	}
 	return lg
 }

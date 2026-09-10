@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -296,5 +297,106 @@ func TestOverrideValidate(t *testing.T) {
 	}
 	if err := (Override{Duration: &zero}).Validate(); err == nil {
 		t.Error("zero duration accepted")
+	}
+
+	// A channel start is read by the same rule wherever it comes from, so a value the form
+	// would never produce still cannot reach a league.
+	for _, ok := range []string{"", "1", "8500", "999000"} {
+		if err := (Override{ChannelBase: &ok}).Validate(); err != nil {
+			t.Errorf("channel_base %q rejected: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"0", "-1", "8.5", "eight thousand", "999001", "8500x"} {
+		if err := (Override{ChannelBase: &bad}).Validate(); err == nil {
+			t.Errorf("channel_base %q accepted", bad)
+		}
+	}
+	// An empty start is not a start: it is the league keeping its own numbers.
+	if empty := ""; (Override{ChannelBase: &empty}).Managed() {
+		t.Error("an empty channel_base should not hand the numbering over")
+	}
+	if set := "3000"; !(Override{ChannelBase: &set}).Managed() {
+		t.Error("a channel_base should hand the numbering over")
+	}
+}
+
+// A league's whole number layout hangs off its start, so overriding the start moves all of
+// it — the slot band, the team band and every derived number in between.
+func TestChannelBaseOverride(t *testing.T) {
+	c := load(t)
+	start := "3000"
+	moved := c.WithOverrides(map[string]Override{"nfl": {ChannelBase: &start}})
+
+	lg, ok := moved.League("nfl")
+	if !ok {
+		t.Fatal("no nfl")
+	}
+	if lg.ChannelBase != 3000 {
+		t.Fatalf("base = %d", lg.ChannelBase)
+	}
+	if got := lg.SlotChannelNumber(0, 3); got != 3003 {
+		t.Errorf("NFL 03 = %d, want 3003", got)
+	}
+	if got := lg.SlotChannelNumber(1, 3); got != 3103 {
+		t.Errorf("the second family should move with it: %d", got)
+	}
+	if got := lg.TeamChannelBase(); got != 3800 {
+		t.Errorf("team band = %d, want 3800", got)
+	}
+	if from, to := lg.SlotRange(); from != 3000 || to != 3800 {
+		t.Errorf("slot range = %d..%d", from, to)
+	}
+	if from, to := lg.TeamRange(); from != 3800 || to != 4000 {
+		t.Errorf("team range = %d..%d", from, to)
+	}
+
+	// The shipped catalog is untouched, and so is every other league.
+	if base, _ := c.League("nfl"); base.ChannelBase != 10000 {
+		t.Errorf("the shipped catalog moved: %d", base.ChannelBase)
+	}
+	if mlb, _ := moved.League("mlb"); mlb.ChannelBase != 11000 {
+		t.Errorf("mlb moved: %d", mlb.ChannelBase)
+	}
+}
+
+// A start the user picks is held to the same rule the shipped bases are: a league needs a
+// thousand numbers nobody else is using. The rule can only be applied to the whole set,
+// because it is about two leagues at once.
+func TestValidateOverridesRejectsOverlap(t *testing.T) {
+	c := load(t)
+	at := func(n string) map[string]Override { return map[string]Override{"nfl": {ChannelBase: &n}} }
+
+	if err := c.ValidateOverrides(at("400")); err != nil {
+		t.Errorf("a start with room around it was rejected: %v", err)
+	}
+	// 11000 is MLB's shipped block, and an override is checked against where leagues
+	// actually are rather than where they started.
+	err := c.ValidateOverrides(at("11000"))
+	if err == nil {
+		t.Fatal("a start landing on another league was accepted")
+	}
+	if !strings.Contains(err.Error(), "nfl") || !strings.Contains(err.Error(), "mlb") {
+		t.Errorf("the error should name both leagues: %v", err)
+	}
+	// Overlap is a thousand wide, not exact.
+	if err := c.ValidateOverrides(at("10500")); err == nil {
+		t.Error("a start 500 below another league's was accepted")
+	}
+
+	// Two chosen starts are checked against each other, not only against the shipped ones.
+	nfl, mlb := "400", "1399"
+	if err := c.ValidateOverrides(map[string]Override{"nfl": {ChannelBase: &nfl}, "mlb": {ChannelBase: &mlb}}); err == nil {
+		t.Error("two chosen starts a block apart minus one were accepted")
+	}
+	mlb = "1400"
+	if err := c.ValidateOverrides(map[string]Override{"nfl": {ChannelBase: &nfl}, "mlb": {ChannelBase: &mlb}}); err != nil {
+		t.Errorf("two chosen starts exactly a block apart were rejected: %v", err)
+	}
+
+	// A malformed one is reported before any of that, and says which league it came from.
+	bad := "soon"
+	if err := c.ValidateOverrides(map[string]Override{"nfl": {Duration: &bad}}); err == nil ||
+		!strings.Contains(err.Error(), "nfl") {
+		t.Errorf("a bad override should name its league: %v", err)
 	}
 }
