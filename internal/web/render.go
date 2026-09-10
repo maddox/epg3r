@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jonmaddox/epg3r/internal/model"
+	"github.com/jonmaddox/epg3r/internal/release"
 	"github.com/jonmaddox/epg3r/internal/scheduler"
 	"github.com/jonmaddox/epg3r/internal/store"
 )
@@ -322,12 +323,23 @@ type view struct {
 	Version string
 	Assets  string // fingerprint of the built css and js, for the asset URLs
 	Status  scheduler.Status
+	Update  release.Status
 	Setup   bool // the first-run wizard: no nav, since nothing else is reachable yet
 	Data    any
 }
 
 func (s *Server) view(title, nav string, data any) view {
-	return view{Title: title, Nav: nav, Version: s.Version, Assets: s.tpl.assetTag(), Status: s.status(), Data: data}
+	return view{Title: title, Nav: nav, Version: s.Version, Assets: s.tpl.assetTag(),
+		Status: s.status(), Update: s.update(), Data: data}
+}
+
+// update is what the header says about the running version. A server with no checker wired
+// in still renders: the version shows, and nothing claims to know about newer ones.
+func (s *Server) update() release.Status {
+	if s.Update == nil {
+		return release.Status{Current: s.Version}
+	}
+	return s.Update()
 }
 
 func (s *Server) status() scheduler.Status {

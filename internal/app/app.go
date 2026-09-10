@@ -18,6 +18,7 @@ import (
 	"github.com/jonmaddox/epg3r/internal/config"
 	"github.com/jonmaddox/epg3r/internal/model"
 	"github.com/jonmaddox/epg3r/internal/pipeline"
+	"github.com/jonmaddox/epg3r/internal/release"
 	"github.com/jonmaddox/epg3r/internal/scheduler"
 	"github.com/jonmaddox/epg3r/internal/store"
 	"github.com/jonmaddox/epg3r/internal/titleparse"
@@ -85,6 +86,11 @@ func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log
 	srv := web.New(version, log, dev, zone)
 	srv.Store, srv.Catalog = app.Store, app.Catalog
 	srv.TestSource, srv.TestGuide = app.Runner.Probe, app.Runner.ProbeGuide
+	// Whether a newer container exists. Looked up on a timer rather than on a request, so
+	// nobody's page load waits on GitHub.
+	updates := release.New(release.Repo, version, log)
+	updates.Start(ctx)
+	srv.Update = updates.Status
 	srv.Snapshots.GuideTags = func() bool {
 		v, _ := app.Store.SettingBool(context.Background(), store.SettingM3UTvcGuideTags)
 		return v

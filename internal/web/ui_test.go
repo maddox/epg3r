@@ -14,6 +14,7 @@ import (
 
 	"github.com/jonmaddox/epg3r/internal/catalog"
 	"github.com/jonmaddox/epg3r/internal/model"
+	"github.com/jonmaddox/epg3r/internal/release"
 	"github.com/jonmaddox/epg3r/internal/scheduler"
 	"github.com/jonmaddox/epg3r/internal/store"
 	"github.com/jonmaddox/epg3r/internal/store/storetest"
@@ -498,6 +499,44 @@ func TestEveryChannelKindHasALabel(t *testing.T) {
 	for _, k := range []model.ChannelKind{model.KindSlot, model.KindTeam, model.KindPlaceholder, model.KindNetwork} {
 		if kindLabels[k] == "" {
 			t.Errorf("channel kind %q has no label", k)
+		}
+	}
+}
+
+// The header says what is running and whether anything newer exists, on every page. A
+// server with no checker wired in still renders, showing the version and claiming nothing.
+func TestHeaderShowsTheVersion(t *testing.T) {
+	s, st, _ := uiServer(t)
+	setUp(t, st)
+	h := s.Handler()
+
+	// Nothing wired in: the version, no claim either way.
+	body := do(h, http.MethodGet, "/", nil, false).Body.String()
+	if !strings.Contains(body, "test") || strings.Contains(body, "Update available") {
+		t.Errorf("unwired header: %s", body[:min(1200, len(body))])
+	}
+
+	s.Update = func() release.Status {
+		return release.Status{Current: "2026.09.10.1423", Latest: "2026.09.10.1423",
+			URL: "https://github.com/owner/repo/releases/tag/2026.09.10.1423"}
+	}
+	body = do(h, http.MethodGet, "/", nil, false).Body.String()
+	if !strings.Contains(body, "2026.09.10.1423") {
+		t.Error("up to date should still show what is running")
+	}
+	if strings.Contains(body, "Update available") {
+		t.Error("up to date should not offer an update")
+	}
+
+	s.Update = func() release.Status {
+		return release.Status{Current: "2026.09.10.1423", Latest: "2026.09.11.0900", Behind: true,
+			URL: "https://github.com/owner/repo/releases/tag/2026.09.11.0900"}
+	}
+	body = do(h, http.MethodGet, "/", nil, false).Body.String()
+	for _, want := range []string{"Update available", "releases/tag/2026.09.11.0900",
+		"You are running 2026.09.10.1423"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("behind: missing %q", want)
 		}
 	}
 }

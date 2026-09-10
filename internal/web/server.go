@@ -13,6 +13,7 @@ import (
 
 	"github.com/jonmaddox/epg3r/internal/art"
 	"github.com/jonmaddox/epg3r/internal/catalog"
+	"github.com/jonmaddox/epg3r/internal/release"
 	"github.com/jonmaddox/epg3r/internal/store"
 )
 
@@ -38,6 +39,10 @@ type Server struct {
 	TestSource SourceTester
 	TestGuide  GuideTester
 	Art        *art.Service
+
+	// Update reports whether a newer release exists. It arrives as a function, the way
+	// PublicBase does, so the UI can show it without this package knowing how it is found.
+	Update func() release.Status
 
 	// PublicBase reads the public_base_url setting. It arrives as a function, the way
 	// Snapshots.GuideTags does, because the output routes are deliberately registered
