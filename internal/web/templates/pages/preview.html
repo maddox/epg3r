@@ -2,10 +2,11 @@
 {{with .Data}}
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
-    <a href="/lineup" class="text-sm">← Lineup</a>
-    <h1 class="mt-1 text-2xl font-bold tracking-tight">{{upper .Kind}} preview</h1>
+    {{if .Slug}}<a href="/collections" class="text-sm">← Collections</a>{{else}}<a href="/lineup" class="text-sm">← Lineup</a>{{end}}
+    <h1 class="mt-1 text-2xl font-bold tracking-tight">{{if .Collection}}{{.Collection}} · {{end}}{{upper .Kind}} preview</h1>
   </div>
-  <div class="flex gap-2"><a href="/preview/m3u" class="tab {{if eq .Kind "m3u"}}tab-active{{end}}">M3U</a><a href="/preview/xmltv" class="tab {{if eq .Kind "xmltv"}}tab-active{{end}}">XMLTV</a></div>
+  {{$in := ""}}{{if .Slug}}{{$in = printf "/%s" .Slug}}{{end}}
+  <div class="flex gap-2"><a href="/preview/m3u{{$in}}" class="tab {{if eq .Kind "m3u"}}tab-active{{end}}">M3U</a><a href="/preview/xmltv{{$in}}" class="tab {{if eq .Kind "xmltv"}}tab-active{{end}}">XMLTV</a></div>
 </div>
 {{if not .Bytes}}
   <div class="mt-6">{{template "empty" dict "Icon" "📄" "Title" "Nothing generated yet" "Body" "Previews appear after the first refresh."}}</div>

@@ -126,6 +126,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("PUT /leagues/{key}", s.handleSaveLeague)
 		mux.HandleFunc("DELETE /leagues/{key}", s.handleResetLeague)
 		mux.HandleFunc("GET /preview/{kind}", s.handlePreview)
+		mux.HandleFunc("GET /preview/{kind}/{collection}", s.handlePreview)
 		mux.HandleFunc("GET "+setupPath, s.handleSetup)
 		mux.HandleFunc("POST "+setupPath+"/urls", s.handleSetupURLs)
 		mux.HandleFunc("POST "+setupPath+"/back", s.handleSetupBack)

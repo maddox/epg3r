@@ -569,6 +569,11 @@ type previewPage struct {
 	Body  string
 	Bytes int // the whole document, which Body may be a prefix of
 	URL   string
+
+	// Set when previewing one collection rather than the whole guide, so the page can
+	// say which one and the other tab can stay inside it.
+	Collection string
+	Slug       string
 }
 
 // Truncated reports whether Body is only the head of the document.
@@ -576,6 +581,9 @@ func (p previewPage) Truncated() bool { return len(p.Body) < p.Bytes }
 
 const previewLimit = 256 << 10
 
+// handlePreview shows what a consumer would receive, for the whole guide or for one
+// collection. It renders through the same path the outputs serve from, so the page cannot
+// drift from the file.
 func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	var path string
@@ -588,19 +596,30 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r) // answered before rendering: an unknown kind costs a whole guide
 		return
 	}
+	// A collection previews exactly what it serves, through the same renderer the outputs
+	// use, so what is on screen is what a consumer would receive rather than a re-derivation.
+	c, members, ok := s.collected(w, r)
+	if !ok {
+		return // collected has answered
+	}
 	base := s.baseURL(r)
-	out, ok := s.Snapshots.render("epg3r "+s.Version, base, nil, nil)
+	out, built := s.Snapshots.render("epg3r "+s.Version, base, c, members)
 	body := out.xml
 	if kind == "m3u" {
 		body = out.m3u
 	}
 	d := previewPage{Kind: kind, URL: base + path}
-	if ok {
+	nav := "lineup"
+	if c != nil {
+		d.Collection, d.Slug, nav = c.Name, c.Slug, "collections"
+		d.URL += "/" + c.Slug
+	}
+	if built {
 		d.Bytes = len(body)
 		if len(body) > previewLimit {
 			body = body[:previewLimit]
 		}
 		d.Body = string(body)
 	}
-	s.page(w, r, "preview", s.view("Preview "+strings.ToUpper(kind), "lineup", d))
+	s.page(w, r, "preview", s.view("Preview "+strings.ToUpper(kind), nav, d))
 }
