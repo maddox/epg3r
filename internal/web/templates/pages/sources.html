@@ -22,7 +22,7 @@
   <div class="no-rows">No sources yet. Add one on the right.</div>
 {{else}}
 <table class="table">
-  <thead><tr><th>Source</th><th>Last fetch</th><th>Channels</th><th></th></tr></thead>
+  <thead><tr><th>Source</th><th class="whitespace-nowrap">Last fetch</th><th class="whitespace-nowrap">Channels</th><th class="w-px"></th></tr></thead>
   <tbody id="source-rows">
     {{range .Sources}}{{template "source_row" dict "Source" .}}{{end}}
   </tbody>
@@ -34,9 +34,7 @@
 <tr id="source-{{.ID}}">
   <td>
     <div class="font-medium {{if not .Enabled}}text-ink-500{{end}}">{{.Name}}{{if not .Enabled}} <span class="pill bg-ink-700 text-ink-300">disabled</span>{{end}}</div>
-    <div class="mono mt-0.5 break-all text-ink-300">{{.URL}}</div>
-    {{if .XMLTVURL}}<div class="mono mt-0.5 break-all text-ink-500">guide: {{.XMLTVURL}}</div>{{end}}
-    <div class="mt-1 flex gap-2 text-xs text-ink-500">{{if .Timezone}}<span>zone {{.Timezone}}</span>{{end}}{{if .IDPrefix}}<span>prefix "{{.IDPrefix}}"</span>{{end}}</div>
+    {{if or .Timezone .IDPrefix}}<div class="mt-1 flex flex-wrap gap-2 text-xs text-ink-500">{{if .Timezone}}<span>{{.Timezone}}</span>{{end}}{{if .IDPrefix}}<span>prefix &ldquo;{{.IDPrefix}}&rdquo;</span>{{end}}</div>{{end}}
   </td>
   <td class="whitespace-nowrap text-ink-200">
     {{if .LastFetchedAt}}{{since .LastFetchedAt}}
@@ -45,7 +43,7 @@
     {{else}}<span class="text-ink-500">never</span>{{end}}
   </td>
   <td class="tabular-nums">{{if .LastChannelCount}}{{deref .LastChannelCount}}{{else}}<span class="text-ink-500">–</span>{{end}}</td>
-  <td class="whitespace-nowrap text-right">
+  <td class="w-px whitespace-nowrap text-right">
     <button class="btn-ghost !px-3 !py-1" hx-get="/sources/{{.ID}}/edit" hx-target="#source-{{.ID}}" hx-swap="outerHTML" hx-boost="false">Edit</button>
     <button class="btn-danger !px-3 !py-1" hx-delete="/sources/{{.ID}}" hx-confirm="Remove {{.Name}}? Its channels leave the guide on the next refresh." hx-target="#source-{{.ID}}" hx-swap="outerHTML" hx-boost="false">Remove</button>
   </td>
