@@ -44,7 +44,7 @@
 
 {{/* What is running, and whether there is anything newer. Quiet when up to date, because
      being current is not news; a link either way, so the notes are one click from any page. */}}
-{{define "version_chip"}}{{if .Behind}}<a class="pill bg-accent-500/15 text-accent-300 hover:bg-accent-500/25"
+{{define "version_chip"}}{{if .Behind}}<a class="pill whitespace-nowrap bg-accent-500/15 text-accent-300 hover:bg-accent-500/25"
   href="{{.URL}}" target="_blank" rel="noreferrer noopener" title="You are running {{.Current}}. {{.Latest}} is out.">Update available</a>
 {{else}}<a class="text-xs text-ink-500 hover:text-ink-300" href="{{.URL}}" target="_blank" rel="noreferrer noopener"
   title="{{if eq .Current "dev"}}Built from source{{else}}You are up to date{{end}}">{{.Current}}</a>{{end}}{{end}}
