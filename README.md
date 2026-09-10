@@ -21,7 +21,7 @@ Or with the published image:
 ```yaml
 services:
   epg3r:
-    image: ghcr.io/jonmaddox/epg3r:latest
+    image: ghcr.io/maddox/epg3r:latest
     ports: ["8080:8080"]
     volumes:
       - epg3r-data:/data
