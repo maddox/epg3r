@@ -337,7 +337,7 @@ func (s *Server) view(title, nav string, data any) view {
 // in still renders: the version shows, and nothing claims to know about newer ones.
 func (s *Server) update() release.Status {
 	if s.Update == nil {
-		return release.Status{Current: s.Version}
+		return release.Status{Current: s.Version, CurrentURL: "https://github.com/" + release.Repo}
 	}
 	return s.Update()
 }

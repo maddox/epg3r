@@ -31,22 +31,24 @@
       {{template "navlink" dict "Href" "/runs" "Label" "History" "Key" "runs" "Active" .Nav}}
       {{template "navlink" dict "Href" "/settings" "Label" "Settings" "Key" "settings" "Active" .Nav}}
     </nav>
-    <div class="ml-auto flex items-center gap-3">{{template "version_chip" .Update}}{{template "status_pill" .Status}}</div>{{end}}
+    <div class="ml-auto flex items-center gap-3">{{template "update_pill" .Update}}{{template "status_pill" .Status}}</div>{{end}}
   </div>
 </header>
 <main id="main" class="mx-auto max-w-7xl px-6 py-8">
   {{template "content" .}}
 </main>
-<footer class="mx-auto max-w-7xl px-6 pb-8 text-xs text-ink-500">epg3r</footer>
+<footer class="mx-auto max-w-7xl px-6 pb-8 text-center text-xs text-ink-500">{{template "version_footer" .Update}}</footer>
 <div id="toasts" class="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
 </body>
 </html>{{end}}
 
-{{/* What is running, and whether there is anything newer. Quiet when up to date, because
-     being current is not news; a link either way, so the notes are one click from any page. */}}
-{{define "version_chip"}}{{if .Behind}}<a class="pill bg-accent-500/15 text-accent-300 hover:bg-accent-500/25"
-  href="{{.URL}}" target="_blank" rel="noreferrer noopener" title="You are running {{.Current}}. {{.Latest}} is out.">Update available</a>
-{{else}}<a class="text-xs text-ink-500 hover:text-ink-300" href="{{.URL}}" target="_blank" rel="noreferrer noopener"
-  title="{{if eq .Current "dev"}}Built from source{{else}}You are up to date{{end}}">{{.Current}}</a>{{end}}{{end}}
+{{/* Only when there is something to act on. What is running lives in the footer, where a
+     version number belongs; the header is for the one bit that is news. */}}
+{{define "update_pill"}}{{if .Behind}}<a class="pill whitespace-nowrap bg-accent-500/15 text-accent-300 hover:bg-accent-500/25"
+  href="{{.URL}}" target="_blank" rel="noreferrer noopener" title="You are running {{.Current}}. {{.Latest}} is out.">Update available</a>{{end}}{{end}}
+
+{{/* The name and what is running, linking to that release's notes. A build from source has
+     no release to point at, so it links to the project. */}}
+{{define "version_footer"}}<a class="text-ink-500 hover:text-ink-300" href="{{.CurrentURL}}" target="_blank" rel="noreferrer noopener">epg3r {{.Current}}</a>{{end}}
 
 {{define "navlink"}}<a href="{{.Href}}" class="tab {{if eq .Key .Active}}tab-active{{end}}">{{.Label}}</a>{{end}}

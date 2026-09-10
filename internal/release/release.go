@@ -40,7 +40,11 @@ type Status struct {
 	Current string // the running build
 	Latest  string // the newest published release, empty until a check succeeds
 	Behind  bool
-	URL     string // the release to send someone to, empty when there is nothing to link
+
+	// URL is what to offer: the newer release when there is one, otherwise the running
+	// one. CurrentURL is always the running one, for a footer that names it.
+	URL        string
+	CurrentURL string
 }
 
 // Checker holds the last answer GitHub gave.
@@ -93,12 +97,12 @@ func (c *Checker) Status() Status {
 	latest, url := c.latest, c.url
 	c.mu.RUnlock()
 
-	s := Status{Current: c.current, Latest: latest, URL: url}
+	s := Status{Current: c.current, Latest: latest, URL: url, CurrentURL: c.releaseURL(c.current)}
 	s.Behind = behind(c.current, latest)
 	if !s.Behind {
-		// Nothing newer, so the link points at what is running rather than at whatever
-		// the last check happened to find.
-		s.URL = c.releaseURL(c.current)
+		// Nothing newer, so anything offered is what is already running rather than
+		// whatever the last check happened to find.
+		s.URL = s.CurrentURL
 	}
 	return s
 }
