@@ -344,17 +344,6 @@ func (s *Server) handleRenumber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A league that epg3r numbers is not the reader's to move.
-	refusal, err := s.managedRefusal(r.Context(), keys)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if refusal != "" {
-		s.refuseLineup(w, r, refusal)
-		return
-	}
-
 	// The numbers run from the start in the order the reader is looking at, which is the
 	// order the form posts them in.
 	want := make(map[string]int, len(keys))
@@ -400,64 +389,6 @@ func leagueKeys(snap *model.Snapshot, league string) []string {
 		}
 	}
 	return keys
-}
-
-// managedRefusal names the leagues in a selection whose numbers epg3r owns, or "" when none
-// of them do. The whole pass is refused rather than moving the rest: the numbers run
-// consecutively from the start in the order posted, so dropping rows out of the middle would
-// hand the survivors a run nobody asked for.
-func (s *Server) managedRefusal(ctx context.Context, keys []string) (string, error) {
-	snap := s.Snapshots.Get()
-	if snap == nil {
-		return "", nil
-	}
-	overrides, err := s.Store.LeagueOverrides(ctx)
-	if err != nil {
-		return "", err
-	}
-	managed, free := map[string]bool{}, false
-	for _, k := range keys {
-		ch, ok := snap.ByKey(k)
-		if !ok {
-			continue // SetChannelNumbers answers for a channel that has gone
-		}
-		if overrides[ch.LeagueKey].Managed() {
-			managed[ch.LeagueKey] = true
-		} else {
-			free = true
-		}
-	}
-	if len(managed) == 0 {
-		return "", nil
-	}
-	// Catalog order, so the same selection always reads the same way.
-	var names []string
-	for _, lg := range s.Catalog.Leagues {
-		if managed[lg.Key] {
-			names = append(names, lg.Name)
-		}
-	}
-	what := "that league's starting number"
-	if len(names) > 1 {
-		what = "their starting numbers"
-	}
-	fix := "Clear " + what + " on the Leagues page."
-	if free {
-		fix = "Untick those channels, or clear " + what + " on the Leagues page."
-	}
-	return "epg3r numbers " + andList(names) + " channels, so nothing was renumbered. " + fix, nil
-}
-
-// andList writes a short list the way a sentence would: "NFL", "NFL and NBA",
-// "NFL, NBA and NHL".
-func andList(items []string) string {
-	switch len(items) {
-	case 0, 1:
-		return strings.Join(items, "")
-	case 2:
-		return items[0] + " and " + items[1]
-	}
-	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
 
 func (s *Server) refuseLineup(w http.ResponseWriter, r *http.Request, msg string) {
