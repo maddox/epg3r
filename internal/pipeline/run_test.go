@@ -97,8 +97,8 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 	var nfl04 *model.Channel
 	for i := range snap.Channels {
 		ch := &snap.Channels[i]
-		if ch.Kind == model.KindSlot && strings.HasPrefix(ch.ID, "NFL 04") && len(ch.Programmes) == 1 &&
-			strings.Contains(ch.Programmes[0].Event.SubTitle, "Buffalo Bills") && strings.Contains(ch.Programmes[0].Event.SubTitle, "Houston Texans") {
+		if ch.Kind == model.KindSlot && strings.HasPrefix(ch.ID, "NFL 04") && len(ch.Programs) == 1 &&
+			strings.Contains(ch.Programs[0].Event.SubTitle, "Buffalo Bills") && strings.Contains(ch.Programs[0].Event.SubTitle, "Houston Texans") {
 			nfl04 = ch
 		}
 	}
@@ -111,7 +111,7 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 	if first := findChannel(snap, "NFL 04"); first == nil || first.Number != 10004 {
 		t.Errorf("first NFL family must use the plain numbering: %+v", first)
 	}
-	game := nfl04.Programmes[0].Event
+	game := nfl04.Programs[0].Event
 	if game.Teams[0] == nil || game.Teams[1] == nil || game.Teams[0].TMSBrandID != "34" || game.Teams[1].TMSBrandID != "43" {
 		t.Errorf("NFL 04 game: %+v", game)
 	}
@@ -138,26 +138,26 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 		t.Errorf("Bills channel identity: %s %d", bills.ID, bills.Number)
 	}
 	var shared bool
-	for _, p := range bills.Programmes {
+	for _, p := range bills.Programs {
 		if p.Event.ID == game.ID {
 			shared = true
 			if p.Event.Source != model.OriginXMLTV {
 				t.Errorf("guide should win for timing, got %s", p.Event.Source)
 			}
 			if p.Note == "" {
-				t.Error("team channel programme should carry a feed note")
+				t.Error("team channel program should carry a feed note")
 			}
 		}
 	}
 	if !shared {
-		t.Errorf("Bills channel does not carry the Bills vs Texans game; has %d programmes", len(bills.Programmes))
+		t.Errorf("Bills channel does not carry the Bills vs Texans game; has %d programs", len(bills.Programs))
 	}
 	// The Texans channel gets it too, projected from the same event.
 	for i := range snap.Channels {
 		ch := &snap.Channels[i]
 		if ch.Kind == model.KindTeam && ch.Team != nil && ch.Team.Name == "Houston Texans" {
 			var ok bool
-			for _, p := range ch.Programmes {
+			for _, p := range ch.Programs {
 				ok = ok || p.Event.ID == game.ID
 			}
 			if !ok {
@@ -169,7 +169,7 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 	// Placeholders are exported as idle channels so the lineup stays stable.
 	var idle int
 	for _, ch := range snap.Channels {
-		if len(ch.Programmes) == 0 {
+		if len(ch.Programs) == 0 {
 			idle++
 		}
 	}
@@ -361,7 +361,7 @@ func TestInterruptedRunIsMarkedFailed(t *testing.T) {
 	defer cancel()
 	r, st := newRunner(t)
 	// The playlist server cancels the run's context as soon as it is asked, so every
-	// store call after the fetch fails with a cancelled context.
+	// store call after the fetch fails with a canceled context.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		cancel()
 		w.Write([]byte("#EXTM3U\n#EXTINF:-1 group-title=\"NFL\",NFL 04: Bills vs Texans (09.13 1:00PM ET)\nhttp://x/1\n"))
@@ -370,7 +370,7 @@ func TestInterruptedRunIsMarkedFailed(t *testing.T) {
 	st.CreateSource(context.Background(), store.NewSource{Name: "p", URL: srv.URL})
 
 	if _, _, err := r.Run(ctx, store.TriggerManual); err == nil {
-		t.Fatal("expected the cancelled run to fail")
+		t.Fatal("expected the canceled run to fail")
 	}
 	runs, err := st.ListRuns(context.Background(), 5)
 	if err != nil || len(runs) != 1 {
@@ -396,9 +396,9 @@ func TestProbe(t *testing.T) {
 	}
 }
 
-// Everything epg3r recognises goes into the guide. There is no way to keep a channel
+// Everything epg3r recognizes goes into the guide. There is no way to keep a channel
 // out: what a consumer sees will be curated with collections instead.
-func TestEverythingRecognisedIsExported(t *testing.T) {
+func TestEverythingRecognizedIsExported(t *testing.T) {
 	ctx := context.Background()
 	r, st := newRunner(t)
 	url := serveM3U(t, "#EXTM3U\n"+
@@ -437,7 +437,7 @@ func TestEverythingRecognisedIsExported(t *testing.T) {
 		t.Errorf("channels after an override: %d, want 5", len(snap.Channels))
 	}
 	nba := findChannel(snap, "NBA 01")
-	if nba == nil || len(nba.Programmes) == 0 || nba.Programmes[0].Event.Title != "Pro Basketball" {
+	if nba == nil || len(nba.Programs) == 0 || nba.Programs[0].Event.Title != "Pro Basketball" {
 		t.Errorf("the override should reach the airing: %+v", nba)
 	}
 	if rep.Counts[store.OutcomeExported] != 5 {
@@ -606,7 +606,7 @@ func TestGuideIsParsedOncePerChange(t *testing.T) {
 		t.Errorf("nothing cached yet, so parse it: %v", err)
 	}
 
-	// A source that no longer has a guide does not keep its programmes in memory.
+	// A source that no longer has a guide does not keep its programs in memory.
 	r.forgetGuides(map[int64]bool{1: true})
 	if len(r.guides) != 1 || r.guides[1] == nil {
 		t.Errorf("only the guides still in use should be kept: %v", r.guides)
@@ -717,7 +717,7 @@ func TestArtIsPointedAt(t *testing.T) {
 		t.Errorf("slot logo = %q, want the league's", slot.LogoURL)
 	}
 	// Both sides resolved, so the airing wears the matchup, in the order the title read.
-	if got, want := slot.Programmes[0].Event.PlacardURL,
+	if got, want := slot.Programs[0].Event.PlacardURL,
 		art.MatchupPlacardPath("nfl", "buffalo-bills", "houston-texans"); got != want {
 		t.Errorf("matchup art = %q, want %q", got, want)
 	}
@@ -742,10 +742,10 @@ func TestArtIsPointedAt(t *testing.T) {
 		if ch == nil {
 			t.Fatalf("no channel %s", id)
 		}
-		if len(ch.Programmes) == 0 {
+		if len(ch.Programs) == 0 {
 			t.Fatalf("%s carries nothing", id)
 		}
-		if got := ch.Programmes[0].Event.PlacardURL; got != art.LeaguePlacardPath("nfl") {
+		if got := ch.Programs[0].Event.PlacardURL; got != art.LeaguePlacardPath("nfl") {
 			t.Errorf("%s art = %q, want the league's", id, got)
 		}
 	}
@@ -798,10 +798,10 @@ func TestLeagueArtOverrides(t *testing.T) {
 			t.Errorf("a league logo override reached a team channel: %q", snap.Channels[i].LogoURL)
 		}
 	}
-	if got := findChannel(snap, "NFL 07").Programmes[0].Event.PlacardURL; got != placard {
+	if got := findChannel(snap, "NFL 07").Programs[0].Event.PlacardURL; got != placard {
 		t.Errorf("unresolved airing art = %q, want the override", got)
 	}
-	if got, want := findChannel(snap, "NFL 04").Programmes[0].Event.PlacardURL,
+	if got, want := findChannel(snap, "NFL 04").Programs[0].Event.PlacardURL,
 		art.MatchupPlacardPath("nfl", "buffalo-bills", "houston-texans"); got != want {
 		t.Errorf("a placard override beat a matchup: %q", got)
 	}
@@ -829,7 +829,7 @@ func TestGuideTagsDescribeTheChannel(t *testing.T) {
 	if slot.GuideTitle != "NFL Football" || slot.GuideText != "Live NFL games." {
 		t.Errorf("slot channel says %q / %q", slot.GuideTitle, slot.GuideText)
 	}
-	if len(slot.Programmes) == 0 || strings.Contains(slot.GuideText, slot.Programmes[0].Event.SubTitle) {
+	if len(slot.Programs) == 0 || strings.Contains(slot.GuideText, slot.Programs[0].Event.SubTitle) {
 		t.Errorf("the channel's own text names the game it happens to be carrying: %q", slot.GuideText)
 	}
 

@@ -15,8 +15,8 @@ type Channel struct {
 	DisplayName string
 }
 
-// Programme is a <programme> from a provider guide.
-type Programme struct {
+// Program is a <program> from a provider guide.
+type Program struct {
 	Channel    string
 	Start      time.Time
 	Stop       time.Time
@@ -28,14 +28,14 @@ type Programme struct {
 
 // Guide is a parsed provider XMLTV file.
 type Guide struct {
-	Channels   []Channel
-	Programmes map[string][]Programme // by channel id, in file order
+	Channels []Channel
+	Programs map[string][]Program // by channel id, in file order
 }
 
 // Read parses an XMLTV document with a streaming decoder, so a multi-megabyte guide
-// with thousands of programmes costs little memory beyond the result itself.
+// with thousands of programs costs little memory beyond the result itself.
 func Read(r io.Reader) (*Guide, error) {
-	g := &Guide{Programmes: map[string][]Programme{}}
+	g := &Guide{Programs: map[string][]Program{}}
 	dec := xml.NewDecoder(r)
 	dec.Strict = false
 	for {
@@ -57,20 +57,20 @@ func Read(r io.Reader) (*Guide, error) {
 				return nil, fmt.Errorf("read xmltv channel: %w", err)
 			}
 			g.Channels = append(g.Channels, Channel{ID: c.ID, DisplayName: displayName(c.DisplayNames)})
-		case "programme":
-			var p xmlProgramme
+		case "programme": // the XMLTV element, spelled as the spec spells it
+			var p xmlProgram
 			if err := dec.DecodeElement(&p, &se); err != nil {
-				return nil, fmt.Errorf("read xmltv programme: %w", err)
+				return nil, fmt.Errorf("read xmltv <programme>: %w", err)
 			}
 			start, err := parseStamp(p.Start)
 			if err != nil {
-				return nil, fmt.Errorf("programme on %q: bad start %q", p.Channel, p.Start)
+				return nil, fmt.Errorf("<programme> on %q: bad start %q", p.Channel, p.Start)
 			}
 			stop, err := parseStamp(p.Stop)
 			if err != nil {
-				return nil, fmt.Errorf("programme on %q: bad stop %q", p.Channel, p.Stop)
+				return nil, fmt.Errorf("<programme> on %q: bad stop %q", p.Channel, p.Stop)
 			}
-			g.Programmes[p.Channel] = append(g.Programmes[p.Channel], Programme{
+			g.Programs[p.Channel] = append(g.Programs[p.Channel], Program{
 				Channel:    p.Channel,
 				Start:      start,
 				Stop:       stop,
@@ -89,7 +89,7 @@ type xmlChannel struct {
 	DisplayNames []string `xml:"display-name"`
 }
 
-type xmlProgramme struct {
+type xmlProgram struct {
 	Channel    string   `xml:"channel,attr"`
 	Start      string   `xml:"start,attr"`
 	Stop       string   `xml:"stop,attr"`
@@ -108,7 +108,7 @@ func parseStamp(s string) (time.Time, error) {
 			return t, nil
 		}
 	}
-	return time.Time{}, fmt.Errorf("unrecognised timestamp %q", s)
+	return time.Time{}, fmt.Errorf("unrecognized timestamp %q", s)
 }
 
 func displayName(names []string) string {

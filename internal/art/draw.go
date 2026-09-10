@@ -12,12 +12,12 @@ import (
 )
 
 // groundLuminance is how dark a placard's ground is drawn, as relative luminance. Crests are
-// designed to read on their team's own kit, not on their league's colour, so the two are
+// designed to read on their team's own kit, not on their league's color, so the two are
 // often the same hue — the WNBA's figure is orange on orange, the Rams' monogram navy on
 // navy. A ground this dark gives every one of them somewhere to sit.
 const groundLuminance = 0.045
 
-// bayer8 is an ordered dither matrix. A 900-row gradient over a dark colour bands visibly
+// bayer8 is an ordered dither matrix. A 900-row gradient over a dark color bands visibly
 // without one, and banding is the thing that makes generated art look generated. Ordered
 // rather than random so the same inputs always give the same picture, and 8x8 so the noise
 // it adds costs almost nothing to compress.
@@ -32,21 +32,21 @@ var bayer8 = [8][8]float64{
 	{63, 31, 55, 23, 61, 29, 53, 21},
 }
 
-// ground fills the canvas with the league's colour as a vertical gradient, interpolated in
+// ground fills the canvas with the league's color as a vertical gradient, interpolated in
 // linear light and dithered.
 //
-// It is drawn well down from the brand colour rather than at it. Crests are designed to be
-// legible on their own kit, not on their league's colour, so a mark and its ground are often
+// It is drawn well down from the brand color rather than at it. Crests are designed to be
+// legible on their own kit, not on their league's color, so a mark and its ground are often
 // the same hue: the WNBA's figure is orange, the Rams' monogram is navy, and each vanishes
-// into a ground drawn at full strength. Taking it down keeps the league recognisable and
+// into a ground drawn at full strength. Taking it down keeps the league recognizable and
 // gives every crest something to sit against.
 func ground(dst *image.RGBA, base color.RGBA) {
 	b := dst.Bounds()
 	// Grounds are pulled to about the same darkness so the set holds together, but not to
-	// exactly the same: a colour that starts lighter is allowed to land a little lighter,
-	// within a narrow band, or two leagues whose colours differ only in lightness come out
+	// exactly the same: a color that starts lighter is allowed to land a little lighter,
+	// within a narrow band, or two leagues whose colors differ only in lightness come out
 	// indistinguishable. Never brightened, so a league already darker than the band keeps
-	// its own colour.
+	// its own color.
 	l := luminance(base)
 	lit := math.Min(l, groundLuminance*(0.8+0.5*math.Min(l, 0.4)/0.4))
 	top, bottom := atLuminance(base, lit), atLuminance(base, lit*0.38)
@@ -77,13 +77,13 @@ func dither(v, threshold float64) uint8 {
 	return clamp8(fl)
 }
 
-// blend puts a translucent colour over what is already there.
+// blend puts a translucent color over what is already there.
 func blend(dst *image.RGBA, r image.Rectangle, col color.RGBA, alpha float64) {
 	draw.Draw(dst, r.Intersect(dst.Bounds()), image.NewUniform(premul(col, alpha)), image.Point{}, draw.Over)
 }
 
-// premul is a colour as image/color wants it: alpha already multiplied through. Handing the
-// straight colour to a Uniform makes white at 96% darker than white, not fainter.
+// premul is a color as image/color wants it: alpha already multiplied through. Handing the
+// straight color to a Uniform makes white at 96% darker than white, not fainter.
 func premul(col color.RGBA, alpha float64) color.RGBA {
 	return color.RGBA{
 		clamp8(float64(col.R) * alpha), clamp8(float64(col.G) * alpha),
@@ -138,14 +138,14 @@ func ringSDF(cx, cy, radius, width float64) func(x, y float64) float64 {
 	}
 }
 
-// text draws a string centred on x, with its cap-height box centred on capMid.
+// text draws a string centered on x, with its cap-height box centered on capMid.
 func text(dst *image.RGBA, t tracked, x, capMid float64, col color.RGBA, alpha float64) {
 	if t.text == "" || t.face == nil {
 		return
 	}
 	d := font.Drawer{Dst: dst, Src: image.NewUniform(premul(col, alpha)), Face: t.face}
 	// Glyph origins land on whole pixels: subpixel placement would make the same string
-	// rasterise differently depending on where it happened to sit.
+	// rasterize differently depending on where it happened to sit.
 	penX := math.Round(x - t.width()/2)
 	baseline := math.Round(capMid + t.capHeight()/2)
 	for _, r := range t.text {
@@ -214,7 +214,7 @@ func alphaOf(mark *image.RGBA, pad int) (a []float64, w, h int) {
 // outright. A disc ends one in an arc, which is what a drawn keyline does.
 //
 // Even a disc rounds a point it cannot fit inside, so the result is unioned with the
-// silhouette scaled about its own centre, which is a similarity transform and so keeps every
+// silhouette scaled about its own center, which is a similarity transform and so keeps every
 // angle exactly. Neither alone is right: the dilation is even along an edge and blunt at a
 // point, the scaling is sharp at a point and thin along an edge.
 func grown(a []float64, w, h, radius int) []float64 {
@@ -241,7 +241,7 @@ func grown(a []float64, w, h, radius int) []float64 {
 		}
 	}
 	// Even a disc rounds a point it cannot fit inside, so the result is unioned with the
-	// silhouette scaled about its own centre, which is a similarity transform and so keeps
+	// silhouette scaled about its own center, which is a similarity transform and so keeps
 	// every angle exactly. Neither alone is right: the dilation is even along an edge and
 	// blunt at a point, the scaling is sharp at a point and thin along an edge.
 	swollen := swelled(a, w, h, radius)
@@ -282,7 +282,7 @@ func disc(radius int) [][2]int {
 	return out
 }
 
-// swelled is the silhouette scaled about its centre by enough to stand radius proud at the
+// swelled is the silhouette scaled about its center by enough to stand radius proud at the
 // furthest point of the mark.
 func swelled(a []float64, w, h, radius int) []float64 {
 	out := make([]float64, len(a))
@@ -339,7 +339,7 @@ func sample(a []float64, w, h int, x, y float64) float64 {
 		at(x0, y0+1)*(1-fx)*fy + at(x0+1, y0+1)*fx*fy
 }
 
-// stamp paints a coverage buffer onto the canvas in one colour.
+// stamp paints a coverage buffer onto the canvas in one color.
 func stamp(dst *image.RGBA, a []float64, w, h int, at image.Point, offsetY int, col color.RGBA, alpha float64) {
 	for y := range h {
 		for x := range w {

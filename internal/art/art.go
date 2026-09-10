@@ -172,7 +172,7 @@ func cmpOr[T comparable](v, fallback T) T {
 }
 
 // LeaguePlacard is the art for an airing whose teams did not both resolve. It is 4:3, the shape a
-// guide gives a programme.
+// guide gives a program.
 func (s *Service) LeaguePlacard(ctx context.Context, leagueKey string) (Image, error) {
 	lg, ok := s.league(leagueKey)
 	if !ok {

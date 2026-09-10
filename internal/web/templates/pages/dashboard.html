@@ -6,7 +6,7 @@
 <div class="grid gap-4 md:grid-cols-4">
   <div class="stat"><div class="stat-value">{{.Channels}}</div><div class="stat-label">Channels in the lineup</div></div>
   <div class="stat"><div class="stat-value text-accent-400">{{.WithGames}}</div><div class="stat-label">Carrying a game</div></div>
-  <div class="stat"><div class="stat-value">{{.Programmes}}</div><div class="stat-label">Programmes in the guide</div></div>
+  <div class="stat"><div class="stat-value">{{.Programs}}</div><div class="stat-label">Programs in the guide</div></div>
   <div class="stat">
     {{with .LastRun}}<div class="stat-value status-text-{{.Status}}">{{.Status}}</div>
     <div class="stat-label">Last run · {{since .StartedAt}}</div>{{end}}

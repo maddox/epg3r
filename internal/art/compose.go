@@ -102,7 +102,7 @@ func composeMatchup(lg leagueArt, away, home subject, sep string) (*image.RGBA, 
 	}
 
 	// The cells sit 12px in from where halving the canvas would put them, which gives the
-	// seam air; marks centred by arithmetic read as crowded against it.
+	// seam air; marks centered by arithmetic read as crowded against it.
 	left, right := prepare(away, 288, 580, markCell), prepare(home, 912, 580, markCell)
 	for _, p := range []placed{left, right} {
 		if err := paint(dst, lg, p); err != nil {
@@ -123,7 +123,7 @@ func composeMatchup(lg leagueArt, away, home subject, sep string) (*image.RGBA, 
 }
 
 // The strap says which league a placard belongs to. Its own mark when it has one, since that
-// is what anyone recognises at a glance, and its name set small when it does not.
+// is what anyone recognizes at a glance, and its name set small when it does not.
 const (
 	strapHeight  = 220
 	strapWidth   = 520
@@ -183,8 +183,8 @@ func paint(dst *image.RGBA, lg leagueArt, p placed) error {
 	}
 	// Every crest sits in a white keyline traced round its own silhouette, the way a
 	// broadcast placard does. It is what makes a mark read on any ground at all, rather
-	// than only on the ones it happens not to share a colour with — a crest is drawn to be
-	// legible on its team's kit, not on its league's colour.
+	// than only on the ones it happens not to share a color with — a crest is drawn to be
+	// legible on its team's kit, not on its league's color.
 	sticker(dst, p.img, p.at, keylineWidth)
 	return nil
 }
@@ -214,7 +214,7 @@ func drawInto(dst *image.RGBA, src *image.RGBA, at image.Point) {
 			if !image.Pt(dx, dy).In(dst.Bounds()) {
 				continue
 			}
-			// The scaled mark is premultiplied; over wants a straight colour.
+			// The scaled mark is premultiplied; over wants a straight color.
 			over(dst, dx, dy, color.RGBA{
 				clamp8(float64(px[0]) / a), clamp8(float64(px[1]) / a), clamp8(float64(px[2]) / a), 255,
 			}, a)

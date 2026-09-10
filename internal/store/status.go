@@ -26,12 +26,12 @@ const (
 type Outcome string
 
 const (
-	OutcomeExported  Outcome = "exported"        // in the guide with at least one programme
+	OutcomeExported  Outcome = "exported"        // in the guide with at least one program
 	OutcomeIdle      Outcome = "idle"            // in the lineup with nothing scheduled
 	OutcomeLowConf   Outcome = "low_confidence"  // parsed, but below the confidence threshold
-	OutcomeUnmatched Outcome = "unmatched_group" // no league recognised
+	OutcomeUnmatched Outcome = "unmatched_group" // no league recognized
 	OutcomeDuplicate Outcome = "duplicate"       // the same stream URL is listed twice
-	OutcomeNoNumber  Outcome = "no_number"       // recognised, but its league's block has no free number
+	OutcomeNoNumber  Outcome = "no_number"       // recognized, but its league's block has no free number
 	OutcomeNetwork   Outcome = "network"         // a broadcast network, not an event channel
 )
 

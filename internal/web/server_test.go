@@ -92,7 +92,7 @@ func TestOutputsBeforeAndAfterSnapshot(t *testing.T) {
 	kick := time.Date(2026, 9, 13, 17, 0, 0, 0, time.UTC)
 	s.Snapshots.Set(&model.Snapshot{RunID: 7, Channels: []model.Channel{{
 		ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", StreamURL: "http://x/1",
-		Programmes: []model.Programme{{Event: model.Event{ID: "191277-abc", SeriesID: "191277", Title: "NFL Football", SubTitle: "A vs B", Start: kick, Stop: kick.Add(time.Hour), Kickoff: kick}}},
+		Programs: []model.Program{{Event: model.Event{ID: "191277-abc", SeriesID: "191277", Title: "NFL Football", SubTitle: "A vs B", Start: kick, Stop: kick.Add(time.Hour), Kickoff: kick}}},
 	}}})
 
 	rec = httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestOutputCacheRespectsGuideTagsAndNeverRegresses(t *testing.T) {
 			// The guide tags describe the channel, so a channel that says nothing about
 			// itself gets none and the setting would have nothing to switch.
 			GuideTitle: "NFL Football", GuideText: "Live NFL games.",
-			Programmes: []model.Programme{{Event: model.Event{ID: "191277-abc", SeriesID: "191277", Title: "NFL Football", SubTitle: "A vs B", Start: kick.Add(-time.Hour), Stop: kick.Add(time.Hour), Kickoff: kick}}},
+			Programs: []model.Program{{Event: model.Event{ID: "191277-abc", SeriesID: "191277", Title: "NFL Football", SubTitle: "A vs B", Start: kick.Add(-time.Hour), Stop: kick.Add(time.Hour), Kickoff: kick}}},
 		}}}
 	}
 	h := s.Handler()

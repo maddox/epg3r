@@ -23,5 +23,5 @@ curl -sSL -o "$TMP/OFL.txt" "$BASE/OFL.txt"
 
 mkdir -p "$OUT"
 cp "$TMP/font.ttf" "$OUT/BarlowCondensed-Bold.ttf"
-cp "$TMP/OFL.txt" "$OUT/OFL.txt"   # the licence travels with the font it covers
+cp "$TMP/OFL.txt" "$OUT/OFL.txt"   # the license travels with the font it covers
 ls -l "$OUT"

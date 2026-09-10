@@ -27,8 +27,8 @@ func fromLinear(f float64) float64 {
 	return (1.055*math.Pow(f, 1/2.4) - 0.055) * 255
 }
 
-// shade lightens (f > 0) or darkens (f < 0) a colour by moving it that fraction of the way
-// towards white or black in linear light.
+// shade lightens (f > 0) or darkens (f < 0) a color by moving it that fraction of the way
+// toward white or black in linear light.
 func shade(c color.RGBA, f float64) color.RGBA {
 	ch := func(v uint8) uint8 {
 		l := toLinear(v)
@@ -42,8 +42,8 @@ func shade(c color.RGBA, f float64) color.RGBA {
 	return color.RGBA{ch(c.R), ch(c.G), ch(c.B), 255}
 }
 
-// atLuminance scales a colour in linear light until its relative luminance is target,
-// keeping its hue. Shifting every brand colour down by the same fraction does not work: it
+// atLuminance scales a color in linear light until its relative luminance is target,
+// keeping its hue. Shifting every brand color down by the same fraction does not work: it
 // leaves a bright one bright and drives an already-dark one to black. Naming the darkness we
 // want instead puts every league's ground at the same depth, whatever it started from.
 func atLuminance(c color.RGBA, target float64) color.RGBA {

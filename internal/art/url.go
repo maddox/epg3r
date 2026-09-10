@@ -32,7 +32,7 @@ func LeagueLogoPath(leagueKey string) string { return join("logo", leagueKey) }
 // TeamLogoPath is the logo for a channel dedicated to one team.
 func TeamLogoPath(leagueKey, teamKey string) string { return join("logo", leagueKey, teamKey) }
 
-// A placard is airing art: 4:3, the shape a guide gives a programme. Both kinds are
+// A placard is airing art: 4:3, the shape a guide gives a program. Both kinds are
 // placards, the way both kinds of logo are logos — the leading segment says what a picture
 // is for, and what is under it says which one.
 

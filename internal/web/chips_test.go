@@ -9,13 +9,13 @@ import (
 )
 
 // The league chips in the UI and the grounds the generated art is drawn on are the same
-// brand colours, but they live in two files that no build step connects: the catalog is Go
+// brand colors, but they live in two files that no build step connects: the catalog is Go
 // data, the chips are Tailwind source. This is what keeps them from drifting apart.
 //
-// A chip that names no hex is opting out on purpose — NHL's brand colour is black, which
+// A chip that names no hex is opting out on purpose — NHL's brand color is black, which
 // works as an art ground and disappears at chip opacity — so only declared hexes are
 // compared.
-func TestChipColoursMatchTheCatalog(t *testing.T) {
+func TestChipColorsMatchTheCatalog(t *testing.T) {
 	css, err := os.ReadFile("static/src/app.css")
 	if err != nil {
 		t.Fatal(err)

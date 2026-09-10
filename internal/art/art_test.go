@@ -151,7 +151,7 @@ func TestEveryProductIsA4x3PictureWithSomethingOnIt(t *testing.T) {
 			}
 		}
 		if len(seen) < 12 {
-			t.Errorf("%s: only %d distinct colours; is anything drawn?", name, len(seen))
+			t.Errorf("%s: only %d distinct colors; is anything drawn?", name, len(seen))
 		}
 		if img.ETag == "" || !strings.HasPrefix(img.ETag, `"`+Version+"-") {
 			t.Errorf("%s: etag %q", name, img.ETag)

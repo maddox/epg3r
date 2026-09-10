@@ -35,7 +35,7 @@
     <input type="hidden" name="m3u_url" value="{{.M3U}}">
     <input type="hidden" name="xmltv_url" value="{{.XMLTV}}">
     <p class="rounded-xl bg-ok/10 px-3 py-2 text-sm text-ok">
-      Found {{.Channels}} channels{{if .Programmes}}, and {{.Programmes}} programmes in the guide{{end}}.
+      Found {{.Channels}} channels{{if .Programs}}, and {{.Programs}} programs in the guide{{end}}.
     </p>
     <label class="block"><span class="label">Refresh every (minutes)</span>
       <input class="input mono w-40" type="number" name="refresh_interval_minutes" min="1" step="1" inputmode="numeric" value="{{.Interval}}">

@@ -12,7 +12,7 @@ import (
 // WriteOptions tune the playlist output.
 type WriteOptions struct {
 	// GuideTags adds Channels DVR tvc-guide-* fallback tags describing the current or
-	// next programme, for setups that load the M3U without the XMLTV.
+	// next program, for setups that load the M3U without the XMLTV.
 	GuideTags bool
 
 	// BaseURL makes root-relative logo paths absolute. Empty leaves them as they are.

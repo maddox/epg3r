@@ -1,4 +1,4 @@
-// Package catalog is the built-in knowledge of leagues and teams: how to recognise a
+// Package catalog is the built-in knowledge of leagues and teams: how to recognize a
 // league from a playlist group, what an airing should be called, how long a game
 // lasts, which channel numbers a league owns, and who the teams are (with their
 // Gracenote ids). Defaults are embedded; the store layers user overrides on top.
@@ -93,7 +93,7 @@ const (
 // the numbers other providers hand out, and on a round thousand so a block is readable.
 const DefaultChannelStart = 10000
 
-// DefaultColor grounds the art of a league that names no brand colour. Every league in the
+// DefaultColor grounds the art of a league that names no brand color. Every league in the
 // shipped manifest names one; this is for a league defined somewhere else.
 const DefaultColor = "#334155"
 

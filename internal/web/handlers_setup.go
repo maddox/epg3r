@@ -12,7 +12,7 @@ import (
 	"github.com/jonmaddox/epg3r/internal/store"
 )
 
-// GuideTester probes an XMLTV URL and reports how many programmes it holds.
+// GuideTester probes an XMLTV URL and reports how many programs it holds.
 type GuideTester func(ctx context.Context, url string) (int, error)
 
 // setupPath is the wizard, and the only page reachable until it is finished.
@@ -21,14 +21,14 @@ const setupPath = "/setup"
 // setupPage is the wizard's state. It is carried in the form rather than stored, so
 // nothing is written until the last step and a reader who walks away leaves nothing behind.
 type setupPage struct {
-	Step       int
-	M3U        string
-	XMLTV      string
-	Channels   int // what the playlist probe found, shown back as reassurance
-	Programmes int
-	Interval   string
-	Start      string
-	Error      string
+	Step     int
+	M3U      string
+	XMLTV    string
+	Channels int // what the playlist probe found, shown back as reassurance
+	Programs int
+	Interval string
+	Start    string
+	Error    string
 }
 
 // setupNeeded reports whether the app has never been pointed at a playlist. Every page
@@ -145,7 +145,7 @@ func (s *Server) handleSetupURLs(w http.ResponseWriter, r *http.Request) {
 			refuse("That guide could not be read: " + err.Error())
 			return
 		}
-		p.Programmes = n
+		p.Programs = n
 	}
 
 	// Defaults, shown filled in so the next step can be passed over without a decision.

@@ -1,6 +1,6 @@
 # epg3r catalog: everything the app knows about leagues and teams.
 #
-# leagues: how a league is recognised in a playlist, what its airings are called, how long
+# leagues: how a league is recognized in a playlist, what its airings are called, how long
 #   games run, its Gracenote series id, and the channel-number block it owns. Fields:
 #   key, name, airing_title, sport, color, logo_path, genre, duration, start_pad, series_id,
 #   channel_slot, slot_span (default 100), label_prefix, label_aliases, name_tokens,

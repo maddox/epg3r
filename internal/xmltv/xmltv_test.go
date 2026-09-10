@@ -24,15 +24,15 @@ func TestReadRealGuide(t *testing.T) {
 		t.Errorf("channels = %d, want 1334", len(g.Channels))
 	}
 	total := 0
-	for _, ps := range g.Programmes {
+	for _, ps := range g.Programs {
 		total += len(ps)
 	}
-	if total != 6690 || len(g.Programmes) != 152 {
-		t.Errorf("programmes = %d on %d channels, want 6690 on 152", total, len(g.Programmes))
+	if total != 6690 || len(g.Programs) != 152 {
+		t.Errorf("programs = %d on %d channels, want 6690 on 152", total, len(g.Programs))
 	}
-	bills := g.Programmes["US NFL Buffalo Bills (HD)"]
+	bills := g.Programs["US NFL Buffalo Bills (HD)"]
 	if len(bills) == 0 {
-		t.Fatal("no Bills programmes")
+		t.Fatal("no Bills programs")
 	}
 	var found bool
 	for _, p := range bills {
@@ -47,7 +47,7 @@ func TestReadRealGuide(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("expected the Bills 'Next game' filler programme")
+		t.Error("expected the Bills 'Next game' filler program")
 	}
 }
 
@@ -79,10 +79,10 @@ func sampleSnapshot() *model.Snapshot {
 	return &model.Snapshot{
 		RunID: 1, GeneratedAt: time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC),
 		Channels: []model.Channel{
-			{ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", LogoURL: "/art/league/nfl.png", StreamURL: "http://example.invalid/stream/1", Programmes: []model.Programme{{Event: ev}}},
+			{ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", LogoURL: "/art/league/nfl.png", StreamURL: "http://example.invalid/stream/1", Programs: []model.Program{{Event: ev}}},
 			{ID: "NFL 06", Number: 8506, Name: "NFL 06", Kind: model.KindPlaceholder, LeagueKey: "nfl", LogoURL: "/art/league/nfl.png", StreamURL: "http://example.invalid/stream/2"},
 			{ID: "NFL Bills", Number: 8553, Name: "NFL Bills", Kind: model.KindTeam, LeagueKey: "nfl", Team: &bills, LogoURL: "/art/team/nfl/buffalo-bills.png", StreamURL: "http://example.invalid/stream/3",
-				Programmes: []model.Programme{{Event: ev, Note: "Buffalo Bills broadcast"}}},
+				Programs: []model.Program{{Event: ev, Note: "Buffalo Bills broadcast"}}},
 		},
 	}
 }
@@ -137,8 +137,8 @@ func TestWriteGolden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(g.Channels) != 3 || len(g.Programmes["NFL 04"]) != 1 {
-		t.Errorf("round trip: %d channels, %d programmes on NFL 04", len(g.Channels), len(g.Programmes["NFL 04"]))
+	if len(g.Channels) != 3 || len(g.Programs["NFL 04"]) != 1 {
+		t.Errorf("round trip: %d channels, %d programs on NFL 04", len(g.Channels), len(g.Programs["NFL 04"]))
 	}
 }
 
@@ -148,7 +148,7 @@ func TestWriteGolden(t *testing.T) {
 func TestWriteBaseURL(t *testing.T) {
 	snap := &model.Snapshot{Channels: []model.Channel{
 		{ID: "A", Name: "A", LeagueKey: "nfl", LogoURL: "/art/league/nfl.png", StreamURL: "http://x/1",
-			Programmes: []model.Programme{{Event: model.Event{Title: "NFL Football", SeriesID: "1", ID: "1-a",
+			Programs: []model.Program{{Event: model.Event{Title: "NFL Football", SeriesID: "1", ID: "1-a",
 				PlacardURL: "/art/matchup/nfl/a/b.png"}}}},
 		{ID: "B", Name: "B", LeagueKey: "nfl", LogoURL: "https://elsewhere.invalid/mine.png", StreamURL: "http://x/2"},
 	}}

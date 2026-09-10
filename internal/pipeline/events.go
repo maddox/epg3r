@@ -174,14 +174,14 @@ var (
 	reGameAt   = regexp.MustCompile(`^(.+?) (?:at|vs\.?|@) (.+?)( possible Overtime)?$`)
 )
 
-// eventsFromGuide reads a provider's programmes for one channel. It understands two
-// title shapes: "X at Y" for a game in progress, whose times are the programme's own,
+// eventsFromGuide reads a provider's programs for one channel. It understands two
+// title shapes: "X at Y" for a game in progress, whose times are the program's own,
 // and "Next game: X at Y at <when>" for the filler a provider airs between games.
 // Filler carries its own kickoff, so it depends only on the title — and a provider
 // repeats the same filler all day on every channel showing that team, so the same title
 // arrives thousands of times to describe a few dozen games. Filler is therefore worked
 // out once per title and remembered in memo, which the caller keeps for one source.
-func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv.Programme, loc *time.Location, memo map[string]*model.Event) []model.Event {
+func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv.Program, loc *time.Location, memo map[string]*model.Event) []model.Event {
 	var out []model.Event
 	var last *model.Event
 	seen := map[string]bool{} // filler titles already taken from this channel

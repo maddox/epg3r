@@ -163,7 +163,7 @@ func decode(body []byte, etag string) (mark, bool) {
 }
 
 // Content addressing, so a cache key can never be anything but hex and there is no path to
-// sanitise. Sharded one level, because a few thousand files in one directory is unkind.
+// sanitize. Sharded one level, because a few thousand files in one directory is unkind.
 func (m *marks) paths(url string) (body, side string) {
 	sum := sha256.Sum256([]byte(url))
 	name := hex.EncodeToString(sum[:])

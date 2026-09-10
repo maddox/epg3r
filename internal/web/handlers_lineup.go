@@ -38,8 +38,8 @@ type lineupRow struct {
 	League string // league display name
 	Source string // the source the channel came from
 	Picked bool   // ticked for renumbering
-	Now    *model.Programme
-	Next   *model.Programme
+	Now    *model.Program
+	Next   *model.Program
 }
 
 // Scheduled reports whether the channel has anything on now or later.
@@ -102,9 +102,9 @@ func isTeam(t *model.TeamRef, keys []string) bool {
 
 // nowNext finds what a channel is carrying at t and what comes after. With teams given,
 // only airings involving one of them count.
-func nowNext(ch *model.Channel, t time.Time, teams []string) (now, next *model.Programme) {
-	for i := range ch.Programmes {
-		p := &ch.Programmes[i]
+func nowNext(ch *model.Channel, t time.Time, teams []string) (now, next *model.Program) {
+	for i := range ch.Programs {
+		p := &ch.Programs[i]
 		if p.Idle || !involves(p.Event, teams) {
 			continue
 		}
@@ -218,7 +218,7 @@ func (s *Server) lineupView(w http.ResponseWriter, r *http.Request) (lineupPage,
 }
 
 // onNow reports whether an airing is the one showing at t.
-func onNow(p model.Programme, t time.Time) bool {
+func onNow(p model.Program, t time.Time) bool {
 	return !p.Idle && !p.Event.Start.After(t) && p.Event.Stop.After(t)
 }
 
@@ -247,7 +247,7 @@ func rowMatches(row lineupRow, q string) bool {
 	case row.Team != nil && (has(row.Team.Name) || has(row.Team.Abbr)):
 		return true
 	}
-	for _, p := range []*model.Programme{row.Now, row.Next} {
+	for _, p := range []*model.Program{row.Now, row.Next} {
 		if p != nil && has(p.Event.SubTitle) {
 			return true
 		}
@@ -269,7 +269,7 @@ func teamOptions(snap *model.Snapshot, league string, chosen []string) picker {
 			continue
 		}
 		note(ch.Team)
-		for _, p := range ch.Programmes {
+		for _, p := range ch.Programs {
 			for _, t := range p.Event.Teams {
 				note(t)
 			}
@@ -293,11 +293,11 @@ func (s *Server) handleLineup(w http.ResponseWriter, r *http.Request) {
 
 // channelPage is one channel and everything it is scheduled to carry.
 type channelPage struct {
-	Channel    model.Channel
-	League     string            // display name
-	Source     string            // where it came from
-	Programmes []model.Programme // in start order, soonest first
-	NowIndex   int               // which of them is on now, or -1
+	Channel  model.Channel
+	League   string          // display name
+	Source   string          // where it came from
+	Programs []model.Program // in start order, soonest first
+	NowIndex int             // which of them is on now, or -1
 }
 
 // handleChannel shows one channel. It is addressed by its key, the only thing about a
@@ -316,9 +316,9 @@ func (s *Server) handleChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now()
 	d := channelPage{Channel: ch, League: s.leagueName(ch.LeagueKey),
-		Source: s.sourceNames(r.Context())[ch.SourceID], Programmes: ch.SortedProgrammes(), NowIndex: -1}
-	for i := range d.Programmes {
-		if onNow(d.Programmes[i], now) {
+		Source: s.sourceNames(r.Context())[ch.SourceID], Programs: ch.SortedPrograms(), NowIndex: -1}
+	for i := range d.Programs {
+		if onNow(d.Programs[i], now) {
 			d.NowIndex = i
 		}
 	}

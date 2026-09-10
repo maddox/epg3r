@@ -91,7 +91,7 @@ func parseEvent(rest string) eventText {
 		}
 	}
 
-	// Peel trailing parenthesised groups off the body: "(09.08 1:00 PM ET) (FOX)",
+	// Peel trailing parenthesized groups off the body: "(09.08 1:00 PM ET) (FOX)",
 	// "(Home)", "(ESPN In Arena)", "(2026 09 09 19:25:15)", "(IN LITTLE ROCK, AR)".
 	for {
 		m := reTrailParen.FindStringSubmatch(body)
@@ -164,7 +164,7 @@ func (ev *eventText) takeTail(body *string, re *regexp.Regexp, accept func(Sched
 	return true
 }
 
-// classifySegment files one pipe-separated segment (or parenthesised group).
+// classifySegment files one pipe-separated segment (or parenthesized group).
 func (ev *eventText) classifySegment(seg string) {
 	if sch, ok := parseSchedule(seg); ok {
 		if !ev.Schedule.HasTime || sch.HasDate {

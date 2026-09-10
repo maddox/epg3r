@@ -92,7 +92,7 @@ func TestSetupSecondStepOffersDefaults(t *testing.T) {
 		t.Fatalf("code = %d: %s", rec.Code, body)
 	}
 	for _, want := range []string{
-		"Found 42 channels", "500 programmes",
+		"Found 42 channels", "500 programs",
 		`name="refresh_interval_minutes"`, `value="60"`,
 		`name="channel_start"`, `value="10000"`,
 		// Carried in the form, so nothing is stored until the last step.

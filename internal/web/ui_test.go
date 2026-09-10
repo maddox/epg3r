@@ -140,7 +140,7 @@ func TestPagesRenderEmptyAndFull(t *testing.T) {
 	}
 	snap := &model.Snapshot{RunID: id, Channels: []model.Channel{
 		{ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", StreamURL: "http://x/1",
-			Programmes: []model.Programme{{Event: model.Event{ID: "191277-a", SeriesID: "191277", Title: "NFL Football", SubTitle: "Bills vs Texans", Start: start, Stop: start.Add(3 * time.Hour), Kickoff: start}}}},
+			Programs: []model.Program{{Event: model.Event{ID: "191277-a", SeriesID: "191277", Title: "NFL Football", SubTitle: "Bills vs Texans", Start: start, Stop: start.Add(3 * time.Hour), Kickoff: start}}}},
 		{ID: "NBA 01", Number: 11501, Name: "NBA 01", Kind: model.KindPlaceholder, LeagueKey: "nba", StreamURL: "http://x/2"},
 	}}
 	if err := st.FinishRun(ctx, id, store.RunOK, "", rows, snap, 10); err != nil {

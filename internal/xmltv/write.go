@@ -21,7 +21,7 @@ type WriteOptions struct {
 }
 
 // Write renders a snapshot as Channels DVR friendly XMLTV: one <channel> per exported
-// channel and, per programme, a
+// channel and, per program, a
 // title, sub-title, description, series-id, episode-num, date, icon, video quality,
 // <new/>, <live/>, categories, and Gracenote team ids.
 func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
@@ -36,8 +36,8 @@ func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
 			xc.Icon = &xIcon{Src: model.Abs(opts.BaseURL, ch.LogoURL)}
 		}
 		doc.Channels = append(doc.Channels, xc)
-		for _, p := range ch.SortedProgrammes() {
-			doc.Programmes = append(doc.Programmes, programme(ch, p, opts.BaseURL))
+		for _, p := range ch.SortedPrograms() {
+			doc.Programs = append(doc.Programs, program(ch, p, opts.BaseURL))
 		}
 	}
 
@@ -51,9 +51,9 @@ func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
 	return err
 }
 
-func programme(ch model.Channel, p model.Programme, base string) xProgramme {
+func program(ch model.Channel, p model.Program, base string) xProgram {
 	ev := p.Event
-	xp := xProgramme{
+	xp := xProgram{
 		Start:   ev.Start.UTC().Format(Stamp),
 		Stop:    ev.Stop.UTC().Format(Stamp),
 		Channel: ch.ID,
@@ -102,10 +102,10 @@ func programme(ch model.Channel, p model.Programme, base string) xProgramme {
 }
 
 type tvDoc struct {
-	XMLName       xml.Name     `xml:"tv"`
-	GeneratorName string       `xml:"generator-info-name,attr"`
-	Channels      []xChannel   `xml:"channel"`
-	Programmes    []xProgramme `xml:"programme"`
+	XMLName       xml.Name   `xml:"tv"`
+	GeneratorName string     `xml:"generator-info-name,attr"`
+	Channels      []xChannel `xml:"channel"`
+	Programs      []xProgram `xml:"programme"` // the XMLTV element name
 }
 
 type xChannel struct {
@@ -132,7 +132,7 @@ type xVideo struct {
 	Quality string `xml:"quality"`
 }
 
-type xProgramme struct {
+type xProgram struct {
 	Start      string    `xml:"start,attr"`
 	Stop       string    `xml:"stop,attr"`
 	Channel    string    `xml:"channel,attr"`

@@ -15,7 +15,7 @@ import (
 var fontTTF []byte
 
 // The parsed face is shared; a font.Face is not, because it caches glyphs as it draws. One
-// is built per size per call, which is cheap, rather than serialising every piece of text
+// is built per size per call, which is cheap, rather than serializing every piece of text
 // in the app behind one lock.
 var parsedFont = sync.OnceValues(func() (*sfnt.Font, error) { return opentype.Parse(fontTTF) })
 
@@ -27,7 +27,7 @@ func face(size float64) (font.Face, error) {
 		return nil, err
 	}
 	// Hinting is off deliberately: it runs the TrueType interpreter, which would tie what
-	// we draw to the rasteriser's version rather than to the outlines.
+	// we draw to the rasterizer's version rather than to the outlines.
 	return opentype.NewFace(f, &opentype.FaceOptions{Size: size, DPI: 72, Hinting: font.HintingNone})
 }
 
@@ -47,9 +47,9 @@ func (t tracked) width() float64 {
 	return w + t.tracking*float64(len([]rune(t.text))-1)
 }
 
-// capHeight is the height of an uppercase letter. Text is centred on this rather than on
+// capHeight is the height of an uppercase letter. Text is centered on this rather than on
 // the font's ascent and descent, which include room for accents and tails that uppercase
-// never uses — centring on those sits the text visibly high.
+// never uses — centering on those sits the text visibly high.
 func (t tracked) capHeight() float64 { return float64(t.face.Metrics().CapHeight) / 64 }
 
 // fit picks the largest size at which the text fits the width, stepping down a ladder. The

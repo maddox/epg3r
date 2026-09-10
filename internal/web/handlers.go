@@ -39,7 +39,7 @@ func leagueCounts(snap *model.Snapshot) map[string]leagueStat {
 	for _, ch := range snap.Channels {
 		st := out[ch.LeagueKey]
 		st.Channels++
-		if len(ch.Programmes) > 0 {
+		if len(ch.Programs) > 0 {
 			st.WithGames++
 		}
 		out[ch.LeagueKey] = st
@@ -56,15 +56,15 @@ func (s *Server) leagueName(key string) string {
 }
 
 type dashboard struct {
-	Snapshot   *model.Snapshot
-	Leagues    []leagueStat
-	Channels   int
-	Programmes int
-	WithGames  int
-	LastRun    *store.Run
-	Runs       []store.Run
-	Sources    []store.Source
-	Outputs    struct{ M3U, XMLTV string }
+	Snapshot  *model.Snapshot
+	Leagues   []leagueStat
+	Channels  int
+	Programs  int
+	WithGames int
+	LastRun   *store.Run
+	Runs      []store.Run
+	Sources   []store.Source
+	Outputs   struct{ M3U, XMLTV string }
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		counts := leagueCounts(d.Snapshot)
 		for _, ch := range d.Snapshot.Channels {
 			d.Channels++
-			d.Programmes += len(ch.Programmes)
+			d.Programs += len(ch.Programs)
 		}
 		for _, lg := range s.Catalog.Leagues {
 			if st, ok := counts[lg.Key]; ok {

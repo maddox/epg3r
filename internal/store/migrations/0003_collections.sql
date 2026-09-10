@@ -1,5 +1,5 @@
 -- A collection is a set of channels the user has picked out, exported at its own URLs.
--- The guide as a whole is everything epg3r recognises; a collection is what someone
+-- The guide as a whole is everything epg3r recognizes; a collection is what someone
 -- actually wants a consumer to see, and only the user knows what that is.
 CREATE TABLE collections (
     id         INTEGER PRIMARY KEY,

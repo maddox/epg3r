@@ -40,7 +40,7 @@ type Runner struct {
 	guides map[int64]*xmltv.Guide
 }
 
-// Report summarises a run.
+// Report summarizes a run.
 type Report struct {
 	RunID    int64
 	Status   store.RunStatus
@@ -224,7 +224,7 @@ func (r *Runner) guide(sourceID int64, res FetchResult) (*xmltv.Guide, error) {
 }
 
 // forgetGuides drops the guides of sources this run did not read, so a source that is
-// deleted, or that loses its XMLTV URL, does not keep its programmes in memory forever.
+// deleted, or that loses its XMLTV URL, does not keep its programs in memory forever.
 func (r *Runner) forgetGuides(keep map[int64]bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -249,7 +249,7 @@ func (r *Runner) Probe(ctx context.Context, url string) (int, error) {
 	return len(entries), nil
 }
 
-// ProbeGuide fetches an XMLTV URL without caching and reports how many programmes it
+// ProbeGuide fetches an XMLTV URL without caching and reports how many programs it
 // holds, for checking a provider guide before saving it.
 func (r *Runner) ProbeGuide(ctx context.Context, url string) (int, error) {
 	f := &Fetcher{Client: r.Fetcher.Client, MaxBytes: r.Fetcher.MaxBytes}
@@ -262,11 +262,11 @@ func (r *Runner) ProbeGuide(ctx context.Context, url string) (int, error) {
 		return 0, err
 	}
 	n := 0
-	for _, ps := range g.Programmes {
+	for _, ps := range g.Programs {
 		n += len(ps)
 	}
 	if len(g.Channels) == 0 && n == 0 {
-		return 0, fmt.Errorf("the response is not an XMLTV guide (no channels or programmes found)")
+		return 0, fmt.Errorf("the response is not an XMLTV guide (no channels or programs found)")
 	}
 	return n, nil
 }
@@ -380,7 +380,7 @@ func (run *sourceRun) withPrefix(id string) string {
 	return id
 }
 
-// numbering collects the channels a run has recognised but never numbered, so every
+// numbering collects the channels a run has recognized but never numbered, so every
 // source is placed in one pass and the store sees the whole demand at once.
 type numbering struct {
 	want []store.Assignment
@@ -444,9 +444,9 @@ func (r *Runner) source(ctx context.Context, cfg runConfig, src store.Source, da
 		}
 		// A team channel's games may also come from the provider's own guide.
 		if en.ch != nil && en.ch.Kind == model.KindTeam && data.guide != nil {
-			progs := data.guide.Programmes[e.Attr("tvg-id")]
+			progs := data.guide.Programs[e.Attr("tvg-id")]
 			if len(progs) == 0 {
-				progs = data.guide.Programmes[e.Attr("tvg-name")]
+				progs = data.guide.Programs[e.Attr("tvg-name")]
 			}
 			for _, ev := range eventsFromGuide(en.league, cfg.catalog.Teams(en.league, false), progs, run.loc, run.filler) {
 				ix.add(ev)
@@ -537,7 +537,7 @@ func (r *Runner) classify(ctx context.Context, cfg runConfig, run *sourceRun, e 
 	return en, nil
 }
 
-// number gives an identity to every channel a run recognised but has never numbered.
+// number gives an identity to every channel a run recognized but has never numbered.
 // One pass for all sources, so the store places them against the whole demand at once.
 // A channel that cannot be given a number, because its league's block is full, stays
 // out of the guide and says so.
@@ -569,15 +569,15 @@ func assemble(cfg runConfig, entries []*entry, ix *eventIndex, now time.Time) []
 		ch := *en.ch
 		switch {
 		case en.event != nil:
-			ch.Programmes = append(ch.Programmes, model.Programme{Event: *en.event})
+			ch.Programs = append(ch.Programs, model.Program{Event: *en.event})
 		case en.teamKey != "":
 			for _, ev := range ix.forTeam(en.league.Key, en.teamKey) {
-				ch.Programmes = append(ch.Programmes, model.Programme{Event: *ev, Note: ch.FeedNote})
+				ch.Programs = append(ch.Programs, model.Program{Event: *ev, Note: ch.FeedNote})
 			}
 		}
-		if len(ch.Programmes) == 0 {
+		if len(ch.Programs) == 0 {
 			if cfg.emitIdle {
-				ch.Programmes = append(ch.Programmes, idleProgramme(en.league, now))
+				ch.Programs = append(ch.Programs, idleProgram(en.league, now))
 			}
 			if en.row.Status == store.OutcomeExported {
 				en.row.Status = store.OutcomeIdle
@@ -586,8 +586,8 @@ func assemble(cfg runConfig, entries []*entry, ix *eventIndex, now time.Time) []
 		ch.LogoURL = art.ForChannel(en.league, &ch)
 		ch.GuideTitle, ch.GuideText = guideText(en.league, ch.Team)
 		ch.GuideArt = art.LeagueArt(en.league)
-		for i := range ch.Programmes {
-			ch.Programmes[i].Event.PlacardURL = art.ForAiring(en.league, &ch.Programmes[i].Event)
+		for i := range ch.Programs {
+			ch.Programs[i].Event.PlacardURL = art.ForAiring(en.league, &ch.Programs[i].Event)
 		}
 		channels = append(channels, ch)
 	}
@@ -607,9 +607,9 @@ func guideText(lg *catalog.League, team *model.TeamRef) (title, text string) {
 	return lg.AiringTitle, "Live " + subject + " games."
 }
 
-func idleProgramme(lg *catalog.League, now time.Time) model.Programme {
+func idleProgram(lg *catalog.League, now time.Time) model.Program {
 	start := now.UTC().Truncate(time.Hour)
-	return model.Programme{Idle: true, Event: model.Event{
+	return model.Program{Idle: true, Event: model.Event{
 		SeriesID: lg.SeriesID, LeagueKey: lg.Key, Title: lg.Name + ": No Event Scheduled", Start: start, Stop: start.Add(24 * time.Hour),
 		Genre: lg.Genre, Categories: lg.Categories,
 	}}

@@ -71,7 +71,7 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error
 // Close releases resources.
 func (a *App) Close() error { return a.Store.Close() }
 
-// Serve runs the HTTP server and scheduler until ctx is cancelled. With dev set the
+// Serve runs the HTTP server and scheduler until ctx is canceled. With dev set the
 // UI's templates and static files are read from the source tree on every request.
 func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log *slog.Logger) error {
 	app, err := Open(ctx, cfg, log)

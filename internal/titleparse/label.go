@@ -32,7 +32,7 @@ func labelRegexes(lg *catalog.League) labelRes {
 		leading: regexp.MustCompile(`(?i)^` +
 			`(?:[A-Z]{2,4}\s*[:|]\s*)?` + // country prefix "USA | " / "US: "
 			`:?\s*` + // ":MLS  04"
-			`(?:[A-Z]{2,6}\s+)?` + // "WNBA (WNBA 04)": a repeated league word before the parenthesised label
+			`(?:[A-Z]{2,6}\s+)?` + // "WNBA (WNBA 04)": a repeated league word before the parenthesized label
 			`\(?\s*` + pattern + `\s*\)?` + // the label, optionally in parens
 			`\s*[|:]?\s*` + // "NHL | 04"
 			`(\d{1,3})` + // slot
@@ -71,7 +71,7 @@ var (
 
 // shape reduces text to its punctuation skeleton: digits become "#", spaces vanish,
 // and, when letters is set, runs of letters become "A" ("#.##:#AA" for
-// "09.01 6:40PM ET"). This is how a provider's format is recognised regardless of the
+// "09.01 6:40PM ET"). This is how a provider's format is recognized regardless of the
 // particular slot, date, or time.
 func shape(s string, letters bool) string {
 	if letters {

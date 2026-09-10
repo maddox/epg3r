@@ -15,7 +15,7 @@ func TestWriteRoundTrip(t *testing.T) {
 		{ID: "NFL 06", Number: 8506, Name: "NFL 06", Kind: model.KindPlaceholder, LeagueKey: "nfl", LogoURL: "/art/league/nfl.png", StreamURL: "http://x/2"},
 		{ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", LogoURL: "http://logo/nfl.png", StreamURL: "http://x/1",
 			GuideTitle: "NFL Football", GuideText: "Live NFL games.", GuideArt: "/art/1/placard/nfl.png",
-			Programmes: []model.Programme{{Event: model.Event{Title: "NFL Football", SubTitle: `Bills "vs" Texans`, Start: kick, Stop: kick.Add(3 * time.Hour)}}}},
+			Programs: []model.Program{{Event: model.Event{Title: "NFL Football", SubTitle: `Bills "vs" Texans`, Start: kick, Stop: kick.Add(3 * time.Hour)}}}},
 	}}
 	snap.SortChannels()
 	var buf bytes.Buffer

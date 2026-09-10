@@ -63,7 +63,7 @@ const (
 	OriginInferred EventOrigin = "inferred" // projected onto a team channel from another channel's event
 )
 
-// Channel is one exported channel with the programmes it carries.
+// Channel is one exported channel with the programs it carries.
 type Channel struct {
 	Key       string      `json:"key"`     // this channel's identity: the hash of its source and URL
 	ID        string      `json:"id"`      // tvg-id / channel-id, e.g. "NFL 03" or "NFL Bears"
@@ -79,13 +79,13 @@ type Channel struct {
 	// attributes a setup that loads the playlist without the XMLTV falls back to. They must
 	// never name a particular game: a consumer stamps them on every hour of filler it invents
 	// for the channel, so a matchup here would claim one game is on all day, every day.
-	GuideTitle string      `json:"guide_title,omitempty"`
-	GuideText  string      `json:"guide_text,omitempty"`
-	GuideArt   string      `json:"guide_art,omitempty"`
-	StreamURL  string      `json:"stream_url"`
-	SourceID   int64       `json:"source_id"`
-	Programmes []Programme `json:"programmes"`
-	FeedNote   string      `json:"feed_note,omitempty"` // e.g. "Bears broadcast"
+	GuideTitle string    `json:"guide_title,omitempty"`
+	GuideText  string    `json:"guide_text,omitempty"`
+	GuideArt   string    `json:"guide_art,omitempty"`
+	StreamURL  string    `json:"stream_url"`
+	SourceID   int64     `json:"source_id"`
+	Programs   []Program `json:"programmes"`
+	FeedNote   string    `json:"feed_note,omitempty"` // e.g. "Bears broadcast"
 }
 
 // ByKey finds a channel by its identity.
@@ -98,13 +98,13 @@ func (s *Snapshot) ByKey(key string) (Channel, bool) {
 	return Channel{}, false
 }
 
-// Programme is an Event placed on a Channel. Most fields come from the Event; the
+// Program is an Event placed on a Channel. Most fields come from the Event; the
 // split exists so a channel can carry several games (from provider XMLTV) and so
 // per-channel notes can differ.
-type Programme struct {
+type Program struct {
 	Event Event  `json:"event"`
 	Note  string `json:"note,omitempty"`
-	Idle  bool   `json:"idle,omitempty"` // a "no event scheduled" filler programme
+	Idle  bool   `json:"idle,omitempty"` // a "no event scheduled" filler program
 }
 
 // Snapshot is the complete output of one run.
@@ -149,9 +149,9 @@ func (s *Snapshot) SortChannels() {
 	slices.SortFunc(s.Channels, func(a, b Channel) int { return cmp.Compare(a.Number, b.Number) })
 }
 
-// SortedPrograms returns a channel's programmes ordered by start time.
-func (c Channel) SortedProgrammes() []Programme {
-	out := slices.Clone(c.Programmes)
-	slices.SortFunc(out, func(a, b Programme) int { return a.Event.Start.Compare(b.Event.Start) })
+// SortedPrograms returns a channel's programs ordered by start time.
+func (c Channel) SortedPrograms() []Program {
+	out := slices.Clone(c.Programs)
+	slices.SortFunc(out, func(a, b Program) int { return a.Event.Start.Compare(b.Event.Start) })
 	return out
 }

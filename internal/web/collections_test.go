@@ -32,26 +32,26 @@ func TestCollections(t *testing.T) {
 	}
 
 	// Made from the Lineup, out of a selection, naming it there.
-	rec := do(h, http.MethodPost, "/lineup/collect/new", url.Values{"key": {key(0), key(3)}, "new": {"My Favourites"}}, true)
+	rec := do(h, http.MethodPost, "/lineup/collect/new", url.Values{"key": {key(0), key(3)}, "new": {"My Favorites"}}, true)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("collect: %d %s", rec.Code, rec.Body.String())
 	}
 	all, _ := st.Collections(ctx)
-	if len(all) != 1 || all[0].Channels != 2 || all[0].Slug != "my-favourites" {
+	if len(all) != 1 || all[0].Channels != 2 || all[0].Slug != "my-favorites" {
 		t.Fatalf("collections: %+v", all)
 	}
 	id := strconv.FormatInt(all[0].ID, 10)
 
 	// The page names the URLs it answers at, so they can be pasted into a consumer.
 	body := do(h, http.MethodGet, "/collections", nil, false).Body.String()
-	for _, want := range []string{"My Favourites", "/m3u/my-favourites", "/xmltv/my-favourites", "2 channels"} {
+	for _, want := range []string{"My Favorites", "/m3u/my-favorites", "/xmltv/my-favorites", "2 channels"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("collections page missing %q", want)
 		}
 	}
 
 	// Those URLs serve the collection's channels and no others.
-	m3u := do(h, http.MethodGet, "/m3u/my-favourites", nil, false)
+	m3u := do(h, http.MethodGet, "/m3u/my-favorites", nil, false)
 	if n := strings.Count(m3u.Body.String(), "#EXTINF"); n != 2 {
 		t.Errorf("collection playlist has %d channels, want 2", n)
 	}
@@ -69,7 +69,7 @@ func TestCollections(t *testing.T) {
 	if all, _ = st.Collections(ctx); all[0].Channels != 3 {
 		t.Errorf("adding a duplicate should change nothing: %d", all[0].Channels)
 	}
-	if n := strings.Count(do(h, http.MethodGet, "/m3u/my-favourites", nil, false).Body.String(), "#EXTINF"); n != 3 {
+	if n := strings.Count(do(h, http.MethodGet, "/m3u/my-favorites", nil, false).Body.String(), "#EXTINF"); n != 3 {
 		t.Errorf("the collection's playlist should follow its membership at once: %d", n)
 	}
 
@@ -78,7 +78,7 @@ func TestCollections(t *testing.T) {
 	if got := strings.Count(body, `href="/lineup/`); got != 3 {
 		t.Errorf("viewing a collection should show its 3 channels, got %d", got)
 	}
-	if !strings.Contains(body, "Remove from My Favourites") {
+	if !strings.Contains(body, "Remove from My Favorites") {
 		t.Error("viewing a collection should offer to remove from it")
 	}
 	do(h, http.MethodPost, "/lineup/uncollect", url.Values{"key": {key(1)}, "from": {id}}, true)

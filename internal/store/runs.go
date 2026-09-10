@@ -63,7 +63,7 @@ type RunChannel struct {
 }
 
 // Scored reports whether this row's confidence is worth showing: a channel nothing
-// recognised, or one that is not an event channel at all, was never scored.
+// recognized, or one that is not an event channel at all, was never scored.
 func (c RunChannel) Scored() bool {
 	return c.Confidence > 0 && c.Status != OutcomeNetwork && c.Status != OutcomeUnmatched
 }

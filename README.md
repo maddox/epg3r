@@ -77,7 +77,7 @@ women's). Channel types:
 - **Unused channels** (`Offline`, `No Event Scheduled`, bare labels) are numbered slots
   the provider has parked. They stay in the lineup so the consumer does not see channels
   appear and disappear.
-- **Network channels** (NFL Network, ESPN, local affiliates) are recognised and listed
+- **Network channels** (NFL Network, ESPN, local affiliates) are recognized and listed
   but not exported; they have real guide data elsewhere.
 
 ### Looking at what you get
@@ -93,7 +93,7 @@ setting.
 - **Leagues** adjusts how a league's airings are described: airing title, game length,
   early start, and the art the league itself wears.
 
-`/m3u` and `/xmltv` are the whole guide: every event-carrying channel epg3r recognises,
+`/m3u` and `/xmltv` are the whole guide: every event-carrying channel epg3r recognizes,
 with nothing in the app taking any of them out.
 
 ### Art

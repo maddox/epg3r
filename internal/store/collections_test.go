@@ -18,11 +18,11 @@ func TestCollections(t *testing.T) {
 	key := func(i int) string { return ChannelKey(src, urls[i]) }
 
 	// A name is what the reader types; the slug is what its URLs are.
-	fav, err := s.CreateCollection(ctx, "  My Favourite Teams ")
-	if err != nil || fav.Name != "My Favourite Teams" || fav.Slug != "my-favourite-teams" {
+	fav, err := s.CreateCollection(ctx, "  My Favorite Teams ")
+	if err != nil || fav.Name != "My Favorite Teams" || fav.Slug != "my-favorite-teams" {
 		t.Fatalf("create: %+v %v", fav, err)
 	}
-	if _, err := s.CreateCollection(ctx, "my favourite teams"); err == nil {
+	if _, err := s.CreateCollection(ctx, "my favorite teams"); err == nil {
 		t.Error("two collections cannot share a slug: it is their URL")
 	}
 	var verr *ValidationError
@@ -53,7 +53,7 @@ func TestCollections(t *testing.T) {
 	if err != nil || len(all) != 1 || all[0].Channels != 2 {
 		t.Fatalf("list: %+v %v", all, err)
 	}
-	got, ok, _ := s.CollectionBySlug(ctx, "my-favourite-teams")
+	got, ok, _ := s.CollectionBySlug(ctx, "my-favorite-teams")
 	if !ok || got.ID != fav.ID {
 		t.Errorf("by slug: %+v %v", got, ok)
 	}

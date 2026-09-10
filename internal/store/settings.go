@@ -58,7 +58,7 @@ var SettingDefs = []SettingDef{
 		Default: "", Kind: KindString},
 	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
 		Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
-	{Key: SettingEmitPlaceholderProg, Label: "Placeholder programme on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" programme instead of an empty guide.",
+	{Key: SettingEmitPlaceholderProg, Label: "Placeholder program on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" program instead of an empty guide.",
 		Default: "0", Kind: KindBool},
 	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
 		Default: "0", Kind: KindBool},

@@ -41,7 +41,7 @@ type outputKey struct {
 // anything that can reach the endpoint could grow this map without bound. A deployment is
 // reached by a handful of names at most, so overflow means something is inventing them:
 // drop the lot rather than track which was used least, since re-rendering is what an
-// unrecognised name costs anyway.
+// unrecognized name costs anyway.
 const maxRenderings = 8
 
 // renderState is everything about a rendering that can go out of date. Comparing it is

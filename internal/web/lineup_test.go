@@ -31,11 +31,11 @@ func lineupSnapshot() *model.Snapshot {
 		Teams: [2]*model.TeamRef{&bills, &jets},
 		Start: now.Add(72 * time.Hour), Stop: now.Add(75 * time.Hour), Kickoff: now.Add(72 * time.Hour)}
 	return &model.Snapshot{RunID: 1, Channels: []model.Channel{
-		{Key: "k-nfl-04", ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/1", Programmes: []model.Programme{{Event: live}}},
-		{Key: "k-nfl-05", ID: "NFL 05", Number: 8505, Name: "NFL 05", Kind: model.KindSlot, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/2", Programmes: []model.Programme{{Event: later}}},
+		{Key: "k-nfl-04", ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/1", Programs: []model.Program{{Event: live}}},
+		{Key: "k-nfl-05", ID: "NFL 05", Number: 8505, Name: "NFL 05", Kind: model.KindSlot, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/2", Programs: []model.Program{{Event: later}}},
 		{Key: "k-nfl-06", ID: "NFL 06", Number: 8506, Name: "NFL 06", Kind: model.KindPlaceholder, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/3"},
 		{Key: "k-nfl-bills", ID: "NFL Bills", Number: 10800, Name: "NFL Bills", Kind: model.KindTeam, LeagueKey: "nfl", SourceID: 1, Team: &bills, StreamURL: "http://x/4",
-			Programmes: []model.Programme{{Event: live, Note: "Buffalo Bills broadcast"}, {Event: later}, {Event: distant}}},
+			Programs: []model.Program{{Event: live, Note: "Buffalo Bills broadcast"}, {Event: later}, {Event: distant}}},
 		{Key: "k-nba-01", ID: "NBA 01", Number: 11501, Name: "NBA 01", Kind: model.KindPlaceholder, LeagueKey: "nba", SourceID: 1, StreamURL: "http://x/5"},
 	}}
 }
@@ -76,7 +76,7 @@ func TestLineupPageAndFilters(t *testing.T) {
 	}
 	// Now and next: the live game shows under Now for NFL 04, the later one under Next for the Bills channel.
 	if !strings.Contains(body, "until ") {
-		t.Error("live programme should show its end time")
+		t.Error("live program should show its end time")
 	}
 
 	if body := hxGet(h, "/lineup?kind=team", "lineup-table"); !strings.Contains(body, "NFL Bills") || strings.Contains(body, "NFL 04") {
@@ -119,14 +119,14 @@ func TestLeaguesPage(t *testing.T) {
 	if strings.Count(body, `data-picker="duration"`) != len(s.Catalog.Leagues) {
 		t.Error("every league card should offer a game length chooser")
 	}
-	if strings.Contains(body, "customised") {
+	if strings.Contains(body, "customized") {
 		t.Error("no overrides yet")
 	}
 
 	// Save an override: disable NBA and rename the NFL airing with a longer game.
 	rec := do(h, http.MethodPut, "/leagues/nfl", url.Values{"airing_title": {"Pro Football"}, "duration": {"4h0m0s"}, "start_pad": {""}}, true)
 	body = rec.Body.String()
-	if rec.Code != http.StatusOK || !strings.Contains(body, "customised") || !strings.Contains(body, `value="Pro Football"`) {
+	if rec.Code != http.StatusOK || !strings.Contains(body, "customized") || !strings.Contains(body, `value="Pro Football"`) {
 		t.Errorf("save: %d %s", rec.Code, body)
 	}
 	if !strings.Contains(body, `value="4h0m0s" checked`) {
@@ -152,7 +152,7 @@ func TestLeaguesPage(t *testing.T) {
 	}
 	// Reset removes the override.
 	rec = do(h, http.MethodDelete, "/leagues/nfl", nil, true)
-	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "customised") {
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "customized") {
 		t.Errorf("reset: %d", rec.Code)
 	}
 	if ov, _ = st.LeagueOverrides(ctx); len(ov) != 1 {

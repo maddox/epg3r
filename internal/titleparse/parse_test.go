@@ -149,7 +149,7 @@ func TestScheduleParsing(t *testing.T) {
 		got, ok := parseSchedule(in)
 		got.Stop = nil
 		if !ok {
-			t.Errorf("%q: not recognised", in)
+			t.Errorf("%q: not recognized", in)
 			continue
 		}
 		if got != want {
