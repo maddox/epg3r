@@ -226,13 +226,13 @@ func sourceName(raw string) string {
 	return "Provider"
 }
 
-// firstProblem turns a rejected setting into a sentence a reader can act on. The store names
-// the key it refused, which is a database column rather than what the field is called on the
-// form. Registry order, so the same input always reports the same problem first.
+// firstProblem turns a rejected setting into a sentence a reader can act on, with the field
+// named as the form names it. Registry order, so the same input always reports the same
+// problem first.
 func firstProblem(problems map[string]string) string {
 	for _, d := range store.SettingDefs {
 		if msg, ok := problems[d.Key]; ok {
-			return strings.Replace(msg, d.Key, d.Label, 1)
+			return d.Label + ": " + settingProblem(d.Key, msg)
 		}
 	}
 	return "That could not be saved."

@@ -345,10 +345,20 @@ type settingsPage struct {
 	Saved  bool
 }
 
+// settingProblem drops the database key the store leads its refusals with. On the settings
+// page the field's own label is alongside, and in the wizard firstProblem puts the label back
+// in front, so in both places the key is noise a reader cannot act on.
+func settingProblem(key, msg string) string {
+	if msg == "" {
+		return ""
+	}
+	return strings.TrimLeft(strings.TrimPrefix(msg, key), " :")
+}
+
 func settingsFields(values map[string]string, errs map[string]string) []settingField {
 	out := make([]settingField, 0, len(store.SettingDefs))
 	for _, d := range store.SettingDefs {
-		out = append(out, settingField{SettingDef: d, Value: values[d.Key], Error: errs[d.Key]})
+		out = append(out, settingField{SettingDef: d, Value: values[d.Key], Error: settingProblem(d.Key, errs[d.Key])})
 	}
 	return out
 }

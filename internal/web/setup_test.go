@@ -119,7 +119,7 @@ func TestSetupFinishes(t *testing.T) {
 	rec := do(h, http.MethodPost, setupPath, form, true)
 	// The message names the field as the form labels it, not as the database column the
 	// store refused.
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Refresh every (minutes) must be at least 1") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Refresh every (minutes): must be at least 1") {
 		t.Fatalf("a bad interval should be refused: %d %s", rec.Code, rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), "refresh_interval_minutes must") {
