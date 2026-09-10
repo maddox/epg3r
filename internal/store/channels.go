@@ -112,6 +112,12 @@ type Assignment struct {
 	PreferredID     string
 	PreferredNumber int
 	Base, Limit     int
+
+	// KeepID means this channel already answers to PreferredID and wants only a number.
+	// It happens when a league's numbering moves out from under a channel: the number is
+	// cleared and re-derived, but the id must not move — it is what a consumer's
+	// recordings hang on.
+	KeepID bool
 }
 
 // AssignNumbers gives an id and a number to channels that have none, and returns the
@@ -142,6 +148,14 @@ func (s *Store) AssignNumbers(ctx context.Context, as []Assignment) (map[string]
 		return nil, err
 	}
 	defer upd.Close()
+	// Naming channel_id only in the WHERE clause is what makes an id impossible to churn
+	// here, rather than merely unlikely: this statement has no way to write one. It also
+	// refuses a row that has taken a number back since the queue was built.
+	renum, err := tx.PrepareContext(ctx, `UPDATE channels SET number = ?, by_user = 0 WHERE key = ? AND channel_id = ? AND number IS NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer renum.Close()
 
 	next := map[int]int{} // per block, where the search for a free number got to
 	for _, a := range as {
@@ -160,11 +174,19 @@ func (s *Store) AssignNumbers(ctx context.Context, as []Assignment) (map[string]
 		if n == 0 {
 			continue // this league's block is full; the channel waits for a free number
 		}
+		// A channel that already answers to its id skips the de-duplication entirely:
+		// its id is not on offer, so finding it "taken" — by itself — must not rename it.
 		id := a.PreferredID
-		for i := 2; usedIDs[id]; i++ {
-			id = fmt.Sprintf("%s %d", a.PreferredID, i)
+		if !a.KeepID {
+			for i := 2; usedIDs[id]; i++ {
+				id = fmt.Sprintf("%s %d", a.PreferredID, i)
+			}
 		}
-		res, err := upd.ExecContext(ctx, id, n, a.Key)
+		exec := func() (sql.Result, error) { return upd.ExecContext(ctx, id, n, a.Key) }
+		if a.KeepID {
+			exec = func() (sql.Result, error) { return renum.ExecContext(ctx, n, a.Key, id) }
+		}
+		res, err := exec()
 		if err != nil {
 			return nil, err
 		}

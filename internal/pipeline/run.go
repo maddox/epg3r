@@ -364,10 +364,16 @@ type numbering struct {
 // Nothing here can move a channel that has been published before.
 func (run *sourceRun) propose(en *entry, want store.Assignment) {
 	if c, ok := run.known[en.key]; ok && c.ChannelID != "" {
-		en.settle(c.ChannelID, c.Number)
-		en.ch.ByUser = c.ByUser
 		run.claimed[c.ChannelID] = true
-		return
+		if c.Number != 0 {
+			en.settle(c.ChannelID, c.Number)
+			en.ch.ByUser = c.ByUser
+			return
+		}
+		// An identity but no number: this channel's league was re-homed and its number
+		// cleared, so it asks for one again while keeping the id a consumer knows it by.
+		// Without this it would settle on number 0 and be published on it.
+		want.PreferredID, want.KeepID = c.ChannelID, true
 	}
 	want.Key = en.key
 	run.claimed[want.PreferredID] = true
