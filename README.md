@@ -1,28 +1,25 @@
-# epg3r
+# epg3r!!
 
-Real guide data for the sports channels your IPTV provider gives you.
+Real guide data for the sports channels your provider gives you.
 
 ## The problem
 
-Most IPTV providers carry live sports on channels that only exist for one game. The channel
+Most providers carry live sports via channels that only exist for one event. The channel
 is called something like `NFL 04: Bills vs Texans (09/13) 1:00PM ET` today, and something
-else entirely tomorrow. Some providers also give each team its own channel.
+else entirely next week. Some providers also give teams their own channels.
 
-Those channels almost never come with guide data. In Channels DVR they show up blank — you
-can't see what's on, and you can't record anything.
+These channels almost never come with proper guide data and you're expected to just use the title of the channel to know what's playing on them. These almost never work in software like Channels, as they show up blank — you can't see what's on, and you can't record anything.
 
 ## What epg3r does
 
-epg3r reads your provider's channel list, works out what each channel actually is, and
-builds a proper guide from it.
+epg3r reads your provider's channel list and optionally its XMLTV data to work out what each channel actually is, and
+builds proper guide data from them. Then, the channels have real rich guide data.
 
-It figures out the league, the teams, and when the game starts. It gives every channel a
-stable number and a logo, and every game a listing with both teams, artwork, and a start
-time. If the same game is on three different channels, they share one listing, so recording
-it once is enough.
+It determines the league, the teams, and when the events start. It gives every channel a stable channel number, a channel logo. Airings are filled out with rich metadata including airing art showing the matchup, a proper start time, along with a description and categorical tags.
 
-Then it hands Channels DVR two links, and your sports channels look like every other channel
-you have.
+This makes the events on these channels not only look great in your guide, but also makes them recordable.
+
+If the same event is on three different channels, they share one listing.
 
 ## Getting it running
 
@@ -53,48 +50,35 @@ docker compose up -d
 
 Open `http://localhost:8080` (or your server's address) and epg3r asks you two things:
 
-1. **Your provider's links.** The playlist link is required — it usually ends in `.m3u`. If
-   your provider also publishes a guide, add that too; it ends in `.xml` and helps epg3r get
-   game times right. epg3r checks both before moving on, so you'll know right away if a link
-   is wrong.
-2. **Where to start your channel numbers.** 10000 by default. Pick a range nothing else on
+1. **Your provider's URLs.** The playlist URL is required — it usually ends in `.m3u`. If
+   your provider also publishes a XMLTV guide data, add its URL too; it ends in `.xml` and gives epg3r even more data to work with.
+2. **Where to start your channel numbers.** `10000` by default. Pick a range nothing else on
    your system is using.
 
-That's it. epg3r builds your guide, which takes a minute or two the first time.
+That's it. epg3r builds your guide.
 
-## Connecting it to Channels DVR
+## Connecting it to other software
 
-In Channels DVR, add a custom channel source using these two links:
+Find the URLs epg3r gives you on the dashboard and add them to your software.
 
-- **Playlist:** `http://your-server:8080/m3u`
-- **Guide:** `http://your-server:8080/xmltv`
+## Sections
 
-Both links are on the epg3r dashboard, ready to copy.
-
-## What you'll see
+**Dashboard** Gives you a quick overview of how many channels epg3r found, how many it recognized, and how many airings it built.
 
 **Lineup** is every channel epg3r found, with what's on now and what's next. You can filter
 by league, search, and click any channel to see everything scheduled on it.
 
-**Channel numbers** are handed out automatically. Each league gets its own block of a
-thousand, so NFL channels sit together, MLB channels sit together, and so on. You can move
-the whole set by changing where the numbers start, or renumber individual channels yourself.
+**Collections** let you create your own group of channels with their own M3U and XMLTV URLs.
 
-**Artwork** is drawn by epg3r. Team channels get their team's logo, event channels get their
-league's, and each game gets a picture with both teams on it.
+**Leagues** lets you configure certain things per league, like the default event length and how early it should start.
 
-**Collections** let you group channels and give that group its own pair of links. Handy if
-you only want football in one place, or want to hand a smaller set to something else.
+**Sources** lets you manage your providers. You can have as many as you want.
 
-**History** shows every time epg3r rebuilt your guide and what happened to each channel — a
-good first stop if something looks wrong.
+**History** shows every time epg3r rebuilt your guide and what happened to each channel.
 
 ## Leagues it knows
 
-NFL, MLB, NBA, NHL, WNBA, MLS, and NCAA football and basketball, men's and women's.
-
-Channels epg3r doesn't recognize are left alone. Real networks like ESPN or NFL Network are
-identified but skipped, since they already have guide data from somewhere else.
+NFL, MLB, NBA, NHL, WNBA, MLS, and NCAA Football, NCAA Men's Basketball, and NCAA Women's Basketball.
 
 ## Settings worth knowing
 
@@ -116,29 +100,3 @@ docker compose up -d
 
 Your settings, channel numbers, and collections are kept in the `epg3r-data` volume, so
 nothing is lost.
-
-## Other things
-
-Nothing about how epg3r reads your channels is configurable — which league a channel belongs
-to, and which teams are playing, are worked out from the channel's own name. If something
-lands in the wrong league, that's a bug worth
-[reporting](https://github.com/maddox/epg3r/issues), not a setting to change.
-
-Team logos are fetched once and cached. A team epg3r has no logo for gets one drawn from its
-name instead, which covers most college teams.
-
-If you'd rather run it without Docker Compose:
-
-```
-docker run -d --name epg3r -p 8080:8080 -v epg3r-data:/data ghcr.io/maddox/epg3r:latest
-```
-
-## Building it yourself
-
-Everything runs in Docker; nothing gets installed on your machine.
-
-```
-make run     start it from source, with live reload
-make test    run the tests
-make help    everything else
-```
