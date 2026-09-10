@@ -1,0 +1,12 @@
+# Actions pinned to a major go stale quietly: a runner deprecation turns into a warning and
+# then into a failed build. Weekly bumps keep that from being a surprise.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
