@@ -138,9 +138,8 @@ channel is published under is written once and read back for the life of the row
 
 When a provider changes its stream URLs, though, the channels behind them are new as far
 as epg3r can tell — there is no identifier the two have in common. So numbers are not
-held forever: a channel gone from every playlist for longer than **Forget channels after
-(days)** is dropped and its number freed for another. Set that longer if your provider
-drops channels out of season, shorter if it churns URLs often.
+held forever: a channel gone from every playlist for a fortnight is dropped and its number
+freed for another.
 
 Numbers are yours to set. Tick channels in the Lineup, shift-click to take a range, give a starting number, and they
 take consecutive numbers in the order shown; a number you set is marked with a dot and is

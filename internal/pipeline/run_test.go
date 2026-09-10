@@ -629,7 +629,6 @@ func TestForgottenChannelsGiveTheirNumbersBack(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { w.Write([]byte(body)) }))
 	t.Cleanup(srv.Close)
 	st.CreateSource(ctx, store.NewSource{Name: "p", URL: srv.URL + "/list.m3u"})
-	st.SetSetting(ctx, store.SettingForgetChannelsAfter, "1")
 	clock := time.Now()
 	st.SetClock(func() time.Time { return clock })
 	r.Now = func() time.Time { return clock }
@@ -657,9 +656,9 @@ func TestForgottenChannelsGiveTheirNumbersBack(t *testing.T) {
 		t.Fatalf("old and new channels should both be held: %d", len(all))
 	}
 
-	// Two days on, the ones that moved away are past the setting's grace, so the run
-	// forgets them and their numbers are free for whoever comes next.
-	clock = clock.Add(48 * time.Hour)
+	// A fortnight on, the ones that moved away are past their grace, so the run forgets
+	// them and their numbers are free for whoever comes next.
+	clock = clock.Add(15 * 24 * time.Hour)
 	if _, _, err = r.Run(ctx, store.TriggerManual); err != nil {
 		t.Fatal(err)
 	}
@@ -668,7 +667,7 @@ func TestForgottenChannelsGiveTheirNumbersBack(t *testing.T) {
 	}
 	// A third set of URLs now takes the numbers the first set gave up.
 	body = strings.ReplaceAll(first, "http://old.example", "http://newer.example")
-	clock = clock.Add(96 * time.Hour)
+	clock = clock.Add(20 * 24 * time.Hour)
 	if _, _, err = r.Run(ctx, store.TriggerManual); err != nil {
 		t.Fatal(err)
 	}

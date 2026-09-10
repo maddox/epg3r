@@ -138,11 +138,12 @@ func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log
 	)
 	app.Runner.Phase = sched.SetPhase
 	srv.Refresher = sched
-	runOnStart, _ := app.Store.SettingBool(ctx, store.SettingRefreshOnStart)
 	schedDone := make(chan struct{})
 	go func() {
 		defer close(schedDone)
-		sched.Start(ctx, runOnStart)
+		// Always rebuild on start. A guide that is stale on boot is the one thing a
+		// consumer cannot work around, and a refresh costs a fetch.
+		sched.Start(ctx, true)
 	}()
 
 	httpSrv := &http.Server{

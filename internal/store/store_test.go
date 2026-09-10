@@ -129,21 +129,19 @@ func TestSetSettingIfUnset(t *testing.T) {
 	if _, err := s.SetSettingIfUnset(ctx, SettingRefreshIntervalMinutes, "0"); err == nil {
 		t.Error("invalid value should be rejected even when unset")
 	}
-	if wrote, err := s.SetSettingIfUnset(ctx, SettingKeepRuns, "20"); err != nil || wrote {
+	if wrote, err := s.SetSettingIfUnset(ctx, SettingChannelStart, "10000"); err != nil || wrote {
 		t.Errorf("a seed equal to the default should not be written: %v %v", wrote, err)
 	}
 	all, _ := s.Settings(ctx)
-	if all.RefreshInterval() != 45*time.Minute || all.Int(SettingKeepRuns) != 20 || !all.Bool(SettingRefreshOnStart) || all.Location().String() != "America/New_York" {
+	if all.RefreshInterval() != 45*time.Minute || all.Int(SettingChannelStart) != 10000 || all.Bool(SettingEmitPlaceholderProg) || all.Location().String() != "America/New_York" {
 		t.Errorf("typed accessors wrong: %v", all)
 	}
 }
 
 func TestSettingValidation(t *testing.T) {
 	ok := map[string][2]string{
-		SettingRefreshOnStart:      {"YES", "1"},
-		SettingEmitPlaceholderProg: {"off", "0"},
 		SettingConfidenceThreshold: {"0.75", "0.75"},
-		SettingKeepRuns:            {"007", "7"},
+		SettingChannelStart:        {"010000", "10000"},
 		SettingDefaultTimezone:     {"Europe/London", "Europe/London"},
 		SettingPublicBaseURL:       {"  https://x.example ", "https://x.example"},
 	}
@@ -156,11 +154,19 @@ func TestSettingValidation(t *testing.T) {
 
 	bad := map[string]string{
 		SettingRefreshIntervalMinutes: "0",
-		SettingRefreshOnStart:         "maybe",
+		SettingEmitPlaceholderProg:    "maybe",
 		SettingConfidenceThreshold:    "1.5",
-		SettingKeepRuns:               "ten",
+		SettingChannelStart:           "ten",
 		SettingDefaultTimezone:        "Mars/Olympus",
 	}
+	// Booleans arrive from a checkbox, an env var or a hand-written config, so every
+	// spelling anyone might send has to land on the same two values.
+	for in, want := range map[string]string{"YES": "1", "on": "1", "true": "1", "1": "1", "off": "0", "no": "0", "false": "0", "0": "0"} {
+		if got, err := settingDefs[SettingEmitPlaceholderProg].Normalize(in); err != nil || got != want {
+			t.Errorf("Normalize(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+
 	for key, in := range bad {
 		if _, err := settingDefs[key].Normalize(in); err == nil {
 			t.Errorf("%s: Normalize(%q) should fail", key, in)

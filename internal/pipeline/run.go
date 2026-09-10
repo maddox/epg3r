@@ -49,12 +49,19 @@ type Report struct {
 	Duration time.Duration
 }
 
+// How long a channel gone from its playlist keeps its number, and how many runs stay in
+// history. Neither was a setting anyone had reason to move: a fortnight is long enough to
+// ride out a provider's outage and short enough that a league does not run out of numbers,
+// and twenty runs is more history than anyone reads.
+const (
+	forgetChannelsAfter = 14 * 24 * time.Hour
+	keepRuns            = 20
+)
+
 // runConfig is the settings and filters a run works from.
 type runConfig struct {
 	threshold float64
-	forget    time.Duration // how long a channel gone from its playlist keeps its number
 	emitIdle  bool
-	keepRuns  int
 	loc       *time.Location
 	catalog   *catalog.Catalog // with the user's league overrides applied
 }
@@ -105,7 +112,7 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Sn
 		if err != nil {
 			msg = err.Error()
 		}
-		if ferr := r.Store.FinishRun(fctx, runID, store.RunFailed, msg, nil, nil, cfg.keepRuns); ferr != nil {
+		if ferr := r.Store.FinishRun(fctx, runID, store.RunFailed, msg, nil, nil, keepRuns); ferr != nil {
 			log.Error("could not finalize failed run", "run", runID, "err", ferr)
 		}
 	}()
@@ -154,8 +161,8 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Sn
 	// Channels no playlist has carried for a while give their numbers back. Without
 	// this a provider that changes its stream URLs would fill a league's block with
 	// channels that no longer exist, and new ones would stop being numbered at all.
-	if anyData && cfg.forget > 0 {
-		if n, err := r.Store.ForgetChannels(ctx, r.now().Add(-cfg.forget)); err != nil {
+	if anyData {
+		if n, err := r.Store.ForgetChannels(ctx, r.now().Add(-forgetChannelsAfter)); err != nil {
 			log.Warn("could not forget channels", "err", err)
 		} else if n > 0 {
 			log.Info("forgot channels gone from every playlist", "channels", n)
@@ -182,7 +189,7 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Sn
 	}
 	rep.Duration = r.now().Sub(started)
 
-	if err := r.Store.FinishRun(ctx, runID, rep.Status, strings.Join(rep.Problems, "; "), rows, snap, cfg.keepRuns); err != nil {
+	if err := r.Store.FinishRun(ctx, runID, rep.Status, strings.Join(rep.Problems, "; "), rows, snap, keepRuns); err != nil {
 		return nil, nil, fmt.Errorf("persist run: %w", err)
 	}
 	finalized = true
@@ -253,9 +260,7 @@ func (r *Runner) loadConfig(ctx context.Context) (runConfig, error) {
 	}
 	return runConfig{
 		threshold: s.Float(store.SettingConfidenceThreshold),
-		forget:    time.Duration(s.Int(store.SettingForgetChannelsAfter)) * 24 * time.Hour,
 		emitIdle:  s.Bool(store.SettingEmitPlaceholderProg),
-		keepRuns:  s.Int(store.SettingKeepRuns),
 		loc:       s.Location(),
 		catalog:   r.Catalog.WithOverrides(overrides).WithChannelStart(s.Int(store.SettingChannelStart)),
 	}, nil

@@ -308,16 +308,16 @@ func TestRunChannelFilterAndSourceCRUD(t *testing.T) {
 	if _, err := s.CreateSource(ctx, NewSource{URL: "http://p/3", Timezone: "Mars/Base"}); !errors.As(err, &verr) {
 		t.Errorf("bad zone should be a ValidationError, got %v", err)
 	}
-	if problems, err := s.SetSettings(ctx, map[string]string{SettingKeepRuns: "0", SettingRefreshOnStart: "yes"}); err != nil || len(problems) != 1 || problems[SettingKeepRuns] == "" {
+	if problems, err := s.SetSettings(ctx, map[string]string{SettingChannelStart: "0", SettingEmitPlaceholderProg: "yes"}); err != nil || len(problems) != 1 || problems[SettingChannelStart] == "" {
 		t.Errorf("SetSettings validation: %v %v", problems, err)
 	}
-	if v, _ := s.Setting(ctx, SettingRefreshOnStart); v != "1" {
+	if v, _ := s.Setting(ctx, SettingEmitPlaceholderProg); v != "0" {
 		t.Error("a failed SetSettings must write nothing")
 	}
-	if problems, err := s.SetSettings(ctx, map[string]string{SettingKeepRuns: "5", SettingRefreshOnStart: "no"}); err != nil || len(problems) != 0 {
+	if problems, err := s.SetSettings(ctx, map[string]string{SettingChannelStart: "5000", SettingEmitPlaceholderProg: "no"}); err != nil || len(problems) != 0 {
 		t.Errorf("SetSettings: %v %v", problems, err)
 	}
-	if all, _ := s.Settings(ctx); all.Int(SettingKeepRuns) != 5 || all.Bool(SettingRefreshOnStart) {
+	if all, _ := s.Settings(ctx); all.Int(SettingChannelStart) != 5000 || all.Bool(SettingEmitPlaceholderProg) {
 		t.Errorf("SetSettings not applied: %v", all)
 	}
 	one, ok, _ := s.GetSource(ctx, src)

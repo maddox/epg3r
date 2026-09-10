@@ -32,7 +32,7 @@ func TestSeedIsIdempotentPerKey(t *testing.T) {
 	}
 
 	// A seed equal to the default is not written, so defaults keep flowing on upgrade.
-	if wrote, _ := st.SetSettingIfUnset(ctx, store.SettingKeepRuns, "20"); wrote {
+	if wrote, _ := st.SetSettingIfUnset(ctx, store.SettingChannelStart, "10000"); wrote {
 		t.Error("seeding the default value should be a no-op")
 	}
 

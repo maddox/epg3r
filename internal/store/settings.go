@@ -13,14 +13,11 @@ import (
 // Setting keys.
 const (
 	SettingRefreshIntervalMinutes = "refresh_interval_minutes"
-	SettingRefreshOnStart         = "refresh_on_start"
 	SettingDefaultTimezone        = "default_timezone"
 	SettingPublicBaseURL          = "public_base_url"
 	SettingConfidenceThreshold    = "confidence_threshold"
 	SettingEmitPlaceholderProg    = "emit_placeholder_programme"
 	SettingM3UTvcGuideTags        = "m3u_tvc_guide_tags"
-	SettingKeepRuns               = "keep_runs"
-	SettingForgetChannelsAfter    = "forget_channels_after_days"
 	SettingChannelStart           = "channel_start"
 )
 
@@ -56,8 +53,6 @@ func f(v float64) *float64 { return &v }
 var SettingDefs = []SettingDef{
 	{Key: SettingRefreshIntervalMinutes, Label: "Refresh every (minutes)", Help: "How often sources are fetched and the guide rebuilt.",
 		Default: "60", Kind: KindInt, Min: f(1), Env: "EPG3R_REFRESH_INTERVAL"},
-	{Key: SettingRefreshOnStart, Label: "Refresh on start", Help: "Rebuild the guide as soon as the app starts.",
-		Default: "1", Kind: KindBool},
 	{Key: SettingDefaultTimezone, Label: "Default time zone", Help: "Zone for game times that do not name one. Providers almost always mean Eastern.",
 		Default: "America/New_York", Kind: KindString, Check: checkTimezone, Env: "EPG3R_TIMEZONE"},
 	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app. Every logo and every piece of airing art is fetched from here, so set it when more than one hostname reaches the app; leave it empty to derive from each request.",
@@ -70,10 +65,6 @@ var SettingDefs = []SettingDef{
 		Default: "0", Kind: KindBool},
 	{Key: SettingChannelStart, Label: "Channel numbers start at", Help: "The first channel number epg3r uses. Each league gets a thousand numbers from here, in the order the Leagues page lists them, so moving this moves every sports channel together. Pick a range your other providers leave alone.",
 		Default: "10000", Kind: KindInt, Min: f(1), Max: f(900000), Env: "EPG3R_CHANNEL_START"},
-	{Key: SettingKeepRuns, Label: "Runs to keep", Help: "How many refresh runs to keep in history.",
-		Default: "20", Kind: KindInt, Min: f(1)},
-	{Key: SettingForgetChannelsAfter, Label: "Forget channels after (days)", Help: "A channel gone from its playlist this long is forgotten and its number freed for another. A provider that changes its stream URLs produces entirely new channels, so numbers have to be reclaimed or a league eventually runs out of them.",
-		Default: "14", Kind: KindInt, Min: f(1)},
 }
 
 var settingDefs = func() map[string]SettingDef {
