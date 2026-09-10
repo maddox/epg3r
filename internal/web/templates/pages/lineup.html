@@ -3,7 +3,7 @@
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-bold tracking-tight">Lineup</h1>
-    <p class="mt-1 text-sm text-ink-300">{{if .InCollection}}The channels in this collection. Its playlist and guide are served at their own URLs.{{else}}Every channel epg3r built from your sources, and what it is carrying now and next. All of them go into the guide.{{end}}</p>
+    <p class="mt-1 text-sm text-ink-300">{{if .InCollection}}The channels in this collection. It has its own playlist and guide links.{{else}}Explore the channels imported from your provider sources.{{end}}</p>
   </div>
   <div class="flex gap-3 text-sm">
     <a href="/preview/m3u" class="btn-ghost">Preview M3U</a>
@@ -11,7 +11,7 @@
   </div>
 </div>
 {{if not .HasRun}}
-  <div class="mt-6">{{template "empty" dict "Icon" "📺" "Title" "No lineup yet" "Body" "The lineup appears after the first refresh finishes."}}</div>
+  <div class="mt-6">{{template "empty" dict "Icon" "📺" "Title" "No channels yet" "Body" "Your channels appear here once the first refresh finishes."}}</div>
 {{else}}
 {{template "lineup_view" .}}
 {{end}}
@@ -23,9 +23,9 @@
   <div class="mt-6 flex flex-wrap items-center gap-3 text-sm text-ink-300">
     {{with .InCollection}}
     <span class="pill bg-accent-500/15 text-accent-300">{{.Name}}</span>
-    <a href="/lineup" class="text-xs">show the whole guide</a><span>·</span>
+    <a href="/lineup" class="text-xs">show all channels</a><span>·</span>
     {{else}}
-    <span><span class="font-semibold text-ink-100">{{$.Total}}</span> channels in the guide</span>
+    <span><span class="font-semibold text-ink-100">{{$.Total}}</span> channels in your guide</span>
     {{end}}
     {{if ne (len .Rows) .Total}}<span>· {{len .Rows}} shown</span>{{end}}
   </div>
@@ -39,7 +39,7 @@
     {{template "team_slot" .}}
     {{template "picker" .Kind}}
     {{template "picker" .Scheduled}}
-    <input type="search" name="q" value="{{.Filter.Query}}" placeholder="Search this list" class="input !w-64">
+    <input type="search" name="q" value="{{.Filter.Query}}" placeholder="Search channels" class="input !w-64">
     {{with .InCollection}}<input type="hidden" name="collection" value="{{.ID}}">{{end}}
   </form>
   {{/* The table lives inside this form so a tick is carried with whichever action is
@@ -86,11 +86,11 @@
        fills and which of the form's controls it then clicks, so adding an action is
        markup rather than script. */}}
   {{template "action_dialog" dict "ID" "renumber-dialog" "Label" "Renumber channels"
-      "Blurb" "They take consecutive numbers from here, in the order shown."
+      "Blurb" "The channels you picked get numbers counting up from here, in the order shown."
       "Placeholder" "e.g. 200" "Type" "number" "Value" $.Start
       "Field" "start" "Do" "renumber" "Confirm" "Renumber"}}
   {{template "action_dialog" dict "ID" "new-collection-dialog" "Label" "New collection"
-      "Blurb" "It will be served at its own playlist and guide URLs."
+      "Blurb" "A collection gets its own playlist and guide links, so you can point Channels DVR at just these channels."
       "Placeholder" "e.g. Washington" "Type" "text" "Value" ""
       "Field" "new" "Do" "collect-new" "Confirm" "Create and add"}}
 </div>
@@ -104,10 +104,10 @@
 {{if .SwapTeams}}{{template "team_slot" .}}{{end}}
 <div id="lineup-table" class="card mt-4 overflow-x-auto">
   {{if not .Rows}}
-  <div class="no-rows">Nothing matches.</div>
+  <div class="no-rows">No channels match what you are looking for.</div>
   {{else}}
   <table class="table">
-    <thead><tr><th class="w-10"></th><th class="w-20">#</th><th>Channel</th><th>Channel Type</th><th>League</th><th>Source</th><th>Now</th><th>Next</th></tr></thead>
+    <thead><tr><th class="w-10"></th><th class="w-20">#</th><th>Channel</th><th>Type</th><th>League</th><th>From</th><th>On now</th><th>Up next</th></tr></thead>
     <tbody>
     {{range .Rows}}{{template "lineup_row" .}}{{end}}
     </tbody>

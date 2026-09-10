@@ -52,7 +52,7 @@ func TestSetupChecksTheURLs(t *testing.T) {
 	ctx := context.Background()
 
 	for _, tc := range []struct{ name, m3u, xmltv, want string }{
-		{"no playlist", "", "", "Enter the playlist URL"},
+		{"no playlist", "", "", "Enter the playlist link"},
 		{"not a url", "provider.example/list.m3u", "", "full http:// or https://"},
 		{"playlist will not load", "http://p.example/bad.m3u", "", "playlist could not be read"},
 		{"guide will not load", "http://p.example/ok.m3u", "http://p.example/bad.xml", "guide could not be read"},
@@ -92,7 +92,7 @@ func TestSetupSecondStepOffersDefaults(t *testing.T) {
 		t.Fatalf("code = %d: %s", rec.Code, body)
 	}
 	for _, want := range []string{
-		"Found 42 channels", "500 programs",
+		"Found 42 channels", "500 listings",
 		`name="refresh_interval_minutes"`, `value="60"`,
 		`name="channel_start"`, `value="10000"`,
 		// Carried in the form, so nothing is stored until the last step.
@@ -119,7 +119,7 @@ func TestSetupFinishes(t *testing.T) {
 	rec := do(h, http.MethodPost, setupPath, form, true)
 	// The message names the field as the form labels it, not as the database column the
 	// store refused.
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Refresh every (minutes): must be at least 1") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Check for new listings every: must be at least 1") {
 		t.Fatalf("a bad interval should be refused: %d %s", rec.Code, rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), "refresh_interval_minutes must") {

@@ -45,7 +45,7 @@ func TestLineupPageAndFilters(t *testing.T) {
 	setUp(t, st)
 	h := s.Handler()
 
-	if body := do(h, http.MethodGet, "/lineup", nil, false).Body.String(); !strings.Contains(body, "No lineup yet") {
+	if body := do(h, http.MethodGet, "/lineup", nil, false).Body.String(); !strings.Contains(body, "No channels yet") {
 		t.Error("empty state missing")
 	}
 	s.Snapshots.Set(lineupSnapshot())
@@ -53,7 +53,7 @@ func TestLineupPageAndFilters(t *testing.T) {
 	body := do(h, http.MethodGet, "/lineup", nil, false).Body.String()
 	// The guide is one list. Nothing in the app takes a channel out of it, so nothing
 	// here offers to.
-	if !strings.Contains(body, "5</span> channels in the guide") {
+	if !strings.Contains(body, "5</span> channels in your guide") {
 		t.Errorf("the lineup should count the whole guide: %s", body[:min(900, len(body))])
 	}
 	for _, gone := range []string{"Exclude", "Include", "/lineup/rule", "Export", "switched off"} {
@@ -61,12 +61,12 @@ func TestLineupPageAndFilters(t *testing.T) {
 			t.Errorf("export management still present: %q", gone)
 		}
 	}
-	for _, want := range []string{"<th>Channel Type</th>", ">Event<", ">Team<", ">Unused<", "All types"} {
+	for _, want := range []string{"<th>Type</th>", ">Event<", ">Team<", ">Spare<", "Any type"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("channel type vocabulary missing %q", want)
 		}
 	}
-	if !strings.Contains(body, "<th>Source</th>") || !strings.Contains(body, ">Provider<") {
+	if !strings.Contains(body, "<th>From</th>") || !strings.Contains(body, ">Provider<") {
 		t.Error("the lineup should name the source each channel came from")
 	}
 	for _, want := range []string{"Buffalo Bills vs Houston Texans", "Chicago Bears vs Green Bay Packers", "nothing scheduled"} {
@@ -318,7 +318,7 @@ func TestChannelInspector(t *testing.T) {
 	// A team channel carries several airings; the one on now is marked, and the
 	// Gracenote ids are shown so a mismatch is visible without reading the XMLTV.
 	body := do(h, http.MethodGet, "/lineup/k-nfl-bills", nil, false).Body.String()
-	for _, want := range []string{"NFL Bills", "channel 10800", "Team Channel", "Buffalo Bills vs Houston Texans",
+	for _, want := range []string{"NFL Bills", "channel 10800", "Team channel", "Buffalo Bills vs Houston Texans",
 		"Chicago Bears vs Green Bay Packers", "on now", "Buffalo Bills broadcast", "Provider"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("channel page missing %q", want)

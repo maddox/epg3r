@@ -50,19 +50,19 @@ func f(v float64) *float64 { return &v }
 
 // SettingDefs is the registry of settings, in display order.
 var SettingDefs = []SettingDef{
-	{Key: SettingRefreshIntervalMinutes, Label: "Refresh every (minutes)", Help: "How often sources are fetched and the guide rebuilt.",
+	{Key: SettingRefreshIntervalMinutes, Label: "Check for new listings every", Help: "How often epg3r fetches your provider and rebuilds your guide. In minutes.",
 		Default: "60", Kind: KindInt, Min: f(1)},
-	{Key: SettingDefaultTimezone, Label: "Default time zone", Help: "Zone for game times that do not name one. Providers almost always mean Eastern.",
+	{Key: SettingDefaultTimezone, Label: "Time zone", Help: "Used when a listing gives a time but not a zone, which is most of them. Providers almost always mean Eastern.",
 		Default: "America/New_York", Kind: KindString, Choices: Zones},
-	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app. Every logo and every piece of airing art is fetched from here, so set it when more than one hostname reaches the app; leave it empty to derive from each request.",
+	{Key: SettingPublicBaseURL, Label: "Address other apps use to reach epg3r", Help: "Channel logos and event art are loaded from here. Leave it empty unless epg3r answers on more than one address, in which case set the one Channels DVR should use.",
 		Default: "", Kind: KindString},
-	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
+	{Key: SettingConfidenceThreshold, Label: "How sure to be before listing an event", Help: "Channel names are messy, so epg3r scores how well it read each one, from 0 to 1. Anything below this is left out of your guide and shown as an unclear listing in the refresh history.",
 		Default: "0.5", Kind: KindFloat, Min: f(0), Max: f(1)},
-	{Key: SettingEmitPlaceholderProg, Label: "Placeholder program on idle channels", Help: "Give idle channels a 24 hour \"No Event Scheduled\" program instead of an empty guide.",
+	{Key: SettingEmitPlaceholderProg, Label: "Fill empty channels with a placeholder", Help: "Channels with nothing scheduled get a 24 hour \"No Event Scheduled\" listing, so they do not look broken in your guide.",
 		Default: "0", Kind: KindBool},
-	{Key: SettingM3UTvcGuideTags, Label: "Guide tags in the M3U", Help: "Add Channels DVR tvc-guide attributes to the playlist for setups that load it without the XMLTV.",
+	{Key: SettingM3UTvcGuideTags, Label: "Put listings in the playlist too", Help: "For setups that load the playlist without the guide. Channels DVR then shows what is on from the playlist alone.",
 		Default: "0", Kind: KindBool},
-	{Key: SettingChannelStart, Label: "Channel numbers start at", Help: "The first channel number epg3r uses. Each league gets a thousand numbers from here, in the order the Leagues page lists them, so moving this moves every sports channel together. Pick a range your other providers leave alone.",
+	{Key: SettingChannelStart, Label: "Channel numbers start at", Help: "The first channel number epg3r hands out. Each league gets a thousand numbers from here, in the order the Leagues page lists them, so changing this moves every channel together. Pick a range your other TV sources are not already using.",
 		Default: "10000", Kind: KindInt, Min: f(1), Max: f(900000)},
 }
 

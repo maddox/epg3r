@@ -124,7 +124,7 @@ func TestPagesRenderEmptyAndFull(t *testing.T) {
 			t.Errorf("%s: %d %s", path, rec.Code, rec.Body.String()[:min(200, rec.Body.Len())])
 		}
 	}
-	if body := do(h, http.MethodGet, "/", nil, false).Body.String(); !strings.Contains(body, "No guide yet") {
+	if body := do(h, http.MethodGet, "/", nil, false).Body.String(); !strings.Contains(body, "Building your guide") {
 		t.Error("dashboard should say the first refresh has not finished")
 	}
 
@@ -153,17 +153,17 @@ func TestPagesRenderEmptyAndFull(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("dashboard: %d %s", rec.Code, body)
 	}
-	for _, want := range []string{"Carrying a game", "NFL", "NBA", "/m3u", "/xmltv", "Provider", "Recent runs"} {
+	for _, want := range []string{"With something scheduled", "NFL", "NBA", "/m3u", "/xmltv", "Provider", "Recent refreshes"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("dashboard missing %q", want)
 		}
 	}
 	body = do(h, http.MethodGet, "/runs", nil, false).Body.String()
-	if !strings.Contains(body, "#1") || !strings.Contains(body, "Exported") {
-		t.Error("runs page missing the run")
+	if !strings.Contains(body, "#1") || !strings.Contains(body, "Something scheduled") {
+		t.Error("the refresh history is missing the refresh")
 	}
 	body = do(h, http.MethodGet, "/runs/1", nil, false).Body.String()
-	for _, want := range []string{"Run #1", "Bills vs Texans", "NFL NETWORK", "not an event channel"} {
+	for _, want := range []string{"Refresh #1", "Bills vs Texans", "NFL NETWORK", "not an event channel"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("run page missing %q", want)
 		}
@@ -182,7 +182,7 @@ func TestHXRequestGetsContentOnly(t *testing.T) {
 	if !strings.Contains(full, "<!doctype html>") || strings.Contains(part, "<!doctype html>") {
 		t.Error("HX-Request should render the content block only")
 	}
-	if !strings.Contains(part, "Refresh every") {
+	if !strings.Contains(part, "Check for new listings") {
 		t.Error("partial should still contain the page content")
 	}
 }
@@ -215,11 +215,11 @@ func TestRunChannelFilters(t *testing.T) {
 	if !strings.Contains(body, "NBA 01") || strings.Contains(body, "NFL 04") {
 		t.Error("league filter wrong")
 	}
-	if body := hxGet(h, "/runs/1?q=zzz", "channel-table"); !strings.Contains(body, "Nothing matches") {
+	if body := hxGet(h, "/runs/1?q=zzz", "channel-table"); !strings.Contains(body, "Nothing here matches") {
 		t.Error("empty result state missing")
 	}
 	// An HTMX request for a target the page does not define falls back to the content block.
-	if body := hxGet(h, "/runs/1", "main"); !strings.Contains(body, "Run #1") || strings.Contains(body, "<!doctype") {
+	if body := hxGet(h, "/runs/1", "main"); !strings.Contains(body, "Refresh #1") || strings.Contains(body, "<!doctype") {
 		t.Error("unknown target should get the content block")
 	}
 }

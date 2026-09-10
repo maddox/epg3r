@@ -1,20 +1,20 @@
 {{define "content"}}
-<h1 class="text-2xl font-bold tracking-tight">Runs</h1>
-<p class="mt-1 text-sm text-ink-300">Every refresh, with what happened to each channel in the playlist.</p>
+<h1 class="text-2xl font-bold tracking-tight">Refresh history</h1>
+<p class="mt-1 text-sm text-ink-300">Every time epg3r rebuilt your guide, and what happened to each channel from your provider.</p>
 {{with .Data}}
 {{if not .Runs}}
-  <div class="mt-6">{{template "empty" dict "Icon" "🕒" "Title" "No runs yet" "Body" "Runs appear here after the first refresh."}}</div>
+  <div class="mt-6">{{template "empty" dict "Icon" "🕒" "Title" "Nothing yet" "Body" "Refreshes show up here once the first one finishes."}}</div>
 {{else}}
 <div class="card mt-6 overflow-x-auto">
 <table class="table">
-  <thead><tr><th>Run</th><th>Started</th><th>Trigger</th><th>Status</th><th>Took</th>{{range outcomes}}<th class="text-right">{{outcome .}}</th>{{end}}<th></th></tr></thead>
+  <thead><tr><th>#</th><th>Started</th><th>Started by</th><th>Result</th><th>Took</th>{{range outcomes}}<th class="text-right">{{outcome .}}</th>{{end}}<th></th></tr></thead>
   <tbody>
   {{range .Runs}}
   <tr class="cursor-pointer" hx-get="/runs/{{.ID}}" hx-target="#main" hx-push-url="true" hx-swap="innerHTML show:window:top">
     <td class="tabular-nums"><a href="/runs/{{.ID}}">#{{.ID}}</a></td>
     <td class="whitespace-nowrap"><a href="/runs/{{.ID}}" class="text-ink-100">{{stamp .StartedAt}}</a></td>
-    <td class="text-ink-300">{{.Trigger}}</td>
-    <td><span class="pill status-pill-{{.Status}}" title="{{.Error}}">{{.Status}}</span></td>
+    <td class="text-ink-300">{{trigger .Trigger}}</td>
+    <td><span class="pill status-pill-{{.Status}}" title="{{.Error}}">{{runStatus .Status}}</span></td>
     <td class="tabular-nums text-ink-300">{{dur .StartedAt .FinishedAt}}</td>
     {{$c := .Counts}}{{range outcomes}}<td class="text-right tabular-nums">{{index $c .}}</td>{{end}}
     <td class="text-right"><a href="/runs/{{.ID}}">Details</a></td>

@@ -1,15 +1,15 @@
 {{define "content"}}
 {{with .Data}}
 {{if not .Snapshot}}
-  {{template "empty" dict "Icon" "⏳" "Title" "No guide yet" "Body" "The first refresh has not finished. Use Refresh now, then this page fills in with what was found."}}
+  {{template "empty" dict "Icon" "⏳" "Title" "Building your guide" "Body" "The first refresh has not finished yet. Once it does, this page fills in with what was found."}}
 {{else}}
 <div class="grid gap-4 md:grid-cols-4">
-  <div class="stat"><div class="stat-value">{{.Channels}}</div><div class="stat-label">Channels in the lineup</div></div>
-  <div class="stat"><div class="stat-value text-accent-400">{{.WithGames}}</div><div class="stat-label">Carrying a game</div></div>
-  <div class="stat"><div class="stat-value">{{.Programs}}</div><div class="stat-label">Programs in the guide</div></div>
+  <div class="stat"><div class="stat-value">{{.Channels}}</div><div class="stat-label">Channels</div></div>
+  <div class="stat"><div class="stat-value text-accent-400">{{.WithGames}}</div><div class="stat-label">With something scheduled</div></div>
+  <div class="stat"><div class="stat-value">{{.Programs}}</div><div class="stat-label">Airings in your guide</div></div>
   <div class="stat">
-    {{with .LastRun}}<div class="stat-value status-text-{{.Status}}">{{.Status}}</div>
-    <div class="stat-label">Last run · {{since .StartedAt}}</div>{{end}}
+    {{with .LastRun}}<div class="stat-value status-text-{{.Status}}">{{runStatus .Status}}</div>
+    <div class="stat-label">Last refresh · {{since .StartedAt}}</div>{{end}}
   </div>
 </div>
 
@@ -27,12 +27,12 @@
       </div>
       {{end}}
     </div>
-    <p class="help mt-4">Channels carrying a game out of all channels in the league. Idle channels are exported too so the lineup stays stable.</p>
+    <p class="help mt-4">Number of channels in each league with something scheduled.</p>
   </section>
 
   <section class="card p-6">
-    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Add to Channels DVR</h2>
-    <p class="text-sm text-ink-200">Create a custom channel source in Channels DVR with these two URLs.</p>
+    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Export Channels</h2>
+    <p class="text-sm text-ink-200">Export all of your channels using these two links.</p>
     <dl class="mt-4 space-y-3">
       <div><dt class="label">Playlist</dt><dd><code class="mono block select-all rounded-lg bg-ink-900 px-3 py-2">{{.Outputs.M3U}}</code></dd></div>
       <div><dt class="label">Guide</dt><dd><code class="mono block select-all rounded-lg bg-ink-900 px-3 py-2">{{.Outputs.XMLTV}}</code></dd></div>
@@ -43,19 +43,19 @@
 <div class="mt-6 grid gap-6 lg:grid-cols-3">
   <section class="card p-6 lg:col-span-2">
     <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-sm font-semibold uppercase tracking-wider text-ink-300">Recent runs</h2>
-      <a href="/runs" class="text-sm">All runs</a>
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-ink-300">Recent refreshes</h2>
+      <a href="/runs" class="text-sm">See all</a>
     </div>
     <table class="table">
-      <thead><tr><th>When</th><th>Status</th><th>Exported</th><th>Idle</th><th>Needs a look</th><th></th></tr></thead>
+      <thead><tr><th>When</th><th>Result</th><th>Something scheduled</th><th>Nothing scheduled</th><th>Needs a look</th><th></th></tr></thead>
       <tbody>
       {{range .Runs}}
       <tr>
         <td><a href="/runs/{{.ID}}" class="text-ink-100">{{stamp .StartedAt}}</a></td>
-        <td><span class="pill status-pill-{{.Status}}">{{.Status}}</span></td>
+        <td><span class="pill status-pill-{{.Status}}">{{runStatus .Status}}</span></td>
         <td class="tabular-nums">{{count .Counts "exported"}}</td>
         <td class="tabular-nums">{{count .Counts "idle"}}</td>
-        <td class="tabular-nums">{{count .Counts "unmatched_group"}} no league · {{count .Counts "low_confidence"}} low · {{count .Counts "duplicate"}} dup</td>
+        <td class="tabular-nums">{{count .Counts "unmatched_group"}} unknown league · {{count .Counts "low_confidence"}} unclear · {{count .Counts "duplicate"}} duplicate</td>
         <td class="text-right"><a href="/runs/{{.ID}}">Details</a></td>
       </tr>
       {{end}}
@@ -78,7 +78,7 @@
         <div class="whitespace-nowrap text-right text-xs text-ink-300">
           {{if .LastChannelCount}}<div class="tabular-nums">{{deref .LastChannelCount}} channels</div>{{end}}
           {{if .LastFetchedAt}}<div>{{since .LastFetchedAt}}</div>{{end}}
-          {{if .LastError}}<div class="text-bad" title="{{.LastError}}">error</div>{{end}}
+          {{if .LastError}}<div class="text-bad" title="{{.LastError}}">could not be read</div>{{end}}
         </div>
       </li>
       {{end}}

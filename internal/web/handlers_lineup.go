@@ -168,10 +168,10 @@ func (s *Server) lineup(r *http.Request) (lineupPage, error) {
 		d.Filter.Teams = teams.Chosen()
 		d.Teams = &teams
 	}
-	d.Kind = choose("kind", []pickerOption{{Value: "", Label: "All types"}, {Value: "slot", Label: "Event channels"},
-		{Value: "team", Label: "Team channels"}, {Value: "placeholder", Label: "Unused"}}, d.Filter.Kind)
-	d.Scheduled = choose("scheduled", []pickerOption{{Value: "", Label: "Scheduled or not"}, {Value: "yes", Label: "Something scheduled"},
-		{Value: "no", Label: "Nothing scheduled"}}, d.Filter.Scheduled)
+	d.Kind = choose("kind", []pickerOption{{Value: "", Label: "Any type"}, {Value: "slot", Label: "Event channels"},
+		{Value: "team", Label: "Team channels"}, {Value: "placeholder", Label: "Spare channels"}}, d.Filter.Kind)
+	d.Scheduled = choose("scheduled", []pickerOption{{Value: "", Label: "Any airings"}, {Value: "yes", Label: "Has airings"},
+		{Value: "no", Label: "No airings"}}, d.Filter.Scheduled)
 	// Collections are offered wherever a selection can be made, and looking at one
 	// narrows the list to what is in it.
 	if id, err := strconv.ParseInt(q.Get("collection"), 10, 64); err == nil {

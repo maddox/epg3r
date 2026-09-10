@@ -136,17 +136,21 @@ func (t *templates) funcs() template.FuncMap {
 		"upper": strings.ToUpper,
 		// A run kept from an older version may carry an outcome this one no longer has;
 		// show it as it stands rather than as an empty badge.
-		"outcome":  func(o store.Outcome) string { return cmp.Or(outcomeLabels[o], string(o)) },
-		"kind":     func(k model.ChannelKind) string { return kindLabels[k] },
-		"kindName": func(k model.ChannelKind) string { return kindNames[k] },
-		"outcomes": func() []store.Outcome { return store.Outcomes },
-		"count":    func(c store.RunCounts, key string) int { return c[store.Outcome(key)] },
+		"outcome":   func(o store.Outcome) string { return cmp.Or(outcomeLabels[o], string(o)) },
+		"runStatus": func(s store.RunStatus) string { return cmp.Or(statusLabels[s], string(s)) },
+		"trigger":   func(t store.Trigger) string { return cmp.Or(triggerLabels[t], string(t)) },
+		"kind":      func(k model.ChannelKind) string { return kindLabels[k] },
+		"kindName":  func(k model.ChannelKind) string { return kindNames[k] },
+		"outcomes":  func() []store.Outcome { return store.Outcomes },
+		"count":     func(c store.RunCounts, key string) int { return c[store.Outcome(key)] },
 		"deref": func(p *int) int {
 			if p == nil {
 				return 0
 			}
 			return *p
 		},
+		// A confidence is a fraction; nobody reads 0.85 as "pretty sure".
+		"pct2": func(f float64) int { return int(f*100 + 0.5) },
 		"pct": func(n, total int) int {
 			if total == 0 {
 				return 0
@@ -166,34 +170,51 @@ func (t *templates) funcs() template.FuncMap {
 	}
 }
 
-// kindLabels name the channel types: a numbered channel carrying whichever game the
-// provider puts on it, a permanent per-team feed, and a numbered channel the provider
-// has parked with nothing on it.
+// kindLabels name the channel types in a column, where the header says what they are.
+// Most channels here exist for one event and are reused for the next one; a team channel
+// always shows the same team; a spare is one the provider has left empty for now.
 var kindLabels = map[model.ChannelKind]string{
 	model.KindSlot:        "Event",
 	model.KindTeam:        "Team",
-	model.KindPlaceholder: "Unused",
+	model.KindPlaceholder: "Spare",
 	model.KindNetwork:     "Network",
 }
 
 // kindNames are the same types standing on their own, where no column header says what
 // they are.
 var kindNames = map[model.ChannelKind]string{
-	model.KindSlot:        "Event Channel",
-	model.KindTeam:        "Team Channel",
-	model.KindPlaceholder: "Unused",
-	model.KindNetwork:     "Network Channel",
+	model.KindSlot:        "Event channel",
+	model.KindTeam:        "Team channel",
+	model.KindPlaceholder: "Spare channel",
+	model.KindNetwork:     "Network channel",
 }
 
-// outcomeLabels name every store.Outcome; the tests check none is missing.
+// outcomeLabels say what happened to a channel in plain words, because this is the page
+// someone opens when their guide looks wrong. The tests check none is missing.
 var outcomeLabels = map[store.Outcome]string{
-	store.OutcomeExported:  "Exported",
-	store.OutcomeIdle:      "Idle",
-	store.OutcomeLowConf:   "Low confidence",
-	store.OutcomeUnmatched: "No league",
+	store.OutcomeExported:  "Something scheduled",
+	store.OutcomeIdle:      "Nothing scheduled",
+	store.OutcomeLowConf:   "Unclear listing",
+	store.OutcomeUnmatched: "League unknown",
 	store.OutcomeDuplicate: "Duplicate",
-	store.OutcomeNoNumber:  "No number",
-	store.OutcomeNetwork:   "Network",
+	store.OutcomeNoNumber:  "No number free",
+	store.OutcomeNetwork:   "TV network",
+}
+
+// statusLabels say how a refresh went. The stored values are ok, partial and failed, which
+// are fine in a database and terse on a page.
+var statusLabels = map[store.RunStatus]string{
+	store.RunRunning: "Running",
+	store.RunOK:      "Finished",
+	store.RunPartial: "Some problems",
+	store.RunFailed:  "Failed",
+}
+
+// triggerLabels say what started a refresh.
+var triggerLabels = map[store.Trigger]string{
+	store.TriggerStartup:  "On start",
+	store.TriggerSchedule: "On schedule",
+	store.TriggerManual:   "By hand",
 }
 
 // load parses (or returns the cached) template sets: the base set of layout and

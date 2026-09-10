@@ -22,7 +22,7 @@
   <section class="card p-6 lg:col-span-2">
     <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Airings</h2>
     {{if not .Programs}}
-      <p class="no-rows">Nothing scheduled on this channel.</p>
+      <p class="no-rows">Nothing scheduled on this channel yet. It stays in your guide so its number does not move.</p>
     {{else}}
     <div class="space-y-4">
       {{$nowIndex := .NowIndex}}
@@ -49,12 +49,12 @@
   </section>
 
   <section class="card p-6">
-    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Channel</h2>
+    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Details</h2>
     <dl class="space-y-3 text-sm">
       <div><dt class="label">Channel ID</dt><dd class="mono select-all">{{$ch.ID}}</dd></div>
       <div><dt class="label">Channel Number</dt><dd class="mono">{{$ch.Number}}</dd></div>
       <div><dt class="label">League</dt><dd>{{.League}}</dd></div>
-      <div><dt class="label">Source</dt><dd>{{.Source}}</dd></div>
+      <div><dt class="label">From</dt><dd>{{.Source}}</dd></div>
       <div><dt class="label">Type</dt><dd>{{kindName $ch.Kind}}</dd></div>
       {{if $ch.Team}}<div><dt class="label">Team</dt><dd>{{$ch.Team.Name}}</dd></div>{{end}}
       <div><dt class="label">Logo</dt><dd class="mono break-all text-ink-300">{{$ch.LogoURL}}</dd></div>

@@ -113,16 +113,16 @@ func (s *Server) handleSetupURLs(w http.ResponseWriter, r *http.Request) {
 		s.partial(w, r, "setup", "setup_form", p)
 	}
 	if p.M3U == "" {
-		refuse("Enter the playlist URL your provider gave you.")
+		refuse("Enter the playlist link your provider gave you.")
 		return
 	}
 	if err := checkURL(p.M3U); err != nil {
-		refuse("Playlist URL: " + err.Error())
+		refuse("Playlist link: " + err.Error())
 		return
 	}
 	if p.XMLTV != "" {
 		if err := checkURL(p.XMLTV); err != nil {
-			refuse("Guide URL: " + err.Error())
+			refuse("Guide link: " + err.Error())
 			return
 		}
 	}
