@@ -33,11 +33,16 @@ type League struct {
 	EndPad      time.Duration `yaml:"end_pad"`
 	SeriesID    string        `yaml:"series_id"`
 
-	// Each league owns BlockSize channel numbers starting at ChannelBase. Slot channels
-	// occupy the first TeamOffset numbers, split into families of SlotSpan (one family
-	// per provider style, since several providers may all have an "NFL 04"); team
-	// channels take the rest.
-	ChannelBase  int      `yaml:"channel_base"`
+	// ChannelSlot is the league's position on the shelf, counted in blocks from wherever
+	// the user's channel numbers start. The manifest fixes the order; the user picks the
+	// one number the whole shelf hangs off, so every league moves together.
+	ChannelSlot int `yaml:"channel_slot"`
+
+	// Each league owns BlockSize channel numbers starting at ChannelBase, which is derived
+	// from ChannelSlot and never read from the manifest. Slot channels occupy the first
+	// TeamOffset numbers, split into families of SlotSpan (one family per provider style,
+	// since several providers may all have an "NFL 04"); team channels take the rest.
+	ChannelBase  int      `yaml:"-"`
 	SlotSpan     int      `yaml:"slot_span"`     // numbers per slot family; default 100
 	LabelPrefix  string   `yaml:"label_prefix"`  // the word before the slot number, "NFL" in "NFL 03"
 	LabelAliases []string `yaml:"label_aliases"` // regexes that also count as the label, e.g. "NHL Game"
@@ -85,6 +90,10 @@ const (
 	TeamOffset      = 800  // team channels start here within the block
 	DefaultSlotSpan = 100
 )
+
+// DefaultChannelStart is where the shelf sits until the user moves it: high enough to clear
+// the numbers other providers hand out, and on a round thousand so a block is readable.
+const DefaultChannelStart = 10000
 
 // DefaultColor grounds the art of a league that names no brand colour. Every league in the
 // shipped manifest names one; this is for a league defined somewhere else.
@@ -137,6 +146,7 @@ func Parse(body []byte) (*Catalog, error) {
 			return nil, err
 		}
 		c.byKey[lg.Key] = lg
+		lg.ChannelBase = DefaultChannelStart + lg.ChannelSlot*BlockSize
 		tokens = append(tokens, regexp.QuoteMeta(lg.LabelPrefix))
 		tokens = append(tokens, lg.LabelAliases...)
 		for _, t := range lg.NameTokens {
@@ -222,6 +232,7 @@ func (lg *League) RGB() (r, g, b uint8, ok bool) {
 
 func (c *Catalog) validate() error {
 	seenSeries := map[string]string{}
+	seenSlot := map[int]string{}
 	for _, lg := range c.Leagues {
 		switch {
 		case lg.Key == "" || strings.ToLower(lg.Key) != lg.Key:
@@ -232,8 +243,8 @@ func (c *Catalog) validate() error {
 			return fmt.Errorf("league %s: duration is required", lg.Key)
 		case lg.SeriesID == "":
 			return fmt.Errorf("league %s: series_id is required", lg.Key)
-		case lg.ChannelBase <= 0:
-			return fmt.Errorf("league %s: channel_base is required", lg.Key)
+		case lg.ChannelSlot < 0:
+			return fmt.Errorf("league %s: channel_slot must not be negative", lg.Key)
 		case TeamOffset%lg.SlotSpan != 0:
 			return fmt.Errorf("league %s: slot_span %d must divide %d", lg.Key, lg.SlotSpan, TeamOffset)
 		}
@@ -247,6 +258,10 @@ func (c *Catalog) validate() error {
 			return fmt.Errorf("leagues %s and %s share series_id %s", other, lg.Key, lg.SeriesID)
 		}
 		seenSeries[lg.SeriesID] = lg.Key
+		if other, dup := seenSlot[lg.ChannelSlot]; dup {
+			return fmt.Errorf("leagues %s and %s share channel_slot %d", other, lg.Key, lg.ChannelSlot)
+		}
+		seenSlot[lg.ChannelSlot] = lg.Key
 		if lg.WomensSeriesID != "" {
 			if other, dup := seenSeries[lg.WomensSeriesID]; dup {
 				return fmt.Errorf("leagues %s and %s share series_id %s", other, lg.Key, lg.WomensSeriesID)
@@ -478,9 +493,6 @@ func (o Override) Validate() error {
 	return err
 }
 
-// overrideDuration reads one of the two duration fields. ok is false when the field is
-// not overridden at all, so callers can tell "leave it alone" from "use this". Both the
-// form and the run go through here, so they cannot disagree on what is acceptable.
 // maxChannelBase keeps a start and the block above it inside sane numbers, so a fat-fingered
 // 85000000 is caught here rather than producing a guide nobody can navigate.
 const maxChannelBase = 999_000
@@ -503,6 +515,9 @@ func overrideNumber(name string, s *string) (n int, ok bool, err error) {
 	return n, true, nil
 }
 
+// overrideDuration reads one of the two duration fields. ok is false when the field is
+// not overridden at all, so callers can tell "leave it alone" from "use this". Both the
+// form and the run go through here, so they cannot disagree on what is acceptable.
 func overrideDuration(name string, s *string, allowZero bool) (d time.Duration, ok bool, err error) {
 	if s == nil || *s == "" {
 		return 0, false, nil

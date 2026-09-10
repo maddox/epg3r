@@ -239,17 +239,17 @@ func TestParseRejectsBadManifests(t *testing.T) {
 	bad := map[string]string{
 		"duplicate series id": `
 leagues:
-  - {key: a, name: A, airing_title: A, duration: 1h, series_id: "1", channel_base: 1000, label_prefix: A}
-  - {key: b, name: B, airing_title: B, duration: 1h, series_id: "1", channel_base: 2000, label_prefix: B}
+  - {key: a, name: A, airing_title: A, duration: 1h, series_id: "1", channel_slot: 0, label_prefix: A}
+  - {key: b, name: B, airing_title: B, duration: 1h, series_id: "1", channel_slot: 1, label_prefix: B}
 `,
-		"overlapping blocks": `
+		"shared shelf position": `
 leagues:
-  - {key: a, name: A, airing_title: A, duration: 1h, series_id: "1", channel_base: 1000, label_prefix: A}
-  - {key: b, name: B, airing_title: B, duration: 1h, series_id: "2", channel_base: 1500, label_prefix: B}
+  - {key: a, name: A, airing_title: A, duration: 1h, series_id: "1", channel_slot: 0, label_prefix: A}
+  - {key: b, name: B, airing_title: B, duration: 1h, series_id: "2", channel_slot: 0, label_prefix: B}
 `,
 		"missing roster": `
 leagues:
-  - {key: a, name: A, airing_title: A, duration: 1h, series_id: "1", channel_base: 1000, label_prefix: A, roster: Nope}
+  - {key: a, name: A, airing_title: A, duration: 1h, series_id: "1", channel_slot: 0, label_prefix: A, roster: Nope}
 `,
 		"team without id": `
 leagues: []
