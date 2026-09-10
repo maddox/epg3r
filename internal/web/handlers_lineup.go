@@ -412,6 +412,7 @@ type leagueCard struct {
 	Logo      string // what this league's channels and airings actually wear, override or not
 	Placard   string
 	Block     string // where this league sits, e.g. "10000-10999"
+	Advanced  bool   // the fields behind the disclosure carry an override, so show it open
 	Error     string
 }
 
@@ -479,7 +480,8 @@ func (s *Server) leagueCard(base catalog.League, o catalog.Override, st leagueSt
 		Durations: durationPicker("duration", gameLengths, base.Duration, o.Duration),
 		StartPads: durationPicker("start_pad", startPads, base.StartPad, o.StartPad),
 		Channels:  st.Channels, WithGames: st.WithGames,
-		Block: fmt.Sprintf("%d-%d", base.ChannelBase, base.ChannelBase+catalog.BlockSize-1),
+		Block:    fmt.Sprintf("%d-%d", base.ChannelBase, base.ChannelBase+catalog.BlockSize-1),
+		Advanced: o.AiringTitle != nil || o.Logo != nil || o.Placard != nil,
 	}
 	// The card shows what would go out, not what is typed in the boxes, so the art comes
 	// from the league as the override leaves it and through the same two calls the pipeline

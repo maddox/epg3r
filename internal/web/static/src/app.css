@@ -121,6 +121,13 @@
   .toast-info { @apply border-info/40 text-info; }
   /* Multi-select. No native control does this without a modal, so it is a <details>
      dressed as one: the summary matches .input, the panel is a solid popover. */
+  /* A disclosure for the settings a card does not need to lead with. Quiet enough to read
+     as a heading rather than a control, since most readers never open it. */
+  .disclosure > summary { @apply inline-flex cursor-pointer select-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300 transition-colors hover:text-ink-100; list-style: none; }
+  .disclosure > summary::-webkit-details-marker { display: none; }
+  .disclosure > summary::before { content: ""; @apply h-0 w-0 border-y-4 border-l-[5px] border-y-transparent border-l-ink-300 transition-transform; }
+  .disclosure[open] > summary::before { @apply rotate-90; }
+
   .picker { @apply relative inline-block align-middle; }
   .picker > summary { @apply input inline-flex w-auto cursor-pointer select-none items-center gap-2 whitespace-nowrap; list-style: none; }
   .picker > summary::-webkit-details-marker { display: none; }

@@ -20,8 +20,9 @@
       </div>
     </div>
     {{if .Error}}<div class="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+    {{/* The two settings anyone actually comes here to change, and the button. Everything
+         else is a URL or a phrase that is right until it isn't, so it waits below. */}}
     <div class="grid gap-3 md:grid-cols-3">
-      <label class="md:col-span-3"><span class="label">Airing title</span><input class="input" name="airing_title" value="{{with .Override.AiringTitle}}{{.}}{{end}}" placeholder="{{.Base.AiringTitle}}"></label>
       <div><span class="label">Game length</span>
         {{template "picker" .Durations}}
       </div>
@@ -32,20 +33,28 @@
         <button class="btn-primary">Save</button>
         {{if not .Override.IsZero}}<button type="button" class="btn-ghost" hx-delete="/leagues/{{.Base.Key}}" hx-target="#league-{{.Base.Key}}" hx-swap="outerHTML" hx-confirm="Reset {{.Base.Name}} to the shipped defaults?">Reset</button>{{end}}
       </div>
-      {{/* The thumbnails show what the league actually wears, so pasting an override and
-           saving shows the result rather than only the URL. */}}
-      <div class="flex items-end gap-3 md:col-span-3">
-        <img src="{{.Logo}}" alt="" class="h-10 w-10 shrink-0 rounded-lg object-contain" title="{{.Logo}}">
-        <label class="min-w-0 flex-1"><span class="label">Slot channel logo</span>
-          <input class="input mono" type="url" name="logo" value="{{with .Override.Logo}}{{.}}{{end}}" placeholder="{{.Logo}}"></label>
-      </div>
-      <div class="flex items-end gap-3 md:col-span-3">
-        <img src="{{.Placard}}" alt="" class="h-10 w-[3.3rem] shrink-0 rounded-lg object-cover" title="{{.Placard}}">
-        <label class="min-w-0 flex-1"><span class="label">Fallback airing art</span>
-          <input class="input mono" type="url" name="placard" value="{{with .Override.Placard}}{{.}}{{end}}" placeholder="{{.Placard}}"></label>
-      </div>
-      <p class="-mt-1 text-xs text-ink-300 md:col-span-3">Both replace only what epg3r draws for the league itself: a team channel still wears its own team, and a game still gets its matchup.</p>
     </div>
+    {{/* Open when any of it is set, so saving from in here does not fold the card up on the
+         reader, and so a league carrying an override says so without being opened. */}}
+    <details class="disclosure" {{if .Advanced}}open{{end}}>
+      <summary>Advanced</summary>
+      <div class="mt-3 grid gap-3">
+        <label><span class="label">Airing title</span><input class="input" name="airing_title" value="{{with .Override.AiringTitle}}{{.}}{{end}}" placeholder="{{.Base.AiringTitle}}"></label>
+        {{/* The thumbnails show what the league actually wears, so pasting an override and
+             saving shows the result rather than only the URL. */}}
+        <div class="flex items-end gap-3">
+          <img src="{{.Logo}}" alt="" class="h-10 w-10 shrink-0 rounded-lg object-contain" title="{{.Logo}}">
+          <label class="min-w-0 flex-1"><span class="label">Slot channel logo</span>
+            <input class="input mono" type="url" name="logo" value="{{with .Override.Logo}}{{.}}{{end}}" placeholder="{{.Logo}}"></label>
+        </div>
+        <div class="flex items-end gap-3">
+          <img src="{{.Placard}}" alt="" class="h-10 w-[3.3rem] shrink-0 rounded-lg object-cover" title="{{.Placard}}">
+          <label class="min-w-0 flex-1"><span class="label">Fallback airing art</span>
+            <input class="input mono" type="url" name="placard" value="{{with .Override.Placard}}{{.}}{{end}}" placeholder="{{.Placard}}"></label>
+        </div>
+        <p class="-mt-1 text-xs text-ink-300">Both replace only what epg3r draws for the league itself: a team channel still wears its own team, and a game still gets its matchup.</p>
+      </div>
+    </details>
   </form>
 </section>
 {{end}}
