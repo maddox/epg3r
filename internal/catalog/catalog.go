@@ -349,7 +349,7 @@ func (lg *League) Location(fallback *time.Location) *time.Location {
 func (lg *League) MaxFamilies() int { return TeamOffset / lg.SlotSpan }
 
 // SlotChannelNumber is the number a slot would like in a provider family (0-based).
-// Family 0 is the plain numbering: NFL 03 is 8503. A slot beyond the league's span has
+// Family 0 is the plain numbering: NFL 03 is 10003. A slot beyond the league's span has
 // no number of its own to ask for, and takes whatever the block has free.
 func (lg *League) SlotChannelNumber(family, slot int) int {
 	if slot >= lg.SlotSpan {

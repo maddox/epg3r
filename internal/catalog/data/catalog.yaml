@@ -26,7 +26,7 @@ leagues:
     duration: 3h30m
     start_pad: 15m
     series_id: '191277'
-    channel_base: 8500
+    channel_base: 10000
     label_prefix: NFL
     group_patterns:
       - ^nfl$
@@ -43,7 +43,7 @@ leagues:
     duration: 3h30m
     start_pad: 15m
     series_id: '191273'
-    channel_base: 9500
+    channel_base: 11000
     label_prefix: MLB
     group_patterns:
       - ^mlb\b
@@ -59,7 +59,7 @@ leagues:
     duration: 3h
     start_pad: 15m
     series_id: '191276'
-    channel_base: 11500
+    channel_base: 13000
     label_prefix: NBA
     group_patterns:
       - ^nba$
@@ -80,7 +80,7 @@ leagues:
     duration: 3h
     start_pad: 15m
     series_id: '448880'
-    channel_base: 12500
+    channel_base: 14000
     label_prefix: NHL
     label_aliases:
       - NHL Game
@@ -98,7 +98,7 @@ leagues:
     duration: 2h30m
     start_pad: 15m
     series_id: '191289'
-    channel_base: 13500
+    channel_base: 15000
     label_prefix: WNBA
     group_patterns:
       - ^wnba\b
@@ -114,7 +114,7 @@ leagues:
     duration: 2h
     start_pad: 15m
     series_id: '191274'
-    channel_base: 10500
+    channel_base: 12000
     label_prefix: MLS
     label_aliases:
       - \(Apple\) \(MLS\)
@@ -132,7 +132,7 @@ leagues:
     duration: 3h45m
     start_pad: 15m
     series_id: '191261'
-    channel_base: 14500
+    channel_base: 16000
     slot_span: 200
     label_prefix: NCAAF
     group_patterns:
@@ -151,7 +151,7 @@ leagues:
     duration: 2h30m
     start_pad: 15m
     series_id: '191260'
-    channel_base: 15500
+    channel_base: 17000
     slot_span: 200
     label_prefix: NCAAB
     group_patterns:

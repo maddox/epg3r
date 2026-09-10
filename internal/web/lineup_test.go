@@ -34,7 +34,7 @@ func lineupSnapshot() *model.Snapshot {
 		{Key: "k-nfl-04", ID: "NFL 04", Number: 8504, Name: "NFL 04", Kind: model.KindSlot, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/1", Programmes: []model.Programme{{Event: live}}},
 		{Key: "k-nfl-05", ID: "NFL 05", Number: 8505, Name: "NFL 05", Kind: model.KindSlot, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/2", Programmes: []model.Programme{{Event: later}}},
 		{Key: "k-nfl-06", ID: "NFL 06", Number: 8506, Name: "NFL 06", Kind: model.KindPlaceholder, LeagueKey: "nfl", SourceID: 1, StreamURL: "http://x/3"},
-		{Key: "k-nfl-bills", ID: "NFL Bills", Number: 9300, Name: "NFL Bills", Kind: model.KindTeam, LeagueKey: "nfl", SourceID: 1, Team: &bills, StreamURL: "http://x/4",
+		{Key: "k-nfl-bills", ID: "NFL Bills", Number: 10800, Name: "NFL Bills", Kind: model.KindTeam, LeagueKey: "nfl", SourceID: 1, Team: &bills, StreamURL: "http://x/4",
 			Programmes: []model.Programme{{Event: live, Note: "Buffalo Bills broadcast"}, {Event: later}, {Event: distant}}},
 		{Key: "k-nba-01", ID: "NBA 01", Number: 11501, Name: "NBA 01", Kind: model.KindPlaceholder, LeagueKey: "nba", SourceID: 1, StreamURL: "http://x/5"},
 	}}
@@ -316,7 +316,7 @@ func TestChannelInspector(t *testing.T) {
 	// A team channel carries several airings; the one on now is marked, and the
 	// Gracenote ids are shown so a mismatch is visible without reading the XMLTV.
 	body := do(h, http.MethodGet, "/lineup/k-nfl-bills", nil, false).Body.String()
-	for _, want := range []string{"NFL Bills", "channel 9300", "Team Channel", "Buffalo Bills vs Houston Texans",
+	for _, want := range []string{"NFL Bills", "channel 10800", "Team Channel", "Buffalo Bills vs Houston Texans",
 		"Chicago Bears vs Green Bay Packers", "on now", "Buffalo Bills broadcast", "Provider"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("channel page missing %q", want)
@@ -370,7 +370,7 @@ func TestRenumbering(t *testing.T) {
 	for i, u := range urls {
 		want = append(want, store.Assignment{Key: store.ChannelKey(1, u),
 			PreferredID: []string{"NFL 04", "NFL 05", "NFL 06", "NFL Bills", "NBA 01"}[i],
-			Base:        8500, Limit: 9300})
+			Base:        10000, Limit: 10800})
 	}
 	st.AssignNumbers(ctx, want) //nolint:errcheck
 	snap := lineupSnapshot()

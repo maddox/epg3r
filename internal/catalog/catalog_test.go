@@ -21,14 +21,14 @@ func TestLoadAndValidate(t *testing.T) {
 		t.Fatalf("expected 8 leagues, got %d", len(c.Leagues))
 	}
 	nfl, ok := c.League("nfl")
-	if !ok || nfl.SeriesID != "191277" || nfl.ChannelBase != 8500 || nfl.ChannelID(0, 3) != "NFL 03" || nfl.SlotChannelNumber(0, 3) != 8503 {
+	if !ok || nfl.SeriesID != "191277" || nfl.ChannelBase != 10000 || nfl.ChannelID(0, 3) != "NFL 03" || nfl.SlotChannelNumber(0, 3) != 10003 {
 		t.Errorf("NFL values wrong: %+v", nfl)
 	}
-	if nfl.ChannelID(1, 3) != "NFL 03 B" || nfl.SlotChannelNumber(1, 3) != 8603 || nfl.TeamChannelBase() != 9300 || nfl.MaxFamilies() != 8 {
+	if nfl.ChannelID(1, 3) != "NFL 03 B" || nfl.SlotChannelNumber(1, 3) != 10103 || nfl.TeamChannelBase() != 10800 || nfl.MaxFamilies() != 8 {
 		t.Errorf("family layout wrong: %s %d %d %d", nfl.ChannelID(1, 3), nfl.SlotChannelNumber(1, 3), nfl.TeamChannelBase(), nfl.MaxFamilies())
 	}
 	ncaaf, _ := c.League("ncaaf")
-	if ncaaf.SlotSpan != 200 || ncaaf.SlotChannelNumber(0, 136) != 14636 || ncaaf.SlotChannelNumber(1, 7) != 14707 || ncaaf.MaxFamilies() != 4 {
+	if ncaaf.SlotSpan != 200 || ncaaf.SlotChannelNumber(0, 136) != 16136 || ncaaf.SlotChannelNumber(1, 7) != 16207 || ncaaf.MaxFamilies() != 4 {
 		t.Errorf("NCAA layout wrong: span %d, %d %d", ncaaf.SlotSpan, ncaaf.SlotChannelNumber(0, 136), ncaaf.SlotChannelNumber(1, 7))
 	}
 	if len(nfl.Categories) != 2 || nfl.Categories[0] != "Sports event" {

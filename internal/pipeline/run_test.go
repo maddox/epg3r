@@ -105,10 +105,10 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 	if nfl04 == nil {
 		t.Fatal("no NFL 04 channel carrying Bills vs Texans")
 	}
-	if nfl04.Number%100 != 4 || nfl04.Number < 8500 || nfl04.Number >= 9300 {
+	if nfl04.Number%100 != 4 || nfl04.Number < 10000 || nfl04.Number >= 10800 {
 		t.Errorf("NFL 04 number %d should be slot 4 of a family in the NFL block", nfl04.Number)
 	}
-	if first := findChannel(snap, "NFL 04"); first == nil || first.Number != 8504 {
+	if first := findChannel(snap, "NFL 04"); first == nil || first.Number != 10004 {
 		t.Errorf("first NFL family must use the plain numbering: %+v", first)
 	}
 	game := nfl04.Programmes[0].Event
@@ -134,7 +134,7 @@ func TestRunAgainstRealFixtures(t *testing.T) {
 	if bills == nil {
 		t.Fatal("no Bills team channel")
 	}
-	if bills.Number < 9300 || bills.Number >= 9500 || !strings.HasPrefix(bills.ID, "NFL Bills") {
+	if bills.Number < 10800 || bills.Number >= 11000 || !strings.HasPrefix(bills.ID, "NFL Bills") {
 		t.Errorf("Bills channel identity: %s %d", bills.ID, bills.Number)
 	}
 	var shared bool
