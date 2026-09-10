@@ -532,6 +532,43 @@ func overrideDuration(name string, s *string, allowZero bool) (d time.Duration, 
 	return d, true, nil
 }
 
+// WithChannelStart returns a catalog whose leagues are laid out from start, each in its own
+// block in manifest order. Every league moves together, so there is no arrangement for a user
+// to get wrong and no pair of blocks that can be made to overlap.
+func (c *Catalog) WithChannelStart(start int) *Catalog {
+	if start <= 0 || start == c.ChannelStart() {
+		return c
+	}
+	out := &Catalog{Leagues: slices.Clone(c.Leagues), byKey: map[string]*League{}, rosters: c.rosters, tokens: c.tokens}
+	for i := range out.Leagues {
+		lg := &out.Leagues[i]
+		lg.ChannelBase = start + lg.ChannelSlot*BlockSize
+		out.byKey[lg.Key] = lg
+	}
+	return out
+}
+
+// ChannelStart is where this catalog's shelf begins: the base of the league in the first
+// block, which is the number the user chose.
+func (c *Catalog) ChannelStart() int {
+	if len(c.Leagues) == 0 {
+		return DefaultChannelStart
+	}
+	lg := c.Leagues[0]
+	return lg.ChannelBase - lg.ChannelSlot*BlockSize
+}
+
+// ShelfRange is every number the shelf can reach, from the first block to the end of the
+// last. Moving the shelf is a translation of this one span.
+func (c *Catalog) ShelfRange() (from, to int) {
+	last := 0
+	for i := range c.Leagues {
+		last = max(last, c.Leagues[i].ChannelSlot)
+	}
+	start := c.ChannelStart()
+	return start, start + (last+1)*BlockSize
+}
+
 // WithOverrides returns a catalog with user overrides applied to copies of the
 // leagues. Rosters and compiled patterns are shared with the receiver.
 func (c *Catalog) WithOverrides(overrides map[string]Override) *Catalog {

@@ -320,6 +320,72 @@ func TestOverrideValidate(t *testing.T) {
 	}
 }
 
+// Moving the shelf moves every league by the same amount and keeps each one's whole layout
+// — the slot band, the team band and every derived number in between. This is the only way
+// a start reaches a league, so there is no arrangement a user can get wrong.
+func TestWithChannelStart(t *testing.T) {
+	c := load(t)
+	moved := c.WithChannelStart(3000)
+
+	lg, ok := moved.League("nfl")
+	if !ok {
+		t.Fatal("no nfl")
+	}
+	if lg.ChannelBase != 3000 {
+		t.Fatalf("base = %d", lg.ChannelBase)
+	}
+	if got := lg.SlotChannelNumber(0, 3); got != 3003 {
+		t.Errorf("NFL 03 = %d, want 3003", got)
+	}
+	if got := lg.SlotChannelNumber(1, 3); got != 3103 {
+		t.Errorf("the second family should move with it: %d", got)
+	}
+	if got := lg.TeamChannelBase(); got != 3800 {
+		t.Errorf("team band = %d, want 3800", got)
+	}
+	if from, to := lg.TeamRange(); from != 3800 || to != 4000 {
+		t.Errorf("team range = %d..%d", from, to)
+	}
+	// Every other league moves by the same delta, keeping its position on the shelf.
+	for key, want := range map[string]int{"mlb": 4000, "mls": 5000, "ncaab": 10000} {
+		lg, _ := moved.League(key)
+		if lg.ChannelBase != want {
+			t.Errorf("%s base = %d, want %d", key, lg.ChannelBase, want)
+		}
+	}
+	if got := moved.ChannelStart(); got != 3000 {
+		t.Errorf("start = %d", got)
+	}
+	if from, to := moved.ShelfRange(); from != 3000 || to != 11000 {
+		t.Errorf("shelf = %d..%d, want 3000..11000", from, to)
+	}
+	// The loaded catalog is untouched: a move returns a copy.
+	if base, _ := c.League("nfl"); base.ChannelBase != DefaultChannelStart {
+		t.Errorf("the shipped catalog moved: %d", base.ChannelBase)
+	}
+}
+
+// Blocks cannot overlap, because nothing places them by hand. Whatever start is chosen, every
+// league lands a clear block apart in manifest order.
+func TestShelfNeverOverlaps(t *testing.T) {
+	c := load(t)
+	for _, start := range []int{1, 500, 10000, 10500, 123456} {
+		seen := map[int]string{}
+		for _, lg := range c.WithChannelStart(start).Leagues {
+			if lg.ChannelBase < start {
+				t.Errorf("start %d: %s is below the shelf at %d", start, lg.Key, lg.ChannelBase)
+			}
+			if (lg.ChannelBase-start)%BlockSize != 0 {
+				t.Errorf("start %d: %s is not on a block boundary: %d", start, lg.Key, lg.ChannelBase)
+			}
+			if other, dup := seen[lg.ChannelBase]; dup {
+				t.Errorf("start %d: %s and %s share %d", start, other, lg.Key, lg.ChannelBase)
+			}
+			seen[lg.ChannelBase] = lg.Key
+		}
+	}
+}
+
 // A league's whole number layout hangs off its start, so overriding the start moves all of
 // it — the slot band, the team band and every derived number in between.
 func TestChannelBaseOverride(t *testing.T) {
