@@ -42,12 +42,12 @@ func lineupSnapshot() *model.Snapshot {
 
 func TestLineupPageAndFilters(t *testing.T) {
 	s, st, _ := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 
 	if body := do(h, http.MethodGet, "/lineup", nil, false).Body.String(); !strings.Contains(body, "No lineup yet") {
 		t.Error("empty state missing")
 	}
-	st.CreateSource(context.Background(), store.NewSource{Name: "Provider", URL: "http://p/1"})
 	s.Snapshots.Set(lineupSnapshot())
 
 	body := do(h, http.MethodGet, "/lineup", nil, false).Body.String()
@@ -102,6 +102,7 @@ func TestLineupPageAndFilters(t *testing.T) {
 
 func TestLeaguesPage(t *testing.T) {
 	s, st, ref := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 	ctx := context.Background()
 	s.Snapshots.Set(lineupSnapshot())
@@ -163,7 +164,8 @@ func TestLeaguesPage(t *testing.T) {
 }
 
 func TestPreviews(t *testing.T) {
-	s, _, _ := uiServer(t)
+	s, st, _ := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 	if body := do(h, http.MethodGet, "/preview/xmltv", nil, false).Body.String(); !strings.Contains(body, "Nothing generated yet") {
 		t.Error("empty preview state missing")

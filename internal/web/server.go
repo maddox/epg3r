@@ -36,6 +36,7 @@ type Server struct {
 	Catalog    *catalog.Catalog
 	Refresher  Refresher
 	TestSource SourceTester
+	TestGuide  GuideTester
 	Art        *art.Service
 
 	// PublicBase reads the public_base_url setting. It arrives as a function, the way
@@ -125,9 +126,14 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("PUT /leagues/{key}", s.handleSaveLeague)
 		mux.HandleFunc("DELETE /leagues/{key}", s.handleResetLeague)
 		mux.HandleFunc("GET /preview/{kind}", s.handlePreview)
+		mux.HandleFunc("GET "+setupPath, s.handleSetup)
+		mux.HandleFunc("POST "+setupPath+"/urls", s.handleSetupURLs)
+		mux.HandleFunc("POST "+setupPath+"/back", s.handleSetupBack)
+		mux.HandleFunc("POST "+setupPath, s.handleSetupFinish)
 	}
 
 	var h http.Handler = mux
+	h = s.setupGate(h)
 	h = s.recoverer(h)
 	h = s.accessLog(h)
 	h = requestID(h)

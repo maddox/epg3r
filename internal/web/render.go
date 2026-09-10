@@ -300,6 +300,7 @@ type view struct {
 	Version string
 	Assets  string // fingerprint of the built css and js, for the asset URLs
 	Status  scheduler.Status
+	Setup   bool // the first-run wizard: no nav, since nothing else is reachable yet
 	Data    any
 }
 

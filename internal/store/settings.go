@@ -80,6 +80,10 @@ func checkTimezone(v string) error {
 	return err
 }
 
+// SettingDefault is a setting's shipped default, for a form shown before anything has been
+// written.
+func SettingDefault(key string) string { return settingDefs[key].Default }
+
 // Normalize validates raw input for this setting and returns its canonical form.
 func (d SettingDef) Normalize(raw string) (string, error) {
 	v := strings.TrimSpace(raw)

@@ -88,7 +88,7 @@ func Serve(ctx context.Context, cfg config.Config, version string, dev bool, log
 	zone := func() *time.Location { return app.Store.Location(context.Background()) }
 	srv := web.New(version, log, dev, zone)
 	srv.Store, srv.Catalog = app.Store, app.Catalog
-	srv.TestSource = app.Runner.Probe
+	srv.TestSource, srv.TestGuide = app.Runner.Probe, app.Runner.ProbeGuide
 	srv.Snapshots.GuideTags = func() bool {
 		v, _ := app.Store.SettingBool(context.Background(), store.SettingM3UTvcGuideTags)
 		return v

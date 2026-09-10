@@ -1,8 +1,6 @@
 {{define "content"}}
 {{with .Data}}
-{{if not .Sources}}
-  {{template "empty" dict "Icon" "📡" "Title" "Add your first source" "Body" "Point epg3r at your provider's M3U playlist. It will work out which channels carry games and build a guide Channels DVR understands." "Href" "/sources" "Action" "Add a source"}}
-{{else if not .Snapshot}}
+{{if not .Snapshot}}
   {{template "empty" dict "Icon" "⏳" "Title" "No guide yet" "Body" "The first refresh has not finished. Use Refresh now, then this page fills in with what was found."}}
 {{else}}
 <div class="grid gap-4 md:grid-cols-4">

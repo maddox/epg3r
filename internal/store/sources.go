@@ -88,6 +88,14 @@ func isHTTP(u string) bool {
 	return strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")
 }
 
+// HasSources reports whether any source exists. The first-run gate asks this on every
+// request, so it builds nothing and stops at the first row.
+func (s *Store) HasSources(ctx context.Context) (bool, error) {
+	var found bool
+	err := s.r.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM sources)`).Scan(&found)
+	return found, err
+}
+
 // CreateSource validates and inserts a source, returning its id.
 func (s *Store) CreateSource(ctx context.Context, in NewSource) (int64, error) {
 	if err := in.Validate(); err != nil {

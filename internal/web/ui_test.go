@@ -49,7 +49,23 @@ func uiServer(t *testing.T) (*Server, *store.Store, *fakeRefresher) {
 		}
 		return 42, nil
 	}
+	s.TestGuide = func(ctx context.Context, u string) (int, error) {
+		if strings.Contains(u, "bad") {
+			return 0, errors.New("not XMLTV")
+		}
+		return 500, nil
+	}
 	return s, st, ref
+}
+
+// setUp gets a store past the first-run wizard, which gates every page until a source
+// exists. Tests that create their own source are already past it.
+func setUp(t *testing.T, st *store.Store) {
+	t.Helper()
+	if _, err := st.CreateSource(context.Background(), store.NewSource{
+		Name: "Provider", URL: "http://p.example/list.m3u"}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // hxGet issues an HTMX GET naming the element it targets, so the server returns just
@@ -100,19 +116,21 @@ func TestPagesRenderEmptyAndFull(t *testing.T) {
 	h := s.Handler()
 	ctx := context.Background()
 
-	// Empty state: no sources, no runs.
+	// Empty state: a source but no runs and no guide.
+	setUp(t, st)
 	for _, path := range []string{"/", "/sources", "/runs", "/settings"} {
 		rec := do(h, http.MethodGet, path, nil, false)
 		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<!doctype html>") {
 			t.Errorf("%s: %d %s", path, rec.Code, rec.Body.String()[:min(200, rec.Body.Len())])
 		}
 	}
-	if body := do(h, http.MethodGet, "/", nil, false).Body.String(); !strings.Contains(body, "Add your first source") {
-		t.Error("dashboard should show the first-source empty state")
+	if body := do(h, http.MethodGet, "/", nil, false).Body.String(); !strings.Contains(body, "No guide yet") {
+		t.Error("dashboard should say the first refresh has not finished")
 	}
 
-	// Populate: a source, a run with rows, a snapshot.
-	src, _ := st.CreateSource(ctx, store.NewSource{Name: "Provider", URL: "http://p.example/list.m3u"})
+	// Populate: a run with rows, and a snapshot.
+	srcs, _ := st.ListSources(ctx)
+	src := srcs[0].ID
 	id, _ := st.StartRun(ctx, store.TriggerManual)
 	start := time.Date(2026, 9, 13, 17, 0, 0, 0, time.UTC)
 	rows := []store.RunChannel{
@@ -156,7 +174,8 @@ func TestPagesRenderEmptyAndFull(t *testing.T) {
 }
 
 func TestHXRequestGetsContentOnly(t *testing.T) {
-	s, _, _ := uiServer(t)
+	s, st, _ := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 	full := do(h, http.MethodGet, "/settings", nil, false).Body.String()
 	part := do(h, http.MethodGet, "/settings", nil, true).Body.String()
@@ -207,6 +226,7 @@ func TestRunChannelFilters(t *testing.T) {
 
 func TestSourcesFlow(t *testing.T) {
 	s, st, _ := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 	ctx := context.Background()
 
@@ -237,16 +257,16 @@ func TestSourcesFlow(t *testing.T) {
 		t.Errorf("create should return an emptied form and the list out of band: %s", body)
 	}
 	list, _ := st.ListSources(ctx)
-	if len(list) != 1 || list[0].XMLTVURL != "http://p/g.xml" {
+	if len(list) != 2 || list[1].XMLTVURL != "http://p/g.xml" {
 		t.Fatalf("stored: %+v", list)
 	}
-	id := list[0].ID
+	id := list[1].ID
 
 	// Edit row, update (disable and rename), show row.
-	if body := do(h, http.MethodGet, "/sources/1/edit", nil, true).Body.String(); !strings.Contains(body, `name="url"`) {
+	if body := do(h, http.MethodGet, "/sources/2/edit", nil, true).Body.String(); !strings.Contains(body, `name="url"`) {
 		t.Error("edit form missing")
 	}
-	rec = do(h, http.MethodPut, "/sources/1", url.Values{"editing": {"1"}, "name": {"Renamed"}, "url": {"http://p/2"}}, true)
+	rec = do(h, http.MethodPut, "/sources/2", url.Values{"editing": {"1"}, "name": {"Renamed"}, "url": {"http://p/2"}}, true)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Renamed") || !strings.Contains(rec.Body.String(), "disabled") {
 		t.Errorf("update: %d %s", rec.Code, rec.Body.String())
 	}
@@ -255,7 +275,7 @@ func TestSourcesFlow(t *testing.T) {
 		t.Errorf("update not stored: %+v", got)
 	}
 	// Validation on update keeps the edit form open with the message.
-	rec = do(h, http.MethodPut, "/sources/1", url.Values{"editing": {"1"}, "url": {"nope"}}, true)
+	rec = do(h, http.MethodPut, "/sources/2", url.Values{"editing": {"1"}, "url": {"nope"}}, true)
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "must start with http") {
 		t.Errorf("update validation: %d", rec.Code)
 	}
@@ -269,20 +289,21 @@ func TestSourcesFlow(t *testing.T) {
 	}
 
 	// Delete removes the row.
-	rec = do(h, http.MethodDelete, "/sources/1", nil, true)
+	rec = do(h, http.MethodDelete, "/sources/2", nil, true)
 	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
 		t.Errorf("delete: %d %q", rec.Code, rec.Body.String())
 	}
-	if list, _ := st.ListSources(ctx); len(list) != 0 {
+	if list, _ := st.ListSources(ctx); len(list) != 1 {
 		t.Error("source not deleted")
 	}
-	if rec := do(h, http.MethodGet, "/sources/1", nil, true); rec.Code != http.StatusNotFound {
+	if rec := do(h, http.MethodGet, "/sources/2", nil, true); rec.Code != http.StatusNotFound {
 		t.Errorf("gone source: %d", rec.Code)
 	}
 }
 
 func TestSettingsSaveAndValidate(t *testing.T) {
 	s, st, _ := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 
 	form := url.Values{}
@@ -327,6 +348,7 @@ func TestSettingsSaveAndValidate(t *testing.T) {
 // including that a value it cannot read moves nothing.
 func TestChannelStartSetting(t *testing.T) {
 	s, st, _ := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 	ctx := context.Background()
 	form := url.Values{}
@@ -351,7 +373,8 @@ func TestChannelStartSetting(t *testing.T) {
 }
 
 func TestRefreshAndStatusPill(t *testing.T) {
-	s, _, ref := uiServer(t)
+	s, st, ref := uiServer(t)
+	setUp(t, st)
 	h := s.Handler()
 	rec := do(h, http.MethodPost, "/refresh", nil, true)
 	if rec.Code != http.StatusOK || ref.triggered != 1 || !strings.Contains(rec.Header().Get("HX-Trigger"), "Refresh started") {
@@ -387,7 +410,8 @@ func TestStaticAssetsServed(t *testing.T) {
 }
 
 func TestLayoutLetsValidationBodiesSwap(t *testing.T) {
-	s, _, _ := uiServer(t)
+	s, st, _ := uiServer(t)
+	setUp(t, st)
 	body := do(s.Handler(), http.MethodGet, "/settings", nil, false).Body.String()
 	if !strings.Contains(body, `name="htmx-config"`) || !strings.Contains(body, `"code":"422","swap":true`) {
 		t.Error("layout must configure HTMX to swap 422 responses, or validation errors never show")

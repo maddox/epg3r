@@ -249,6 +249,28 @@ func (r *Runner) Probe(ctx context.Context, url string) (int, error) {
 	return len(entries), nil
 }
 
+// ProbeGuide fetches an XMLTV URL without caching and reports how many programmes it
+// holds, for checking a provider guide before saving it.
+func (r *Runner) ProbeGuide(ctx context.Context, url string) (int, error) {
+	f := &Fetcher{Client: r.Fetcher.Client, MaxBytes: r.Fetcher.MaxBytes}
+	res, err := f.Fetch(ctx, url, "probe-guide")
+	if err != nil {
+		return 0, err
+	}
+	g, err := xmltv.Read(bytes.NewReader(res.Body))
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, ps := range g.Programmes {
+		n += len(ps)
+	}
+	if len(g.Channels) == 0 && n == 0 {
+		return 0, fmt.Errorf("the response is not an XMLTV guide (no channels or programmes found)")
+	}
+	return n, nil
+}
+
 func (r *Runner) loadConfig(ctx context.Context) (runConfig, error) {
 	s, err := r.Store.Settings(ctx)
 	if err != nil {

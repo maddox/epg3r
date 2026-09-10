@@ -1,0 +1,53 @@
+{{define "content"}}
+{{with .Data}}
+<div class="mx-auto max-w-xl">
+  <h1 class="text-2xl font-bold tracking-tight">Welcome to epg3r</h1>
+  <p class="mt-1 text-sm text-ink-300">Two steps and you will have a guide.</p>
+  <div id="setup-form" class="mt-6">{{template "setup_form" .}}</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "setup_form"}}
+<section class="card space-y-4 p-5">
+  <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-300">
+    <span class="{{if eq .Step 1}}text-accent-300{{end}}">1 &middot; Your provider</span>
+    <span class="text-ink-600">&rarr;</span>
+    <span class="{{if eq .Step 2}}text-accent-300{{end}}">2 &middot; Numbering</span>
+  </div>
+  {{if .Error}}<div class="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+
+  {{if eq .Step 1}}
+  <form hx-post="/setup/urls" hx-target="#setup-form" hx-swap="innerHTML" hx-boost="false" hx-indicator="#checking" class="space-y-4">
+    <label class="block"><span class="label">Playlist URL (M3U)</span>
+      <input class="input mono" type="url" name="m3u_url" value="{{.M3U}}" placeholder="http://provider.example/playlist.m3u" autofocus required>
+      <span class="mt-1.5 block text-xs text-ink-300">The channel list your provider gave you.</span></label>
+    <label class="block"><span class="label">Guide URL (XMLTV) &mdash; optional</span>
+      <input class="input mono" type="url" name="xmltv_url" value="{{.XMLTV}}" placeholder="http://provider.example/guide.xml">
+      <span class="mt-1.5 block text-xs text-ink-300">If your provider publishes one, epg3r reads game times from it as well as from channel names.</span></label>
+    <div class="flex items-center gap-3">
+      <button class="btn-primary">Check and continue</button>
+      <span id="checking" class="htmx-indicator text-xs text-ink-300">Fetching&hellip;</span>
+    </div>
+  </form>
+  {{else}}
+  <form hx-post="/setup" hx-target="#setup-form" hx-swap="innerHTML" hx-boost="false" class="space-y-4">
+    <input type="hidden" name="m3u_url" value="{{.M3U}}">
+    <input type="hidden" name="xmltv_url" value="{{.XMLTV}}">
+    <p class="rounded-xl bg-ok/10 px-3 py-2 text-sm text-ok">
+      Found {{.Channels}} channels{{if .Programmes}}, and {{.Programmes}} programmes in the guide{{end}}.
+    </p>
+    <label class="block"><span class="label">Refresh every (minutes)</span>
+      <input class="input mono w-40" type="number" name="refresh_interval_minutes" min="1" step="1" inputmode="numeric" value="{{.Interval}}">
+      <span class="mt-1.5 block text-xs text-ink-300">How often the playlist is fetched and the guide rebuilt.</span></label>
+    <label class="block"><span class="label">Channel numbers start at</span>
+      <input class="input mono w-40" type="number" name="channel_start" min="1" step="1" inputmode="numeric" value="{{.Start}}">
+      <span class="mt-1.5 block text-xs text-ink-300">Each league gets a thousand numbers from here. Pick a range your other providers leave alone; you can move it later.</span></label>
+    <div class="flex items-center gap-2">
+      <button class="btn-primary">Finish</button>
+      <button class="btn-ghost" hx-post="/setup/back" hx-target="#setup-form" hx-swap="innerHTML">Back</button>
+    </div>
+  </form>
+  {{end}}
+</section>
+{{end}}
