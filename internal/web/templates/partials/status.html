@@ -1,0 +1,14 @@
+{{/* The scheduler state plus the refresh button, swapped as one unit. It polls only while a
+     refresh runs; the server decides that by rendering the trigger attribute. */}}
+{{define "status_pill"}}<div id="status-pill" class="flex items-center gap-3" hx-boost="false"
+  {{if .Running}}hx-get="/status" hx-trigger="every 3s" hx-swap="outerHTML" hx-target="this"{{end}}>
+  <div class="flex items-center gap-2 text-sm text-ink-200">
+    {{if .Running}}<span class="pulse"></span><span>Refreshing{{if .Phase}}: {{.Phase}}{{end}}</span>
+    {{else if not .LastRunAt.IsZero}}<span class="dot status-{{.LastStatus}}"></span>
+      <span title="{{.LastError}}">Last refresh {{since .LastRunAt}}{{if not .NextAt.IsZero}} · next in {{until .NextAt}}{{end}}</span>
+    {{else}}<span class="dot status-none"></span><span>No refresh yet</span>{{end}}
+  </div>
+  <form hx-post="/refresh" hx-target="#status-pill" hx-swap="outerHTML">
+    <button class="btn-primary" {{if .Running}}disabled{{end}}>Refresh now</button>
+  </form>
+</div>{{end}}

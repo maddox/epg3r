@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Run epg3r from source in the dev container with hot reload.
+#
+#   ./dev            start (Ctrl-C stops)
+#   ./dev reset      delete ./data (database and caches) and start fresh
+#
+# Reads .env (created from .env.example on first use) for EPG3R_PORT and the log level.
+# Go and catalog changes rebuild and restart the app; templates and static files reload on
+# every request. Nothing runs on the host except docker. The real work is `make run`.
+set -e
+cd "$(dirname "$0")"
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "created .env from .env.example"
+fi
+[ "$1" = "reset" ] && make reset-dev
+. ./.env
+echo "epg3r dev server: http://localhost:${EPG3R_PORT:-8080}  (Ctrl-C to stop)"
+exec make run

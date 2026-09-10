@@ -1,0 +1,106 @@
+{{define "content"}}
+<div class="flex items-end justify-between">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight">Sources</h1>
+    <p class="mt-1 text-sm text-ink-300">Import channels and guide data from your providers using their M3U and XMLTV data.</p>
+  </div>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <section class="card p-6 lg:col-span-2">
+    <div id="source-list">{{template "source_list" .Data}}</div>
+  </section>
+  <section class="card p-6">
+    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Add a source</h2>
+    <div id="source-form">{{template "source_form" .Data}}</div>
+  </section>
+</div>
+{{end}}
+
+{{define "source_list"}}
+{{if not .Sources}}
+  <div class="no-rows">No sources yet. Add one on the right.</div>
+{{else}}
+<table class="table">
+  <thead><tr><th class="w-px">Enabled</th><th>Source</th><th class="whitespace-nowrap">Last fetch</th><th class="whitespace-nowrap">Channels</th><th class="w-px"></th></tr></thead>
+  <tbody id="source-rows">
+    {{range .Sources}}{{template "source_row" dict "Source" .}}{{end}}
+  </tbody>
+</table>
+{{end}}
+{{end}}
+
+{{define "source_row"}}{{with .Source}}
+<tr id="source-{{.ID}}">
+  <td class="w-px">
+    <input type="checkbox" class="switch" name="enabled" value="1" {{if .Enabled}}checked{{end}}
+           aria-label="Enable {{.Name}}" hx-post="/sources/{{.ID}}/enabled" hx-trigger="change" hx-include="this"
+           hx-target="#source-{{.ID}}" hx-swap="outerHTML" hx-boost="false">
+  </td>
+  <td>
+    <div class="font-medium {{if not .Enabled}}text-ink-500{{end}}">{{.Name}}</div>
+    {{if or .Timezone .IDPrefix}}<div class="mt-1 flex flex-wrap gap-2 text-xs text-ink-500">{{if .Timezone}}<span>{{.Timezone}}</span>{{end}}{{if .IDPrefix}}<span>prefix &ldquo;{{.IDPrefix}}&rdquo;</span>{{end}}</div>{{end}}
+  </td>
+  <td class="whitespace-nowrap text-ink-200">
+    {{if .LastFetchedAt}}{{since .LastFetchedAt}}
+      <div class="text-xs fetch-{{.LastStatus}}">{{.LastStatus}}</div>
+      {{if .LastError}}<div class="max-w-xs truncate text-xs text-bad" title="{{.LastError}}">{{.LastError}}</div>{{end}}
+    {{else}}<span class="text-ink-500">never</span>{{end}}
+  </td>
+  <td class="tabular-nums">{{if .LastChannelCount}}{{deref .LastChannelCount}}{{else}}<span class="text-ink-500">–</span>{{end}}</td>
+  <td class="w-px whitespace-nowrap text-right">
+    <button class="btn-ghost !px-3 !py-1" hx-get="/sources/{{.ID}}/edit" hx-target="#source-{{.ID}}" hx-swap="outerHTML" hx-boost="false">Edit</button>
+    <button class="btn-danger !px-3 !py-1" hx-delete="/sources/{{.ID}}" hx-confirm="Remove {{.Name}}? Its channels leave the guide on the next refresh." hx-target="#source-{{.ID}}" hx-swap="outerHTML" hx-boost="false">Remove</button>
+  </td>
+</tr>
+{{end}}{{end}}
+
+{{/* The fields both forms share; .Form is a store.NewSource. */}}
+{{define "source_fields"}}
+  <label><span class="label">Name</span><input class="input" name="name" value="{{.Name}}" placeholder="My provider"></label>
+  <div><span class="label">Time zone</span>{{template "picker" zones "timezone" .Timezone}}</div>
+  <label class="md:col-span-2"><span class="label">Playlist URL</span><input class="input mono" name="url" value="{{.URL}}" placeholder="http://provider.example/playlist.m3u" required></label>
+  <label class="md:col-span-2"><span class="label">Guide URL (optional)</span><input class="input mono" name="xmltv_url" value="{{.XMLTVURL}}" placeholder="http://provider.example/guide.xml"></label>
+  <div><label class="block"><span class="label">Channel id prefix</span><input class="input" name="id_prefix" value="{{.IDPrefix}}" placeholder="none"></label><p class="help">Prepended to channel ids when several sources carry the same league.</p></div>
+{{end}}
+
+{{define "source_row_edit"}}
+<tr id="source-{{.Source.ID}}">
+  <td colspan="5">
+    <form hx-put="/sources/{{.Source.ID}}" hx-target="#source-{{.Source.ID}}" hx-swap="outerHTML" hx-boost="false" class="grid gap-3 md:grid-cols-2">
+      {{if .Error}}<div class="md:col-span-2 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+      {{template "source_fields" .Form}}
+      <div class="md:col-span-2 flex gap-2">
+        <button class="btn-primary">Save</button>
+        <button type="button" class="btn-ghost" hx-get="/sources/{{.Source.ID}}" hx-target="#source-{{.Source.ID}}" hx-swap="outerHTML">Cancel</button>
+        <button type="button" class="btn-ghost ml-auto" hx-post="/sources/test" hx-include="closest form" hx-target="#test-{{.Source.ID}}" hx-swap="innerHTML">Test fetch</button>
+      </div>
+      <div id="test-{{.Source.ID}}" class="md:col-span-2"></div>
+    </form>
+  </td>
+</tr>
+{{end}}
+
+{{/* Rendered on success: the emptied form, plus the list swapped into place out of band. */}}
+{{define "source_created"}}
+{{template "source_form" .}}
+<div id="source-list" hx-swap-oob="innerHTML">{{template "source_list" .}}</div>
+{{end}}
+
+{{define "source_form"}}
+<form hx-post="/sources" hx-target="#source-form" hx-swap="innerHTML" hx-boost="false" class="grid gap-3 md:grid-cols-2">
+  {{if .Error}}<div class="md:col-span-2 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+  {{template "source_fields" .Form}}
+  <div class="md:col-span-2 flex items-center gap-2 pt-1">
+    <button class="btn-primary">Add source</button>
+    <button type="button" class="btn-ghost" hx-post="/sources/test" hx-include="closest form" hx-target="#test-new" hx-swap="innerHTML">Test fetch</button>
+    <span class="htmx-indicator text-xs text-ink-300">working…</span>
+  </div>
+  <div id="test-new" class="md:col-span-2"></div>
+</form>
+{{end}}
+
+{{define "test_result"}}
+{{if .OK}}<div class="rounded-xl bg-ok/10 px-3 py-2 text-sm text-ok">Fetched a playlist with {{.Count}} channels.</div>
+{{else}}<div class="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+{{end}}

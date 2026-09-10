@@ -1,0 +1,6 @@
+{{define "empty"}}<div class="card flex flex-col items-center gap-3 px-8 py-14 text-center">
+  <div class="grid h-12 w-12 place-items-center rounded-2xl bg-ink-700 text-2xl">{{.Icon}}</div>
+  <h3 class="text-lg font-semibold">{{.Title}}</h3>
+  <p class="max-w-md text-sm text-ink-300">{{.Body}}</p>
+  {{if .Href}}<a href="{{.Href}}" class="btn-primary mt-2">{{.Action}}</a>{{end}}
+</div>{{end}}

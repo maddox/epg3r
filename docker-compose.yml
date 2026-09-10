@@ -1,0 +1,20 @@
+# Local run: `make up` (or `docker compose up -d --build`), then open the app and it will
+# ask for your provider's URLs.
+# For a published image replace `build: .` with `image: ghcr.io/maddox/epg3r:latest`.
+# Channels DVR pulls http://<host>:${EPG3R_PORT}/m3u and http://<host>:${EPG3R_PORT}/xmltv
+name: epg3r-dev
+services:
+  epg3r:
+    build: .
+    image: epg3r:dev
+    container_name: epg3r-dev
+    restart: unless-stopped
+    ports:
+      - "${EPG3R_PORT:-8080}:8080"
+    environment:
+      EPG3R_LOG_LEVEL: ${EPG3R_LOG_LEVEL:-}
+    volumes:
+      - epg3r-data:/data
+
+volumes:
+  epg3r-data:

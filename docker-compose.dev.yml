@@ -1,0 +1,24 @@
+# Development toolchain. Nothing is installed on the host; every Go command runs in this container.
+# Use through the Makefile: make test, make vet, make tidy, make run, make sh
+#
+# `make run` (or ./dev) starts the app from source, data in ./data, templates reloaded from
+# disk, on http://localhost:${EPG3R_PORT:-8080}. EPG3R_PORT comes from .env when it exists, so
+# make test works on a fresh clone. (Mirrors docker-compose.yml; Compose 2.21 has no
+# optional env_file.)
+services:
+  dev:
+    image: golang:1.26
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /src
+    environment:
+      HOME: /tmp
+      GOCACHE: /go/build-cache
+      GOFLAGS: -buildvcs=false
+      CGO_ENABLED: "0"
+      EPG3R_DATA_DIR: /src/data
+      EPG3R_LOG_LEVEL: ${EPG3R_LOG_LEVEL:-debug}
+    volumes:
+      - .:/src
+      - ./.cache/go:/go
+    ports:
+      - "${EPG3R_PORT:-8080}:8080"

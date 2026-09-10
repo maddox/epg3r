@@ -1,0 +1,47 @@
+{{define "content"}}
+{{with .Data}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight">Collections</h1>
+    <p class="mt-1 text-sm text-ink-300">Curated groups of channels.</p>
+  </div>
+  <form hx-post="/collections" hx-target="#collection-list" hx-swap="outerHTML" hx-boost="false" class="flex items-center gap-2">
+    <input class="input !w-64" name="name" placeholder="New collection, e.g. Washington" required>
+    <button class="btn-primary">Create</button>
+  </form>
+</div>
+{{template "collection_list" .}}
+{{end}}
+{{end}}
+
+{{define "collection_list"}}
+<div id="collection-list">
+  {{if .Error}}<div class="mt-4 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
+  {{if not .Collections}}
+  <div class="card mt-6"><div class="no-rows">No collections yet.</div></div>
+  {{else}}
+  <div class="mt-6 grid gap-4 lg:grid-cols-2">
+    {{range .Collections}}
+    <section class="card p-5">
+      <form hx-put="/collections/{{.ID}}" hx-target="#collection-list" hx-swap="outerHTML" hx-boost="false" class="flex items-center gap-2">
+        <input class="input" name="name" value="{{.Name}}" aria-label="Collection name">
+        <button class="btn-ghost">Rename</button>
+        <button type="button" class="btn-danger" hx-delete="/collections/{{.ID}}" hx-target="#collection-list" hx-swap="outerHTML"
+                hx-confirm="Delete {{.Name}}? The channels stay in the guide.">Delete</button>
+      </form>
+      <p class="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-300">
+        <a href="/lineup?collection={{.ID}}">{{.Channels}} channel{{if ne .Channels 1}}s{{end}}</a>
+        <span class="text-ink-600">·</span>
+        <a href="/preview/m3u/{{.Slug}}">Preview M3U</a>
+        <a href="/preview/xmltv/{{.Slug}}">Preview XMLTV</a>
+      </p>
+      <dl class="mt-3 space-y-2 text-xs">
+        <div><dt class="label">Playlist</dt><dd class="mono select-all break-all text-ink-300">{{.M3U}}</dd></div>
+        <div><dt class="label">Guide</dt><dd class="mono select-all break-all text-ink-300">{{.XMLTV}}</dd></div>
+      </dl>
+    </section>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

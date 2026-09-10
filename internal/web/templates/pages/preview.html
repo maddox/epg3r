@@ -1,0 +1,18 @@
+{{define "content"}}
+{{with .Data}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    {{if .Slug}}<a href="/collections" class="text-sm">← Collections</a>{{else}}<a href="/lineup" class="text-sm">← Lineup</a>{{end}}
+    <h1 class="mt-1 text-2xl font-bold tracking-tight">{{if .Collection}}{{.Collection}} · {{end}}{{upper .Kind}} preview</h1>
+  </div>
+  {{$in := ""}}{{if .Slug}}{{$in = printf "/%s" .Slug}}{{end}}
+  <div class="flex gap-2"><a href="/preview/m3u{{$in}}" class="tab {{if eq .Kind "m3u"}}tab-active{{end}}">M3U</a><a href="/preview/xmltv{{$in}}" class="tab {{if eq .Kind "xmltv"}}tab-active{{end}}">XMLTV</a></div>
+</div>
+{{if not .Bytes}}
+  <div class="mt-6">{{template "empty" dict "Icon" "📄" "Title" "Nothing generated yet" "Body" "Previews appear after the first refresh."}}</div>
+{{else}}
+<pre class="card mono mt-6 max-h-[70vh] overflow-auto p-4 text-ink-200">{{.Body}}</pre>
+{{if .Truncated}}<p class="help mt-2">Showing the first {{len .Body}} bytes. Open <code class="mono select-all">{{.URL}}</code> for the whole file.</p>{{end}}
+{{end}}
+{{end}}
+{{end}}

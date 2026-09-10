@@ -1,0 +1,182 @@
+@import "tailwindcss";
+@source "../../templates";
+
+/* epg3r: dark broadcast look. One accent, league chips carry their own color. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-ink-950: #070b14;
+  --color-ink-900: #0b1220;
+  --color-ink-800: #111a2e;
+  --color-ink-700: #1a2540;
+  --color-ink-600: #263352;
+  --color-ink-500: #3a4a70;
+  --color-ink-300: #8b98b8;
+  --color-ink-200: #b9c3da;
+  --color-ink-100: #e6eaf4;
+
+  --color-accent-300: #d9f99d;
+  --color-accent-400: #bef264;
+  --color-accent-500: #a3e635;
+  --color-accent-600: #84cc16;
+
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-info: #60a5fa;
+}
+
+@layer base {
+  html { color-scheme: dark; }
+  /* Web Awesome draws in shadow DOM, where our classes cannot reach. These are the
+     tokens its menus actually read, pointed at the palette the rest of the app uses. */
+  :root {
+    --wa-color-surface-raised: var(--color-ink-800);
+    --wa-color-surface-default: var(--color-ink-900);
+    --wa-color-surface-border: var(--color-ink-600);
+    --wa-color-text-normal: var(--color-ink-100);
+    --wa-color-text-quiet: var(--color-ink-300);
+    --wa-color-neutral-fill-normal: var(--color-ink-700);
+    --wa-color-danger-on-normal: var(--color-bad);
+    --wa-color-danger-on-quiet: var(--color-bad);
+    --wa-color-danger-fill-normal: --alpha(var(--color-bad) / 15%);
+    --wa-color-brand-fill-loud: var(--color-accent-500);
+    --wa-color-brand-on-loud: var(--color-ink-950);
+    --wa-border-radius-m: var(--radius-xl);
+    --wa-shadow-m: 0 16px 40px -12px rgb(0 0 0 / 0.75), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+    --wa-font-family-body: var(--font-sans);
+    --wa-font-size-smaller: 0.875rem;
+    --wa-focus-ring: 2px solid var(--color-accent-500);
+  }
+  body { @apply bg-ink-950 text-ink-100 antialiased; }
+  a { @apply text-accent-400 hover:text-accent-300; }
+  ::selection { @apply bg-accent-500/40; }
+}
+
+/* Composable bases must be utilities so other classes can @apply them. */
+@utility card { @apply rounded-2xl border border-ink-700/70 bg-ink-800/80 shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_10px_30px_-15px_rgba(0,0,0,0.6)]; }
+@utility btn { @apply inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+@utility pill { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+@utility input { @apply w-full rounded-xl border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30; }
+
+@layer components {
+  .btn-primary { @apply btn bg-accent-500 text-ink-950 hover:bg-accent-400; }
+  .btn-ghost { @apply btn bg-ink-700/60 text-ink-100 hover:bg-ink-600; }
+  .btn-danger { @apply btn bg-bad/15 text-bad hover:bg-bad/25; }
+  /* Sits beside a loud button without competing with it: no ground of its own, and it
+     recedes rather than greying out when there is nothing for it to do. */
+  .btn-quiet { @apply btn px-2 text-ink-300 hover:text-ink-100 disabled:opacity-40; }
+  /* A checkbox wearing a switch, so a row says whether a source is on without a word. */
+  .switch { @apply relative h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-ink-600 transition-colors; }
+  .switch:checked { @apply bg-accent-500; }
+  .switch::after { content: ""; @apply absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-ink-100 transition-transform; }
+  .switch:checked::after { @apply translate-x-4; }
+  .switch:focus-visible { @apply outline-none ring-2 ring-accent-500/40; }
+  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .help { @apply mt-1 text-xs text-ink-300; }
+  .stat { @apply card p-5; }
+  .stat-value { @apply text-3xl font-bold tabular-nums tracking-tight; }
+  .stat-label { @apply mt-1 text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .tab { @apply rounded-xl px-3 py-1.5 text-sm font-medium text-ink-200 hover:bg-ink-700/60; }
+  .tab-active { @apply bg-ink-700 text-ink-100; }
+  .table { @apply w-full text-left text-sm; }
+  .table th { @apply border-b border-ink-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .table td { @apply border-b border-ink-800 px-3 py-2 align-top; }
+  .table tr:hover td { @apply bg-ink-800/60; }
+  .mono { @apply font-mono text-xs; }
+  .no-rows { @apply py-10 text-center text-sm text-ink-300; }
+  .chip { @apply pill bg-ink-700 text-ink-100; }
+  .chip[data-league="nfl"] { @apply bg-[#013369]/70 text-white; }
+  .chip[data-league="mlb"] { @apply bg-[#bf0d3e]/70 text-white; }
+  .chip[data-league="nba"] { @apply bg-[#c8102e]/70 text-white; }
+  /* NHL's brand color is black, which the art grounds itself in but which reads as
+     nothing at chip opacity over a dark surface, so this one does not match the catalog. */
+  .chip[data-league="nhl"] { @apply bg-ink-500 text-white; }
+  .chip[data-league="wnba"] { @apply bg-[#f57b20]/70 text-white; }
+  .chip[data-league="mls"] { @apply bg-[#1d4ed8]/70 text-white; }
+  .chip[data-league="ncaaf"] { @apply bg-[#0070c0]/70 text-white; }
+  .chip[data-league="ncaab"] { @apply bg-[#00a9e0]/70 text-white; }
+  .outcome-exported { @apply pill bg-ok/15 text-ok; }
+  .outcome-idle { @apply pill bg-ink-600/60 text-ink-200; }
+  .outcome-low_confidence, .outcome-no_number { @apply pill bg-warn/15 text-warn; }
+  .outcome-unmatched_group { @apply pill bg-info/15 text-info; }
+  .outcome-duplicate { @apply pill bg-ink-500/50 text-ink-200; }
+  .outcome-network { @apply pill bg-ink-700 text-ink-300; }
+  /* Run status, fetch status, and toast kinds: one class per value, driven by the constants. */
+  .dot { @apply inline-block h-2.5 w-2.5 rounded-full; }
+  .status-ok { @apply bg-ok; }
+  .status-partial { @apply bg-warn; }
+  .status-failed { @apply bg-bad; }
+  .status-running { @apply bg-info; }
+  .status-none { @apply bg-ink-500; }
+  .status-text-ok { @apply text-ok; }
+  .status-text-partial { @apply text-warn; }
+  .status-text-failed { @apply text-bad; }
+  .status-text-running { @apply text-info; }
+  .status-pill-ok { @apply bg-ok/15 text-ok; }
+  .status-pill-partial { @apply bg-warn/15 text-warn; }
+  .status-pill-failed { @apply bg-bad/15 text-bad; }
+  .status-pill-running { @apply bg-info/15 text-info; }
+  .fetch-ok { @apply text-ink-500; }
+  .fetch-not-modified { @apply text-ink-500; }
+  .fetch-cached { @apply text-warn; }
+  .fetch-error { @apply text-bad; }
+  .toast-ok { @apply border-ok/40 text-ok; }
+  .toast-bad { @apply border-bad/40 text-bad; }
+  .toast-info { @apply border-info/40 text-info; }
+  /* Multi-select. No native control does this without a modal, so it is a <details>
+     dressed as one: the summary matches .input, the panel is a solid popover. */
+  /* A disclosure for the settings a card does not need to lead with. Quiet enough to read
+     as a heading rather than a control, since most readers never open it. */
+  .disclosure > summary { @apply inline-flex cursor-pointer select-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-300 transition-colors hover:text-ink-100; list-style: none; }
+  .disclosure > summary::-webkit-details-marker { display: none; }
+  .disclosure > summary::before { content: ""; @apply h-0 w-0 border-y-4 border-l-[5px] border-y-transparent border-l-ink-300 transition-transform; }
+  .disclosure[open] > summary::before { @apply rotate-90; }
+
+  .picker { @apply relative inline-block align-middle; }
+  .picker > summary { @apply input inline-flex w-auto cursor-pointer select-none items-center gap-2 whitespace-nowrap; list-style: none; }
+  .picker > summary::-webkit-details-marker { display: none; }
+  .picker > summary::after { content: ""; @apply h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-ink-300; }
+  .picker[open] > summary { @apply border-accent-500 ring-2 ring-accent-500/30; }
+  .picker[open] > summary::after { @apply rotate-180; }
+  .picker-panel { @apply card absolute left-0 z-30 mt-2 flex max-h-80 w-72 flex-col overflow-hidden bg-ink-800 p-0; }
+  .picker-head { @apply flex items-center justify-between border-b border-ink-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-300; }
+  .picker-list { @apply overflow-y-auto p-1.5; }
+  .picker-search-row { @apply border-b border-ink-700 p-2; }
+  .picker-search { @apply w-full rounded-lg border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-500 focus:outline-none; }
+  .picker-search::-webkit-search-cancel-button { @apply hidden; }
+  .picker-option { @apply flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-200 hover:bg-ink-700/70; }
+  .picker-option input { @apply h-4 w-4 shrink-0 cursor-pointer accent-accent-500; }
+  /* Tailwind v4 stopped giving controls a pointer, and this is the web. */
+  .tick { @apply h-4 w-4 cursor-pointer accent-accent-500; }
+  .picker-count { @apply pill bg-accent-500/20 text-accent-300 tabular-nums; }
+  /* Web Awesome components style themselves through :host, and a rule on the page beats
+     :host every time — so Tailwind's reset, which zeroes padding on every element, quietly
+     strips their layout. These give it back, and are where this app's menus get their
+     density. */
+  wa-dropdown-item {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-lg);
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+  wa-dropdown::part(menu),
+  wa-dropdown-item::part(submenu) { @apply p-1.5; min-width: 13rem; }
+  wa-dropdown-item::part(submenu-icon) { @apply text-ink-300; }
+  /* A divider inside a menu is a hairline between groups, not a rule across a page. */
+  wa-dropdown wa-divider, wa-dropdown-item wa-divider { @apply my-1.5 block h-px border-0 bg-ink-600; }
+  wa-dropdown-item::part(label) { @apply text-sm; }
+  wa-dropdown-item::part(details) { @apply text-ink-300; }
+
+  /* Web Awesome sets --spacing on its own elements for its own layout, and Tailwind v4
+     builds every spacing utility from a variable of that name. Anything of ours placed
+     inside one needs Tailwind's back; the components keep theirs. */
+  wa-dialog > *, wa-dialog > [slot] { --spacing: 0.25rem; }
+
+  .pulse { @apply relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-500; }
+  .pulse::after { content: ""; @apply absolute inset-0 animate-ping rounded-full bg-accent-500 opacity-75; }
+}
+
+.htmx-request .htmx-indicator { display: inline-flex; }
+.htmx-indicator { display: none; }

@@ -1,0 +1,90 @@
+{{define "content"}}
+{{with .Data}}
+{{if not .Snapshot}}
+  {{template "empty" dict "Icon" "⏳" "Title" "Building your guide" "Body" "The first refresh has not finished yet. Once it does, this page fills in with what was found."}}
+{{else}}
+<div class="grid gap-4 md:grid-cols-4">
+  <div class="stat"><div class="stat-value">{{.Channels}}</div><div class="stat-label">Channels</div></div>
+  <div class="stat"><div class="stat-value text-accent-400">{{.WithGames}}</div><div class="stat-label">With something scheduled</div></div>
+  <div class="stat"><div class="stat-value">{{.Programs}}</div><div class="stat-label">Airings in your guide</div></div>
+  <div class="stat">
+    {{with .LastRun}}<div class="stat-value status-text-{{.Status}}">{{runStatus .Status}}</div>
+    <div class="stat-label">Last refresh · {{since .StartedAt}}</div>{{end}}
+  </div>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <section class="card p-6 lg:col-span-2">
+    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">By league</h2>
+    <div class="space-y-3">
+      {{range .Leagues}}
+      <div class="grid grid-cols-[7rem_1fr_6rem] items-center gap-4">
+        <a href="/lineup?league={{.Key}}" class="chip" data-league="{{.Key}}">{{.Name}}</a>
+        <div class="h-2.5 overflow-hidden rounded-full bg-ink-700">
+          <div class="h-full rounded-full bg-accent-500" style="width: {{pct .WithGames .Channels}}%"></div>
+        </div>
+        <span class="text-right text-sm tabular-nums text-ink-200">{{.WithGames}} <span class="text-ink-500">/ {{.Channels}}</span></span>
+      </div>
+      {{end}}
+    </div>
+    <p class="help mt-4">Number of channels in each league with something scheduled.</p>
+  </section>
+
+  <section class="card p-6">
+    <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-300">Export Channels</h2>
+    <p class="text-sm text-ink-200">Export all of your channels using these two links.</p>
+    <dl class="mt-4 space-y-3">
+      <div><dt class="label">Playlist</dt><dd><code class="mono block select-all rounded-lg bg-ink-900 px-3 py-2">{{.Outputs.M3U}}</code></dd></div>
+      <div><dt class="label">Guide</dt><dd><code class="mono block select-all rounded-lg bg-ink-900 px-3 py-2">{{.Outputs.XMLTV}}</code></dd></div>
+    </dl>
+  </section>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <section class="card p-6 lg:col-span-2">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-ink-300">Recent refreshes</h2>
+      <a href="/runs" class="text-sm">See all</a>
+    </div>
+    <table class="table">
+      <thead><tr><th>When</th><th>Result</th><th>Something scheduled</th><th>Nothing scheduled</th><th>Needs a look</th><th></th></tr></thead>
+      <tbody>
+      {{range .Runs}}
+      <tr>
+        <td><a href="/runs/{{.ID}}" class="text-ink-100">{{stamp .StartedAt}}</a></td>
+        <td><span class="pill status-pill-{{.Status}}">{{runStatus .Status}}</span></td>
+        <td class="tabular-nums">{{count .Counts "exported"}}</td>
+        <td class="tabular-nums">{{count .Counts "idle"}}</td>
+        <td class="tabular-nums">{{count .Counts "unmatched_group"}} unknown league · {{count .Counts "low_confidence"}} unclear · {{count .Counts "duplicate"}} duplicate</td>
+        <td class="text-right"><a href="/runs/{{.ID}}">Details</a></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card p-6">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-ink-300">Sources</h2>
+      <a href="/sources" class="text-sm">Manage</a>
+    </div>
+    <ul class="space-y-3">
+      {{range .Sources}}
+      <li class="flex items-start justify-between gap-3">
+        <div>
+          <div class="font-medium">{{.Name}}</div>
+          <div class="mono truncate text-ink-300" style="max-width: 16rem">{{.URL}}</div>
+        </div>
+        <div class="whitespace-nowrap text-right text-xs text-ink-300">
+          {{if .LastChannelCount}}<div class="tabular-nums">{{deref .LastChannelCount}} channels</div>{{end}}
+          {{if .LastFetchedAt}}<div>{{since .LastFetchedAt}}</div>{{end}}
+          {{if .LastError}}<div class="text-bad" title="{{.LastError}}">could not be read</div>{{end}}
+        </div>
+      </li>
+      {{end}}
+    </ul>
+  </section>
+</div>
+{{end}}
+{{end}}
+{{end}}

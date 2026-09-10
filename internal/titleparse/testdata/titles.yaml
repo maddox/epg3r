@@ -1,0 +1,202 @@
+# Real titles from provider playlists and what the parser must make of them.
+# now is frozen at 2026-09-01 12:00 ET. Times below are ET unless the title says otherwise.
+now: 2026-09-01T12:00:00-04:00
+timezone: America/New_York
+cases:
+  # --- colon label with parenthesised date and time; colon label with bare date and time ---
+  - title: "NFL 03: Pittsburgh Steelers vs Atlanta Falcons (09.08 1:00PM ET) (FOX)"
+    group: NFL
+    expect: {kind: slot, slot: 3, team_a: Pittsburgh Steelers, team_b: Atlanta Falcons, kickoff: 2026-09-08T13:00:00-04:00, network: FOX}
+  - title: "NFL 15: Los Angeles Chargers vs Chicago Bears Oct 29 08:20 PM"
+    group: NFL
+    expect: {kind: slot, slot: 15, team_a: Los Angeles Chargers, team_b: Chicago Bears, kickoff: 2026-10-29T20:20:00-04:00}
+
+  # --- pipe separated label, bare date time ---
+  - title: "NFL 11 | Cincinnati Bengals vs Philadelphia Eagles Aug 28 08:00 PM"
+    group: NFL
+    expect: {kind: slot, slot: 11, team_a: Cincinnati Bengals, team_b: Philadelphia Eagles, kickoff: 2026-08-28T20:00:00-04:00}
+
+  # --- country prefix, decoration, weekday+date in parens then time ---
+  - title: "USA | NFL 04ⓧ: Buffalo Bills vs Houston Texans (Sunday 09/13) 1:00PM ET"
+    group: NFL
+    expect: {kind: slot, slot: 4, team_a: Buffalo Bills, team_b: Houston Texans, kickoff: 2026-09-13T13:00:00-04:00}
+  - title: "USA | NFL 00ⓧ: New England Patriots vs Seattle Seahawks (Wednesday 09/09) 8:20PM ET"
+    group: NFL
+    expect: {kind: slot, slot: 0, team_a: New England Patriots, team_b: Seattle Seahawks, kickoff: 2026-09-09T20:20:00-04:00}
+
+  # --- MLB: @ orientation, feed segment, time only (date assumed today) ---
+  - title: "MLB 15: Athletics @ Texas Rangers | Home Stream | 8:05 PM ET"
+    group: MLB Baseball league
+    expect: {kind: slot, slot: 15, team_a: Athletics, team_b: Texas Rangers, sep: "@", feed: Home Stream, kickoff: 2026-09-01T20:05:00-04:00, date_assumed: true}
+  - title: "MLB 09: Athletics @ Texas Rangers | HOME RSN | Tue 01 Sep 20:05 (Preview)"
+    group: MLB Baseball league
+    expect: {kind: slot, slot: 9, team_a: Athletics, team_b: Texas Rangers, sep: "@", feed: HOME RSN, kickoff: 2026-09-01T20:05:00-04:00}
+  - title: "MLB 14: St. Louis Cardinals @ Los Angeles Dodgers | HOME SNLA | Tue 01 Sep 22:10 (Preview)"
+    group: MLB Baseball league
+    expect: {kind: slot, slot: 14, team_a: St. Louis Cardinals, team_b: Los Angeles Dodgers, kickoff: 2026-09-01T22:10:00-04:00}
+  - title: "MLB 29: Cardinals vs Dodgers (Home) (09.01 10:10PM ET)"
+    group: MLB Baseball league
+    expect: {kind: slot, slot: 29, team_a: St. Louis Cardinals, team_b: Los Angeles Dodgers, feed: Home, kickoff: 2026-09-01T22:10:00-04:00}
+  - title: "MLB 27: Phillies vs D backs (Home) (09.01 9:40PM ET)"
+    group: MLB Baseball league
+    expect: {kind: slot, slot: 27, team_a: Philadelphia Phillies, team_b: Arizona Diamondbacks, kickoff: 2026-09-01T21:40:00-04:00}
+
+  # --- MLS: colon label, bare date time; trailing label; Apple label alias with full stamp ---
+  - title: "MLS 01: Columbus Crew vs New England Revolution Aug 30 4:30 PM"
+    group: MLS
+    expect: {kind: slot, slot: 1, team_a: Columbus Crew, team_b: New England Revolution, kickoff: 2026-08-30T16:30:00-04:00}
+  - title: "Columbus Crew vs New England Revolution @ Aug 30 4:30 PM :MLS  01"
+    group: MLS
+    expect: {kind: slot, slot: 1, team_a: Columbus Crew, team_b: New England Revolution, kickoff: 2026-08-30T16:30:00-04:00}
+  - title: "(Apple) (MLS) 006 |  MLS Countdown  (2026 09 09 18:25:00)"
+    group: MLS
+    expect: {kind: slot, slot: 6, event_title: MLS Countdown, kickoff: 2026-09-09T18:25:00-04:00}
+  - title: "(Apple) (MLS) 030 |  (2098 12 31 08:00:17)"
+    group: MLS
+    expect: {kind: placeholder, slot: 30}
+  - title: "MLS 04: Club América vs CF Monterrey Sep 02 11:30 PM"
+    group: MLS
+    expect: {kind: slot, slot: 4, team_a_raw: Club América, team_b_raw: CF Monterrey, kickoff: 2026-09-02T23:30:00-04:00}
+
+  # --- NBA: parenthesised label, full stamp; Summer League trailing label; G League excluded upstream ---
+  - title: "(NBA 01) | Thunder vs Nets (ESPN In Arena) (2026 07 19 16:30:00)"
+    group: NBA
+    expect: {kind: slot, slot: 1, team_a: Oklahoma City Thunder, team_b: Brooklyn Nets, feed: ESPN In Arena, kickoff: 2026-07-19T16:30:00-04:00}
+  - title: "(NBA 20) |  (2098 12 31 08:00:17)"
+    group: NBA
+    expect: {kind: placeholder, slot: 20}
+  - title: "NBA Summer League Mavericks vs. Thunder Jul 16 :NBA 01"
+    group: NBA
+    expect: {kind: slot, slot: 1, team_a: Dallas Mavericks, team_b: Oklahoma City Thunder, kickoff: 2026-07-16T00:00:00-04:00, time_known: false}
+  - title: "NBA 01 | NEW YORK KNICKS WIN 2026 NBA FINALS @ SAN ANTONIO SPURS | 6/13 08:30PM | ABC ESPN ESPN DEPORTES"
+    group: NBA
+    expect: {kind: slot, slot: 1, team_b: San Antonio Spurs, kickoff: 2026-06-13T20:30:00-04:00, network: ABC ESPN ESPN DEPORTES}
+
+  # --- WNBA: repeated league word, abbreviations, start/stop, ordinal dates ---
+  - title: "WNBA (WNBA 01) | Connecticut Sun vs Atlanta Dream (2026 09 02 19:00:00)"
+    group: WNBA League Pass
+    expect: {kind: slot, slot: 1, team_a: Connecticut Sun, team_b: Atlanta Dream, kickoff: 2026-09-02T19:00:00-04:00}
+  - title: "US (WNBA 01) | Connecticut Sun at Atlanta Dream (2026 09 17 23:30:00)"
+    group: WNBA League Pass
+    expect: {kind: slot, slot: 1, team_a: Connecticut Sun, team_b: Atlanta Dream, sep: "@", kickoff: 2026-09-17T23:30:00-04:00}
+  - title: "WNBA 04 | Dallas Wings (DAL) x Connecticut Sun (CON) start:2026 08 31 01:20:00 stop:2026 08 31 05:30:00"
+    group: WNBA League Pass
+    expect: {kind: slot, slot: 4, team_a: Dallas Wings, team_b: Connecticut Sun, kickoff: 2026-08-31T01:20:00-04:00, stop: 2026-08-31T05:30:00-04:00}
+  - title: "WNBA 01 Atlanta Dream (ATL) x Minnesota Lynx (MIN) start:2026 08 30 19:50:00 stop:2026 08 31 00:00:00"
+    group: WNBA League Pass
+    expect: {kind: slot, slot: 1, team_a: Atlanta Dream, team_b: Minnesota Lynx, kickoff: 2026-08-30T19:50:00-04:00}
+  - title: "WNBA 05: Las Vegas Aces vs Seattle Storm | Fri 18th Sep 10:00PM ET"
+    group: WNBA League Pass
+    expect: {kind: slot, slot: 5, team_a: Las Vegas Aces, team_b: Seattle Storm, kickoff: 2026-09-18T22:00:00-04:00}
+  - title: "WNBA 03: Washington Mystics vs Chicago Sky | Sep 2nd Tue 7:00PM ET"
+    group: WNBA League Pass
+    expect: {kind: slot, slot: 3, team_a: Washington Mystics, team_b: Chicago Sky, kickoff: 2026-09-02T19:00:00-04:00}
+  - title: "WNBA 02: No Event Scheduled"
+    group: WNBA League Pass
+    expect: {kind: placeholder, slot: 2}
+
+  # --- NHL: label alias "NHL Game", ordinal date, 24h-free ---
+  - title: "USA | NHL Game 03ⓧ: Edmonton @ Los Angeles | Sun Apr 28th 10:30PM"
+    group: NHL
+    expect: {kind: slot, slot: 3, team_a: Edmonton Oilers, team_b: Los Angeles Kings, sep: "@", kickoff: 2026-04-28T22:30:00-04:00}
+  - title: "USA | NHL Game 01ⓧ:  No Scheduled Event"
+    group: NHL
+    expect: {kind: placeholder, slot: 1}
+  - title: "NHL | 06  "
+    group: NHL
+    expect: {kind: placeholder, slot: 6}
+  - title: "NHL 08: Offline"
+    group: NHL
+    expect: {kind: placeholder, slot: 8}
+
+  # --- NCAA: uppercase, AT separator, ranks, gender markers, neutral sites, network with URL ---
+  - title: "NCAAF 008 | WEST GEORGIA AT KENNESAW STATE | 09/03 07:00PM | ESPN+"
+    group: NCAAF
+    expect: {kind: slot, slot: 8, team_a: West Georgia, team_b: Kennesaw State, sep: "@", kickoff: 2026-09-03T19:00:00-04:00, network: ESPN+}
+  - title: "NCAAF 040 | ALABAMA A&M VS HOWARD (IN ATLANTA, GA) | 08/29 07:30PM | ABC"
+    group: NCAAF
+    expect: {kind: slot, slot: 40, team_a: Alabama A&M, team_b: Howard, kickoff: 2026-08-29T19:30:00-04:00, network: ABC}
+  - title: "NCAAF 027 | MOREHOUSE VS UAPB (IN LITTLE ROCK, AR) | 08/29 07:00PM | SWAC TV (HTTPS://TV.SWAC.ORG/)"
+    group: NCAAF
+    expect: {kind: slot, slot: 27, team_a: Morehouse, team_b: Arkansas-Pine Bluff, kickoff: 2026-08-29T19:00:00-04:00}
+  - title: "NCAAF 013 | IDAHO AT 21 UTAH | 09/03 09:00PM | ESPNU"
+    group: NCAAF
+    expect: {kind: slot, slot: 13, team_a: Idaho, team_b: Utah, kickoff: 2026-09-03T21:00:00-04:00, network: ESPNU}
+  - title: "NCAAF 055 | ZZZ OFFLINE"
+    group: NCAAF
+    expect: {kind: placeholder, slot: 55}
+  - title: "NCAAF 053 |"
+    group: NCAAF
+    expect: {kind: placeholder, slot: 53}
+  - title: "NCAAB 032 | NORTHWESTERN @ 17 ILLINOIS (M) | 1/26 3:00 PM | BTN"
+    group: NCAA Basketball
+    expect: {kind: slot, slot: 32, team_a: Northwestern, team_b: Illinois, kickoff: 2027-01-26T15:00:00-05:00, network: BTN, womens: false}
+  - title: "NCAAB 036 | WISCONSIN @ 23 MINNESOTA (W) | 1/26 3:00 PM | B1G+"
+    group: NCAA Basketball
+    expect: {kind: slot, slot: 36, team_a: Wisconsin, team_b: Minnesota, womens: true, kickoff: 2027-01-26T15:00:00-05:00, network: B1G+}
+  - title: ":NCAAB  101"
+    group: NCAA Basketball
+    expect: {kind: placeholder, slot: 101}
+
+  # --- placeholders in other spellings ---
+  - title: "NFL 17 | No Event Scheduled"
+    group: NFL
+    expect: {kind: placeholder, slot: 17}
+  - title: "NBA 10: No Games Scheduled"
+    group: NBA
+    expect: {kind: placeholder, slot: 10}
+  - title: "MLB 31: No event today"
+    group: MLB Baseball league
+    expect: {kind: placeholder, slot: 31}
+  - title: "NBA 25:"
+    group: NBA
+    expect: {kind: placeholder, slot: 25}
+  - title: "NFL  | 01  "
+    group: NFL
+    expect: {kind: placeholder, slot: 1}
+  - title: "MLS 15"
+    group: MLS
+    expect: {kind: placeholder, slot: 15}
+
+  # --- team channels ---
+  - title: "US NFL Buffalo Bills (HD)"
+    group: NFL
+    expect: {kind: team, team: Buffalo Bills}
+  - title: "US NBA Portland Trail Blazers (HD) (S)"
+    group: NBA
+    expect: {kind: team, team: Portland Trail Blazers}
+  - title: "NBALP: Oklahoma City Thunder"
+    group: NBA
+    expect: {kind: team, team: Oklahoma City Thunder}
+  - title: "(NFL) Pittsburgh Steelers (P)"
+    group: NFL
+    expect: {kind: team, team: Pittsburgh Steelers}
+  - title: "US (MLB) Texas Rangers (S)"
+    group: MLB Baseball league
+    expect: {kind: team, team: Texas Rangers}
+  - title: "US Texas Rangers (A)"
+    group: MLB Baseball league
+    expect: {kind: team, team: Texas Rangers}
+  - title: "(WNBA) Connecticut Sun"
+    group: WNBA League Pass
+    expect: {kind: team, team: Connecticut Sun}
+
+  # --- network and other channels ---
+  - title: "USA: NFL NETWORK"
+    group: NFL
+    expect: {kind: network}
+  - title: "US: NFL Redzone"
+    group: NFL
+    expect: {kind: network}
+  - title: "NFL Teams: FOX Cowboys (KDFW) Dallas TX"
+    group: NFL
+    expect: {kind: network}
+  - title: "US ESPN 1 (SD) (S)"
+    group: NBA
+    expect: {kind: network}
+  - title: "US WNBA ION 3 (A)"
+    group: WNBA League Pass
+    expect: {kind: network}
+  - title: "NHL  |  4K  "
+    group: NHL
+    expect: {kind: network}
