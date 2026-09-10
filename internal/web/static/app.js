@@ -45,6 +45,36 @@ document.addEventListener('change', (e) => {
   syncPicker(picker);
 }, true);
 
+// A list too long to scan gets a filter box. It matches the option's own text, so what a
+// reader sees is what they typed for.
+document.addEventListener('input', (e) => {
+  const box = e.target.closest && e.target.closest('[data-search]');
+  if (box) filterPicker(box.closest('details.picker'), box.value);
+});
+
+// Opening a long picker puts the cursor in its filter; closing it forgets what was typed,
+// so the panel never reopens looking half empty. toggle does not bubble, hence capture.
+document.addEventListener('toggle', (e) => {
+  const picker = e.target;
+  if (!(picker instanceof Element) || !picker.matches('details.picker')) return;
+  const box = picker.querySelector('[data-search]');
+  if (!box) return;
+  if (picker.open) {
+    box.focus();
+  } else {
+    box.value = '';
+    filterPicker(picker, '');
+  }
+}, true);
+
+function filterPicker(picker, term) {
+  if (!picker) return;
+  const q = term.trim().toLowerCase();
+  picker.querySelectorAll('.picker-option').forEach((option) => {
+    option.hidden = q !== '' && !option.textContent.toLowerCase().includes(q);
+  });
+}
+
 // What a picker says about itself has to keep up with the clicking. It is answered from
 // the inputs rather than from the server, so a choice costs one swap of the list it
 // filters and nothing else on the page moves.

@@ -137,6 +137,9 @@
   .picker-panel { @apply card absolute left-0 z-30 mt-2 flex max-h-80 w-72 flex-col overflow-hidden bg-ink-800 p-0; }
   .picker-head { @apply flex items-center justify-between border-b border-ink-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink-300; }
   .picker-list { @apply overflow-y-auto p-1.5; }
+  .picker-search-row { @apply border-b border-ink-700 p-2; }
+  .picker-search { @apply w-full rounded-lg border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-500 focus:outline-none; }
+  .picker-search::-webkit-search-cancel-button { @apply hidden; }
   .picker-option { @apply flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-200 hover:bg-ink-700/70; }
   .picker-option input { @apply h-4 w-4 shrink-0 cursor-pointer accent-accent-500; }
   /* Tailwind v4 stopped giving controls a pointer, and this is the web. */

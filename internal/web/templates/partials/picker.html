@@ -2,6 +2,9 @@
 <details class="picker" data-picker="{{.Name}}">
   <summary><span data-label>{{.Summary}}</span>{{if .Multiple}}<span class="picker-count" data-count {{if not .Count}}hidden{{end}}>{{.Count}}</span>{{end}}</summary>
   <div class="picker-panel">
+    {{if .Search}}
+    <div class="picker-search-row"><input type="search" data-search class="picker-search" placeholder="Filter&hellip;" autocomplete="off"></div>
+    {{end}}
     {{if .Multiple}}
     <div class="picker-head"><span data-chosen>{{if .Count}}{{.Count}} selected{{else}}None selected{{end}}</span><button type="button" data-clear class="text-xs font-semibold normal-case text-accent-400 hover:text-accent-300 disabled:text-ink-500" {{if not .Count}}disabled{{end}}>Clear</button></div>
     {{end}}

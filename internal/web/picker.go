@@ -42,6 +42,14 @@ func (p picker) Count() int {
 	return n
 }
 
+// searchAbove is where a list stops being scannable. Well above the longest hand-written
+// picker in the app, so only the generated ones get a box.
+const searchAbove = 20
+
+// Search reports whether the panel gets a filter box. A list long enough to scroll is a
+// list nobody wants to read, and the time zones are four hundred deep.
+func (p picker) Search() bool { return len(p.Options) > searchAbove }
+
 // Control is the input type the options render as.
 func (p picker) Control() string {
 	if p.Multiple {
