@@ -1,5 +1,7 @@
 package web
 
+import "github.com/jonmaddox/epg3r/internal/store"
+
 // A picker is the one chooser this UI uses. Closed it reads like a button; open it shows
 // its options. Single choice replaces the value and closes; multiple choice toggles and
 // stays open while the list behind it filters. Every select in the app is one of these,
@@ -84,6 +86,17 @@ func stringPicker(name, current string, choices []string) picker {
 	opts := make([]pickerOption, 0, len(choices))
 	for _, c := range choices {
 		opts = append(opts, pickerOption{Value: c, Label: c})
+	}
+	return choose(name, opts, current)
+}
+
+// zonePicker offers every time zone, plus the empty choice a source uses to mean "whatever
+// Settings says". A zone typed by hand is the one field here nobody can check for themselves.
+func zonePicker(name, current string) picker {
+	opts := make([]pickerOption, 0, len(store.Zones)+1)
+	opts = append(opts, pickerOption{Value: "", Label: "Use the default"})
+	for _, z := range store.Zones {
+		opts = append(opts, pickerOption{Value: z, Label: z})
 	}
 	return choose(name, opts, current)
 }

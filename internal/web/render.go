@@ -155,6 +155,7 @@ func (t *templates) funcs() template.FuncMap {
 		},
 		// choices builds a settings row's chooser, so every select in the app is one component.
 		"choices": stringPicker,
+		"zones":   zonePicker,
 		"dict": func(kv ...any) map[string]any {
 			m := map[string]any{}
 			for i := 0; i+1 < len(kv); i += 2 {

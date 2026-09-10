@@ -372,6 +372,41 @@ func TestChannelStartSetting(t *testing.T) {
 	}
 }
 
+// Both places a zone is chosen offer the same list rather than a text box, because a
+// mistyped zone shifts every game time by hours and nothing on screen says so.
+func TestTimeZonesArePicked(t *testing.T) {
+	s, st, _ := uiServer(t)
+	setUp(t, st)
+	h := s.Handler()
+
+	for _, page := range []string{"/settings", "/sources"} {
+		body := do(h, http.MethodGet, page, nil, false).Body.String()
+		if strings.Contains(body, `<input class="input" name="timezone"`) {
+			t.Errorf("%s still has a free-text zone field", page)
+		}
+		if !strings.Contains(body, `data-picker="timezone"`) && !strings.Contains(body, `data-picker="default_timezone"`) {
+			t.Errorf("%s has no zone picker: %s", page, body[:min(400, len(body))])
+		}
+		if !strings.Contains(body, "America/New_York") {
+			t.Errorf("%s should offer a real zone", page)
+		}
+		// Long enough to need one, so the panel carries a filter.
+		if !strings.Contains(body, "data-search") {
+			t.Errorf("%s: a five hundred item picker needs a filter", page)
+		}
+	}
+	// A source can still say "whatever Settings says".
+	if body := do(h, http.MethodGet, "/sources", nil, false).Body.String(); !strings.Contains(body, "Use the default") {
+		t.Error("a source should be able to defer to the default zone")
+	}
+	// And a zone that is not offered is refused rather than stored.
+	rec := do(h, http.MethodPost, "/sources", url.Values{
+		"name": {"X"}, "url": {"http://p/1"}, "timezone": {"US/Eastern"}}, true)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "choose one from the list") {
+		t.Errorf("a legacy zone name should be refused: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRefreshAndStatusPill(t *testing.T) {
 	s, st, ref := uiServer(t)
 	setUp(t, st)

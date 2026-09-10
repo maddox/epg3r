@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -172,6 +173,24 @@ func TestZonesAreCanonicalAndLoadable(t *testing.T) {
 		if !seen[want] {
 			t.Errorf("%s should be offered", want)
 		}
+	}
+}
+
+// A zone that is not on the list is refused, and the refusal does not recite five hundred
+// names back at the reader.
+func TestBadZoneIsRefusedBriefly(t *testing.T) {
+	_, err := settingDefs[SettingDefaultTimezone].Normalize("Mars/Base")
+	if err == nil {
+		t.Fatal("an unknown zone was accepted")
+	}
+	if n := len(err.Error()); n > 120 {
+		t.Errorf("the message is %d characters long: %s", n, err)
+	}
+	if !strings.Contains(err.Error(), "Mars/Base") {
+		t.Errorf("the message should quote what was typed: %v", err)
+	}
+	if got, err := settingDefs[SettingDefaultTimezone].Normalize("  Europe/London "); err != nil || got != "Europe/London" {
+		t.Errorf("a real zone should pass: %q %v", got, err)
 	}
 }
 

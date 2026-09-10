@@ -55,7 +55,7 @@
 {{/* The fields both forms share; .Form is a store.NewSource. */}}
 {{define "source_fields"}}
   <label><span class="label">Name</span><input class="input" name="name" value="{{.Name}}" placeholder="My provider"></label>
-  <label><span class="label">Time zone</span><input class="input" name="timezone" value="{{.Timezone}}" placeholder="default"></label>
+  <div><span class="label">Time zone</span>{{template "picker" zones "timezone" .Timezone}}</div>
   <label class="md:col-span-2"><span class="label">Playlist URL</span><input class="input mono" name="url" value="{{.URL}}" placeholder="http://provider.example/playlist.m3u" required></label>
   <label class="md:col-span-2"><span class="label">Guide URL (optional)</span><input class="input mono" name="xmltv_url" value="{{.XMLTVURL}}" placeholder="http://provider.example/guide.xml"></label>
   <div><label class="block"><span class="label">Channel id prefix</span><input class="input" name="id_prefix" value="{{.IDPrefix}}" placeholder="none"></label><p class="help">Prepended to channel ids when several sources carry the same league.</p></div>

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -76,10 +77,11 @@ func (in *NewSource) Validate() error {
 	case in.XMLTVURL != "" && !isHTTP(in.XMLTVURL):
 		return &ValidationError{"the guide URL must start with http:// or https://"}
 	}
-	if in.Timezone != "" {
-		if err := checkTimezone(in.Timezone); err != nil {
-			return &ValidationError{fmt.Sprintf("unknown time zone %q", in.Timezone)}
-		}
+	// The same list the picker offers, so what the form can produce and what this accepts
+	// cannot drift apart. A legacy spelling like US/Eastern is not offered and not accepted;
+	// its canonical name is in the list.
+	if in.Timezone != "" && !slices.Contains(Zones, in.Timezone) {
+		return &ValidationError{fmt.Sprintf("unknown time zone %q; choose one from the list", in.Timezone)}
 	}
 	return nil
 }

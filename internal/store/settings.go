@@ -53,7 +53,7 @@ var SettingDefs = []SettingDef{
 	{Key: SettingRefreshIntervalMinutes, Label: "Refresh every (minutes)", Help: "How often sources are fetched and the guide rebuilt.",
 		Default: "60", Kind: KindInt, Min: f(1)},
 	{Key: SettingDefaultTimezone, Label: "Default time zone", Help: "Zone for game times that do not name one. Providers almost always mean Eastern.",
-		Default: "America/New_York", Kind: KindString, Check: checkTimezone},
+		Default: "America/New_York", Kind: KindString, Choices: Zones},
 	{Key: SettingPublicBaseURL, Label: "Public URL", Help: "How Channels DVR reaches this app. Every logo and every piece of airing art is fetched from here, so set it when more than one hostname reaches the app; leave it empty to derive from each request.",
 		Default: "", Kind: KindString},
 	{Key: SettingConfidenceThreshold, Label: "Confidence threshold", Help: "Parsed games below this confidence (0 to 1) are kept out of the guide and listed as low confidence.",
@@ -73,11 +73,6 @@ var settingDefs = func() map[string]SettingDef {
 	}
 	return m
 }()
-
-func checkTimezone(v string) error {
-	_, err := time.LoadLocation(v)
-	return err
-}
 
 // SettingDefault is a setting's shipped default, for a form shown before anything has been
 // written.
@@ -120,7 +115,11 @@ func (d SettingDef) Normalize(raw string) (string, error) {
 					return v, nil
 				}
 			}
-			return "", fmt.Errorf("%s must be one of %s, got %q", d.Key, strings.Join(d.Choices, ", "), raw)
+			// Naming three modes helps; naming five hundred time zones does not.
+			if len(d.Choices) <= 6 {
+				return "", fmt.Errorf("%s must be one of %s, got %q", d.Key, strings.Join(d.Choices, ", "), raw)
+			}
+			return "", fmt.Errorf("%s: %q is not one of the choices", d.Key, raw)
 		}
 		if d.Check != nil {
 			if err := d.Check(v); err != nil {
