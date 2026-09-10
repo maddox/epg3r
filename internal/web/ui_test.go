@@ -311,20 +311,14 @@ func TestSettingsSaveAndValidate(t *testing.T) {
 	}
 }
 
-// Moving the start moves every channel that already has a number, and the Leagues page
-// reports the blocks it actually handed out rather than the shipped ones. One number does the
-// whole shelf: there is no arrangement of leagues for a reader to get wrong.
-func TestChannelStartMovesTheShelf(t *testing.T) {
+// A start 500 above the last one is nobody's problem now: one number moves the whole shelf,
+// so there is no arrangement of leagues for a reader to get wrong. What the move does to the
+// numbers themselves is the store's business and is tested there; this is the handler wiring,
+// including that a value it cannot read moves nothing.
+func TestChannelStartSetting(t *testing.T) {
 	s, st, _ := uiServer(t)
 	h := s.Handler()
 	ctx := context.Background()
-	s.Snapshots.Set(lineupSnapshot())
-
-	body := do(h, http.MethodGet, "/leagues", nil, false).Body.String()
-	if !strings.Contains(body, "numbered 10000-10999") {
-		t.Errorf("the NFL card should name its block: %s", body[:min(900, len(body))])
-	}
-
 	form := url.Values{}
 	for _, d := range store.SettingDefs {
 		form.Set(d.Key, d.Default)
@@ -335,11 +329,6 @@ func TestChannelStartMovesTheShelf(t *testing.T) {
 	}
 	if v, _ := st.Setting(ctx, store.SettingChannelStart); v != "10500" {
 		t.Fatalf("start = %s", v)
-	}
-	// A start 500 above the last one is nobody's problem now: every league moves with it.
-	body = do(h, http.MethodGet, "/leagues", nil, false).Body.String()
-	if !strings.Contains(body, "numbered 10500-11499") {
-		t.Errorf("the NFL card should follow the start: %s", body[:min(900, len(body))])
 	}
 	// And a start that cannot be read is refused without moving anything.
 	form.Set(store.SettingChannelStart, "nope")

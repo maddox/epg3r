@@ -407,12 +407,9 @@ type leagueCard struct {
 	Override  catalog.Override // what the user changed, and what the form fills in
 	Durations picker           // game length
 	StartPads picker           // early start
-	Channels  int
-	WithGames int
-	Logo      string // what this league's channels and airings actually wear, override or not
+	Logo      string           // what this league's channels and airings actually wear, override or not
 	Placard   string
-	Block     string // where this league sits, e.g. "10000-10999"
-	Advanced  bool   // the fields behind the disclosure carry an override, so show it open
+	Advanced  bool // the fields behind the disclosure carry an override, so show it open
 	Error     string
 }
 
@@ -474,14 +471,12 @@ type leaguesPage struct {
 }
 
 // leagueCard builds one card from the shipped league and the user's override.
-func (s *Server) leagueCard(base catalog.League, o catalog.Override, st leagueStat) leagueCard {
+func (s *Server) leagueCard(base catalog.League, o catalog.Override) leagueCard {
 	card := leagueCard{
 		Base: base, Override: o,
 		Durations: durationPicker("duration", gameLengths, base.Duration, o.Duration),
 		StartPads: durationPicker("start_pad", startPads, base.StartPad, o.StartPad),
-		Channels:  st.Channels, WithGames: st.WithGames,
-		Block:    fmt.Sprintf("%d-%d", base.ChannelBase, base.ChannelBase+catalog.BlockSize-1),
-		Advanced: o.AiringTitle != nil || o.Logo != nil || o.Placard != nil,
+		Advanced:  o.AiringTitle != nil || o.Logo != nil || o.Placard != nil,
 	}
 	// The card shows what would go out, not what is typed in the boxes, so the art comes
 	// from the league as the override leaves it and through the same two calls the pipeline
@@ -492,30 +487,14 @@ func (s *Server) leagueCard(base catalog.League, o catalog.Override, st leagueSt
 	return card
 }
 
-// shelfCatalog is the catalog laid out from the start the user chose, which is what every
-// page showing a channel number has to read. The loaded catalog carries the shipped start.
-func (s *Server) shelfCatalog(ctx context.Context) *catalog.Catalog {
-	raw, err := s.Store.Setting(ctx, store.SettingChannelStart)
-	if err != nil {
-		return s.Catalog
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return s.Catalog
-	}
-	return s.Catalog.WithChannelStart(n)
-}
-
 func (s *Server) leagueCards(r *http.Request) ([]leagueCard, error) {
 	overrides, err := s.Store.LeagueOverrides(r.Context())
 	if err != nil {
 		return nil, err
 	}
-	counts := leagueCounts(s.Snapshots.Get())
-	cat := s.shelfCatalog(r.Context())
-	cards := make([]leagueCard, 0, len(cat.Leagues))
-	for _, base := range cat.Leagues {
-		cards = append(cards, s.leagueCard(base, overrides[base.Key], counts[base.Key]))
+	cards := make([]leagueCard, 0, len(s.Catalog.Leagues))
+	for _, base := range s.Catalog.Leagues {
+		cards = append(cards, s.leagueCard(base, overrides[base.Key]))
 	}
 	return cards, nil
 }
@@ -551,7 +530,7 @@ func leagueOverrideForm(r *http.Request, base catalog.League) catalog.Override {
 
 // handleSaveLeague stores the edits from a league card.
 func (s *Server) handleSaveLeague(w http.ResponseWriter, r *http.Request) {
-	base, ok := s.shelfCatalog(r.Context()).League(r.PathValue("key"))
+	base, ok := s.Catalog.League(r.PathValue("key"))
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -561,7 +540,7 @@ func (s *Server) handleSaveLeague(w http.ResponseWriter, r *http.Request) {
 
 // handleResetLeague drops a league's edits by storing an empty override.
 func (s *Server) handleResetLeague(w http.ResponseWriter, r *http.Request) {
-	base, ok := s.shelfCatalog(r.Context()).League(r.PathValue("key"))
+	base, ok := s.Catalog.League(r.PathValue("key"))
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -570,10 +549,9 @@ func (s *Server) handleResetLeague(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) applyLeagueOverride(w http.ResponseWriter, r *http.Request, base catalog.League, o catalog.Override, msg string) {
-	counts := leagueCounts(s.Snapshots.Get())
 	if err := s.Store.SetLeagueOverride(r.Context(), base.Key, o); err != nil {
 		if errMsg, fatal := s.storeErr(w, r, err); !fatal {
-			card := s.leagueCard(base, o, counts[base.Key])
+			card := s.leagueCard(base, o)
 			card.Error = errMsg
 			s.partial(w, r, "leagues", "league_card", card)
 		}
@@ -581,7 +559,7 @@ func (s *Server) applyLeagueOverride(w http.ResponseWriter, r *http.Request, bas
 	}
 	s.refreshSoon()
 	toast(w, "ok", msg)
-	s.partial(w, r, "leagues", "league_card", s.leagueCard(base, o, counts[base.Key]))
+	s.partial(w, r, "leagues", "league_card", s.leagueCard(base, o))
 }
 
 // ---------- previews ----------

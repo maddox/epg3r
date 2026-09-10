@@ -1,7 +1,6 @@
 {{define "content"}}
 {{with .Data}}
 <h1 class="text-2xl font-bold tracking-tight">Leagues</h1>
-<p class="mt-1 text-sm text-ink-300">What epg3r knows about each league, and how its airings are described. Blank fields use the shipped defaults.</p>
 <div class="mt-6 grid gap-4 lg:grid-cols-2">
   {{range .Cards}}{{template "league_card" .}}{{end}}
 </div>
@@ -11,14 +10,8 @@
 {{define "league_card"}}
 <section id="league-{{.Base.Key}}" class="card p-5">
   <form hx-put="/leagues/{{.Base.Key}}" hx-target="#league-{{.Base.Key}}" hx-swap="outerHTML" hx-boost="false" class="space-y-4">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-2"><span class="chip" data-league="{{.Base.Key}}">{{.Base.Name}}</span>
-          {{if not .Override.IsZero}}<span class="pill bg-accent-500/15 text-accent-300">customised</span>{{end}}
-        </div>
-        <p class="mt-2 text-xs text-ink-300">{{.WithGames}} of {{.Channels}} channels carrying a game, numbered {{.Block}}</p>
-      </div>
-    </div>
+    <div class="flex items-center gap-2"><span class="chip" data-league="{{.Base.Key}}">{{.Base.Name}}</span>
+      {{if not .Override.IsZero}}<span class="pill bg-accent-500/15 text-accent-300">customised</span>{{end}}</div>
     {{if .Error}}<div class="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{{.Error}}</div>{{end}}
     {{/* The two settings anyone actually comes here to change, and the button. Everything
          else is a URL or a phrase that is right until it isn't, so it waits below. */}}

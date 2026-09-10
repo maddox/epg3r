@@ -107,7 +107,7 @@ func TestLeaguesPage(t *testing.T) {
 	s.Snapshots.Set(lineupSnapshot())
 
 	body := do(h, http.MethodGet, "/leagues", nil, false).Body.String()
-	if !strings.Contains(body, "NFL Football") || !strings.Contains(body, "3 of 4 channels carrying a game") {
+	if !strings.Contains(body, "NFL Football") {
 		t.Errorf("leagues page: %s", body[:min(600, len(body))])
 	}
 	// Series ids are how the guide is wired up, not something to read.
