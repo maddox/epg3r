@@ -111,6 +111,25 @@ func TestUpToDateLinksAtWhatIsRunning(t *testing.T) {
 	}
 }
 
+// The footer names the running version, so its link has to point at that release even when
+// a newer one exists — otherwise it reads as one version and goes to another.
+func TestCurrentURLAlwaysNamesTheRunningBuild(t *testing.T) {
+	c := githubStub(t, nil, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"tag_name":"2026.09.11.0900","html_url":"https://example.invalid/newer"}`))
+	})
+	c.check(context.Background())
+	got := c.Status()
+	if !got.Behind {
+		t.Fatal("should be behind")
+	}
+	if want := "https://github.com/owner/repo/releases/tag/2026.09.10.1423"; got.CurrentURL != want {
+		t.Errorf("CurrentURL = %q, want the running release %q", got.CurrentURL, want)
+	}
+	if got.URL != "https://example.invalid/newer" {
+		t.Errorf("URL should offer the newer release, got %q", got.URL)
+	}
+}
+
 // A build from source links at the project rather than at a release that does not exist.
 func TestDevLinksAtTheRepo(t *testing.T) {
 	c := New("owner/repo", DevVersion, quiet)
