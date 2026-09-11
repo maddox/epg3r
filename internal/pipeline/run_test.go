@@ -1085,9 +1085,9 @@ func TestWhoIsHomeDecidesTheMatchupOrder(t *testing.T) {
 			if ev.Away.Name != "Chicago Bears" || ev.Home.Name != "Carolina Panthers" {
 				t.Errorf("%s: away %q, home %q", ch.ID, ev.Away.Name, ev.Home.Name)
 			}
-			// The name and the picture have to agree about which side is home, or the
-			// mismatch is the first thing anyone notices.
-			if ev.SubTitle != "Chicago Bears at Carolina Panthers" {
+			// Named with "vs" whichever way the source phrased it; the order is what says
+			// who is home, and the picture is drawn in that same order.
+			if ev.SubTitle != "Chicago Bears vs Carolina Panthers" {
 				t.Errorf("%s: sub-title %q", ch.ID, ev.SubTitle)
 			}
 			if want := "/chicago-bears/carolina-panthers.png"; !strings.HasSuffix(ev.PlacardURL, want) {

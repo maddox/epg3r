@@ -189,13 +189,12 @@ func eventFromTitle(lg *catalog.League, res titleparse.Result) model.Event {
 			}
 		}
 		// "@" in a channel name means the first side is visiting the second. "vs" says
-		// nothing about who is home, so nothing is claimed.
-		sep := "vs"
+		// nothing about who is home, so nothing is claimed. Either way the game is named
+		// with "vs": the order says who is home, so the word need not.
 		if res.Sep == "@" {
-			sep = "at"
 			ev.Away, ev.Home = ev.Teams[0], ev.Teams[1]
 		}
-		ev.SubTitle = ev.SideName(0) + " " + sep + " " + ev.SideName(1)
+		ev.SubTitle = ev.SideName(0) + " vs " + ev.SideName(1)
 	}
 
 	ev.Start = ev.Kickoff.Add(-lg.StartPad).UTC()
@@ -283,10 +282,8 @@ func guideEvent(lg *catalog.League, teams *catalog.TeamIndex, away, home string,
 	ev.Teams = [2]*model.TeamRef{&ra, &rh}
 	if oriented {
 		ev.Away, ev.Home = &ra, &rh
-		ev.SubTitle = a.Name + " at " + h.Name
-	} else {
-		ev.SubTitle = a.Name + " vs " + h.Name
 	}
+	ev.SubTitle = a.Name + " vs " + h.Name
 	ev.TeamsRaw = [2]string{a.Name, h.Name}
 	ev.Kickoff = kickoff.In(lg.Location(loc))
 	ev.Start, ev.Stop = start.UTC(), stop.UTC()

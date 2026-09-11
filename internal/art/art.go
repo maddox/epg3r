@@ -226,7 +226,7 @@ func (s *Service) MatchupPlacard(ctx context.Context, leagueKey, awayKey, homeKe
 			mark, source := s.leagueMark(ctx, lg)
 			a, aEtag, aMissing := s.subject(ctx, lg, away)
 			h, hEtag, hMissing := s.subject(ctx, lg, home)
-			png, _, _, err := encode(composeMatchup(artOf(lg, mark), a, h, "at"))
+			png, _, _, err := encode(composeMatchup(artOf(lg, mark), a, h, matchupSeparator))
 			return png, append(source, aEtag, hEtag), aMissing || hMissing, err
 		})
 }
