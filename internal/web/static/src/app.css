@@ -73,6 +73,10 @@
   .switch::after { content: ""; @apply absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-ink-100 transition-transform; }
   .switch:checked::after { @apply translate-x-4; }
   .switch:focus-visible { @apply outline-none ring-2 ring-accent-500/40; }
+  /* The update bar. Loud on purpose: it is the one thing the app ever interrupts anyone
+     about, and it only appears when there is something to do about it. */
+  .update-bar { @apply flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-accent-500 px-6 py-2 text-center text-sm text-ink-950; }
+  .update-bar a { @apply font-semibold text-ink-950 underline underline-offset-2 hover:opacity-70; }
   .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-ink-300; }
   .help { @apply mt-1 text-xs text-ink-300; }
   .stat { @apply card p-5; }

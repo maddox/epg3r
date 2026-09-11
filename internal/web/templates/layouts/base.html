@@ -16,6 +16,7 @@
 <script src="/static/app.js?v={{.Assets}}" defer></script>
 </head>
 <body class="min-h-full" hx-boost="true">
+{{template "update_banner" .Update}}
 <header class="sticky top-0 z-20 border-b border-ink-800 bg-ink-950/85 backdrop-blur">
   <div class="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
     <a href="/" class="flex items-center gap-2 text-ink-100 hover:text-ink-100">
@@ -31,7 +32,7 @@
       {{template "navlink" dict "Href" "/runs" "Label" "History" "Key" "runs" "Active" .Nav}}
       {{template "navlink" dict "Href" "/settings" "Label" "Settings" "Key" "settings" "Active" .Nav}}
     </nav>
-    <div class="ml-auto flex items-center gap-3">{{template "update_pill" .Update}}{{template "status_pill" .Status}}</div>{{end}}
+    <div class="ml-auto">{{template "status_pill" .Status}}</div>{{end}}
   </div>
 </header>
 <main id="main" class="mx-auto max-w-7xl px-6 py-8">
@@ -42,10 +43,16 @@
 </body>
 </html>{{end}}
 
-{{/* Only when there is something to act on. What is running lives in the footer, where a
-     version number belongs; the header is for the one bit that is news. */}}
-{{define "update_pill"}}{{if .Behind}}<a class="pill whitespace-nowrap bg-accent-500/15 text-accent-300 hover:bg-accent-500/25"
-  href="{{.URL}}" target="_blank" rel="noreferrer noopener" title="You are running {{.Current}}. {{.Latest}} is out.">Update available</a>{{end}}{{end}}
+{{/* A whole bar across the top, above everything, pushing the page down. Being a version
+     behind is worth being told plainly once, with both versions named so it is obvious how
+     far behind, and a way straight to what changed. */}}
+{{define "update_banner"}}{{if .Behind}}
+<div class="update-bar">
+  <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0 fill-current" aria-hidden="true"><path d="M8 1.5 14.5 8H11v6.5H5V8H1.5L8 1.5Z"/></svg>
+  <span><strong>epg3r {{.Latest}}</strong> is available. You are running {{.Current}}.</span>
+  <a href="{{.URL}}" target="_blank" rel="noreferrer noopener">See what changed</a>
+</div>
+{{end}}{{end}}
 
 {{/* The name and what is running, linking to that release's notes. A build from source has
      no release to point at, so it links to the project. */}}
