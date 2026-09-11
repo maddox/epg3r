@@ -16,11 +16,7 @@ import (
 // Version is bumped by hand whenever what the compositor draws changes. It leads every URL
 // because plenty of things cache a picture by the URL it came from and never ask again, so
 // changing what we draw has to change where it lives.
-const Version = "2"
-
-// matchupSeparator sits between the two crests on a placard. Always "vs": which side is
-// home decides the order the two are drawn in, so the word does not have to carry it too.
-const matchupSeparator = "vs"
+const Version = "3"
 
 // Prefix is where the art routes live.
 const Prefix = "/art"

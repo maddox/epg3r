@@ -94,7 +94,7 @@ func composeLogo(lg leagueArt, letters string) (*image.RGBA, error) {
 
 // composeMatchup draws one game: both crests either side of a seam. sep is the word between
 // them, "AT" when the airing knows which side is home and "VS" when it does not.
-func composeMatchup(lg leagueArt, away, home subject, sep string) (*image.RGBA, error) {
+func composeMatchup(lg leagueArt, away, home subject) (*image.RGBA, error) {
 	dst := canvas()
 	ground(dst, lg.Color)
 	if err := strap(dst, lg, 176); err != nil {
@@ -110,14 +110,10 @@ func composeMatchup(lg leagueArt, away, home subject, sep string) (*image.RGBA, 
 		}
 	}
 
-	// A seam broken around the word, rather than a word floating free at crest height.
-	blend(dst, image.Rect(canvasW/2-1, 440, canvasW/2+2, 522), white, 0.14)
-	blend(dst, image.Rect(canvasW/2-1, 638, canvasW/2+2, 720), white, 0.14)
-	at, err := fit(upper(sep), 96, 34, 24, 0.06)
-	if err != nil {
-		return nil, err
-	}
-	text(dst, at, canvasW/2, 580, white, 0.55)
+	// A seam, and nothing else. Good guide data words a matchup itself, and better than a
+	// placard can: "at" when it knows who is home and "vs" when it does not. A word drawn
+	// between the crests can only repeat that or contradict it.
+	blend(dst, image.Rect(canvasW/2-1, 440, canvasW/2+2, 720), white, 0.14)
 
 	return dst, nil
 }
