@@ -77,6 +77,15 @@ type entry struct {
 	teamKey string       // team channels: roster key
 }
 
+// carries records that this channel is showing ev, for both the guide and the run's report.
+func (en *entry) carries(ev *model.Event) {
+	en.event = ev
+	en.row.Status, en.row.Matchup = store.OutcomeExported, ev.SubTitle
+	en.row.Team1, en.row.Team2 = ev.SideName(0), ev.SideName(1)
+	st, sp := ev.Start, ev.Stop
+	en.row.StartAt, en.row.StopAt = &st, &sp
+}
+
 // sourceData is what one source yielded.
 type sourceData struct {
 	entries []m3u.Entry
@@ -513,12 +522,7 @@ func (r *Runner) classify(ctx context.Context, cfg runConfig, run *sourceRun, e 
 			en.row.Reason = fmt.Sprintf("confidence %.2f below %.2f", res.Confidence, cfg.threshold)
 			en.ch.Kind = model.KindPlaceholder
 		default:
-			ev := eventFromTitle(lg, res)
-			en.event = ix.add(ev)
-			en.row.Status, en.row.Matchup = store.OutcomeExported, ev.SubTitle
-			en.row.Team1, en.row.Team2 = ev.SideName(0), ev.SideName(1)
-			st, sp := ev.Start, ev.Stop
-			en.row.StartAt, en.row.StopAt = &st, &sp
+			en.carries(ix.add(eventFromTitle(lg, res)))
 		}
 
 	case model.KindTeam:
