@@ -503,16 +503,16 @@ func TestEveryChannelKindHasALabel(t *testing.T) {
 	}
 }
 
-// The header says what is running and whether anything newer exists, on every page. A
-// server with no checker wired in still renders, showing the version and claiming nothing.
-func TestVersionInTheFooterAndUpdateInTheHeader(t *testing.T) {
+// The footer names the build on every page. A version behind gets a bar across the top of
+// the layout instead, which a server with no checker wired in never shows.
+func TestVersionInTheFooterAndUpdateBanner(t *testing.T) {
 	s, st, _ := uiServer(t)
 	setUp(t, st)
 	h := s.Handler()
 
 	// Nothing wired in: the footer names the build, and nothing claims anything.
 	body := do(h, http.MethodGet, "/", nil, false).Body.String()
-	if !strings.Contains(body, ">epg3r test-1</a>") || strings.Contains(body, "Update available") {
+	if !strings.Contains(body, ">epg3r test-1</a>") || strings.Contains(body, "update-bar") {
 		t.Errorf("unwired footer: %s", body[:min(1200, len(body))])
 	}
 
@@ -525,8 +525,8 @@ func TestVersionInTheFooterAndUpdateInTheHeader(t *testing.T) {
 	if !strings.Contains(body, ">epg3r 2026.09.10.1423</a>") {
 		t.Error("the footer should name what is running")
 	}
-	if strings.Contains(body, "Update available") {
-		t.Error("up to date should not offer an update")
+	if strings.Contains(body, "update-bar") {
+		t.Error("up to date should show no banner at all")
 	}
 
 	s.Update = func() release.Status {
@@ -535,13 +535,18 @@ func TestVersionInTheFooterAndUpdateInTheHeader(t *testing.T) {
 			CurrentURL: "https://github.com/owner/repo/releases/tag/2026.09.10.1423"}
 	}
 	body = do(h, http.MethodGet, "/", nil, false).Body.String()
-	for _, want := range []string{"Update available", "releases/tag/2026.09.11.0900",
-		"You are running 2026.09.10.1423",
+	for _, want := range []string{
+		// The banner names both versions, so how far behind you are is obvious.
+		`class="update-bar"`, "<strong>epg3r 2026.09.11.0900</strong> is available",
+		"You are running 2026.09.10.1423", "See what changed", "releases/tag/2026.09.11.0900",
 		// The footer still names, and links to, the build that is actually running.
 		`href="https://github.com/owner/repo/releases/tag/2026.09.10.1423"`,
 		">epg3r 2026.09.10.1423</a>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("behind: missing %q", want)
 		}
+	}
+	if strings.Index(body, "update-bar") > strings.Index(body, "<header") {
+		t.Error("the banner should sit above the header, pushing the page down")
 	}
 }
