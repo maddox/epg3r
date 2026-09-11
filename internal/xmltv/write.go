@@ -20,6 +20,19 @@ type WriteOptions struct {
 	BaseURL string
 }
 
+// episodePrefix is what makes a consumer use our episode id rather than inventing one.
+//
+// Channels DVR decides what a listing is by working down a fixed list of things it
+// recognizes, and a custom episode-num system is not on it: ours was read and discarded.
+// What it does honor, whatever the system attribute says, is an episode-num whose value
+// starts with "episode/" — so the prefix is the whole trick.
+//
+// Without it, the identity it falls back to is the series id and the sub-title. That makes
+// the wording of a matchup decide whether two channels are carrying the same game, and
+// whether a game is the one it already recorded. That text is for reading, and it differs
+// depending on which source a game was learned from.
+const episodePrefix = "episode/"
+
 // Write renders a snapshot as Channels DVR friendly XMLTV: one <channel> per exported
 // channel and, per program, a
 // title, sub-title, description, series-id, episode-num, date, icon, video quality,
@@ -80,7 +93,7 @@ func program(ch model.Channel, p model.Program, base string) xProgram {
 	}
 	xp.Desc = &xLang{Lang: "en", Text: desc}
 	xp.SeriesID = &xSystem{Text: ev.SeriesID}
-	xp.EpisodeNum = &xSystem{System: "epg3r", Text: ev.ID}
+	xp.EpisodeNum = &xSystem{System: "epg3r", Text: episodePrefix + ev.ID}
 	xp.Date = ev.Kickoff.Format("2006-01-02")
 	xp.Video = &xVideo{Quality: "HDTV"}
 	xp.New = &struct{}{}
