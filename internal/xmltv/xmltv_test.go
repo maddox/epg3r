@@ -115,7 +115,10 @@ func TestWriteGolden(t *testing.T) {
 		`<channel id="NFL 04">`,
 		`<programme start="20260913164500 +0000" stop="20260913203000 +0000" channel="NFL 04">`,
 		`<series-id>191277</series-id>`,
-		`<episode-num system="epg3r">191277-abc123def456</episode-num>`,
+		// The "episode/" prefix is what makes Channels DVR use this id instead of building one
+		// from the series id and the matchup text. Losing it is a silent regression: the guide
+		// still validates, and recordings quietly start keying on wording.
+		`<episode-num system="epg3r">episode/191277-abc123def456</episode-num>`,
 		`<team-id system="tms">34</team-id>`,
 		`<team-id system="tms">43</team-id>`,
 		`<icon src="http://epg3r.test/art/team/nfl/buffalo-bills.png"></icon>`,

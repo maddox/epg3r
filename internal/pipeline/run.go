@@ -75,6 +75,19 @@ type entry struct {
 	league  *catalog.League
 	event   *model.Event // slot channels: the game parsed from the title
 	teamKey string       // team channels: roster key
+
+	// undated holds the two teams named by a title that gave a time but no day. The game
+	// itself is not built from such a title; it is taken from a channel that stated a day.
+	undated [2]*catalog.Team
+}
+
+// carries records that this channel is showing ev, for both the guide and the run's report.
+func (en *entry) carries(ev *model.Event) {
+	en.event = ev
+	en.row.Status, en.row.Matchup = store.OutcomeExported, ev.SubTitle
+	en.row.Team1, en.row.Team2 = ev.SideName(0), ev.SideName(1)
+	st, sp := ev.Start, ev.Stop
+	en.row.StartAt, en.row.StopAt = &st, &sp
 }
 
 // sourceData is what one source yielded.
@@ -172,6 +185,7 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Sn
 	r.phase("assembling guide")
 	ix.finalize()
 	now := r.now()
+	resolveUndated(entries, ix, now)
 	snap = &model.Snapshot{RunID: runID, GeneratedAt: now.UTC(), Channels: assemble(cfg, entries, ix, now)}
 
 	rows := make([]store.RunChannel, len(entries))
@@ -514,11 +528,18 @@ func (r *Runner) classify(ctx context.Context, cfg runConfig, run *sourceRun, e 
 			en.ch.Kind = model.KindPlaceholder
 		default:
 			ev := eventFromTitle(lg, res)
-			en.event = ix.add(ev)
-			en.row.Status, en.row.Matchup = store.OutcomeExported, ev.SubTitle
-			en.row.Team1, en.row.Team2 = ev.SideName(0), ev.SideName(1)
-			st, sp := ev.Start, ev.Stop
-			en.row.StartAt, en.row.StopAt = &st, &sp
+			// A time with no day is not evidence of a day. Providers leave a channel named
+			// after a game long after it finishes, so reading one as "today" puts last
+			// night's game on tonight. Keep the matchup and let a channel that stated a day
+			// place it; resolveUndated does that once every channel has been read.
+			if ev.DateAssumed && res.TeamA != nil && res.TeamB != nil {
+				en.undated = [2]*catalog.Team{res.TeamA, res.TeamB}
+				en.row.Status, en.row.Matchup = store.OutcomeIdle, ev.SubTitle
+				en.row.Team1, en.row.Team2 = ev.SideName(0), ev.SideName(1)
+				en.row.Reason = "no date in the channel name"
+			} else {
+				en.carries(ix.add(ev))
+			}
 		}
 
 	case model.KindTeam:
@@ -556,6 +577,25 @@ func (r *Runner) number(ctx context.Context, nums *numbering) error {
 		en.settle(c.ChannelID, c.Number)
 	}
 	return nil
+}
+
+// resolveUndated gives a channel whose name carried a time but no day the game that a
+// channel naming the day found. Nothing is invented: a matchup nobody else placed stays
+// unscheduled, which is the honest answer and beats guessing at a date.
+func resolveUndated(entries []*entry, ix *eventIndex, now time.Time) {
+	for _, en := range entries {
+		a, b := en.undated[0], en.undated[1]
+		if a == nil || b == nil {
+			continue
+		}
+		ev := ix.matchup(en.league.Key, a.Key, b.Key, now)
+		if ev == nil {
+			en.row.Reason = "no date in the channel name, and no other channel carries this game"
+			continue
+		}
+		en.carries(ev)
+		en.row.Reason = "no date in the channel name; placed from another channel carrying this game"
+	}
 }
 
 // assemble turns entries into the exported channel list, placing every game on every

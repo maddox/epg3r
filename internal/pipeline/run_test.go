@@ -951,3 +951,156 @@ func TestMissingSlotsLeaveHoles(t *testing.T) {
 		}
 	}
 }
+
+// A provider leaves a channel named after a game long after it has finished. Reading the
+// time on such a channel as "today" puts last night's game on tonight, which is what this
+// guards against: the day has to come from a channel that stated one.
+//
+// Taken from a real playlist. Three channels carry the same game; only two say which day.
+func TestATimeWithNoDayIsPlacedByAnotherChannel(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 02: Rams vs 49ers (09.10 8:35PM ET)\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 01: San Francisco 49ers @ Los Angeles Rams | 8:35 PM\nhttp://x/2\n"+
+		"#EXTINF:-1 group-title=\"NFL\",US NFL San Francisco 49ers (HD)\nhttp://x/3\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	// The morning after the game: the dateless channel would otherwise read as tonight.
+	r.Now = func() time.Time { return time.Date(2026, 9, 11, 13, 0, 0, 0, time.UTC) }
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var kickoffs []time.Time
+	ids := map[string]bool{}
+	for _, ch := range snap.Channels {
+		for _, p := range ch.Programs {
+			if p.Event.Teams[0] == nil {
+				continue
+			}
+			kickoffs = append(kickoffs, p.Event.Kickoff)
+			ids[p.Event.ID] = true
+		}
+	}
+	if len(kickoffs) == 0 {
+		t.Fatal("the game went missing entirely")
+	}
+	// One game, not two: the dateless channel joined the dated one rather than inventing a
+	// second game a day later.
+	if len(ids) != 1 {
+		t.Errorf("want one game, got %d: %v", len(ids), ids)
+	}
+	for _, k := range kickoffs {
+		if got := k.UTC().Format("2006-01-02"); got != "2026-09-11" {
+			t.Errorf("kickoff on %s; the game is 2026-09-10 20:35 ET, which is 09-11 in UTC", got)
+		}
+		if k.UTC().Day() == 12 {
+			t.Error("the game was placed a day late, which is the bug this guards")
+		}
+	}
+	// Every channel carrying it got it, including the one whose name had no day.
+	carrying := 0
+	for _, ch := range snap.Channels {
+		if len(ch.Programs) > 0 && ch.Programs[0].Event.Teams[0] != nil {
+			carrying++
+		}
+	}
+	if carrying < 3 {
+		t.Errorf("only %d channels carry the game; the dateless one should have been placed", carrying)
+	}
+}
+
+// With nothing else carrying the matchup there is no day to borrow, so the channel stays
+// unscheduled rather than being guessed onto today.
+func TestATimeWithNoDayAndNoOtherChannelIsNotGuessed(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"NFL\",NFL 01: San Francisco 49ers @ Los Angeles Rams | 8:35 PM\nhttp://x/1\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	r.Now = func() time.Time { return time.Date(2026, 9, 11, 13, 0, 0, 0, time.UTC) }
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ch := range snap.Channels {
+		for _, p := range ch.Programs {
+			if p.Event.Teams[0] != nil {
+				t.Errorf("a game was invented from a title with no day: %s at %s",
+					p.Event.SubTitle, p.Event.Kickoff)
+			}
+		}
+	}
+}
+
+// Which side is home decides which way round the placard reads, and a channel name using
+// "vs" does not say. A provider's guide often does, and whichever source knows settles it
+// for every channel carrying the game.
+//
+// Taken from a real playlist: the slot channel says "Panthers vs Bears", the team channel's
+// filler says "Chicago Bears at Carolina Panthers".
+func TestWhoIsHomeDecidesTheMatchupOrder(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	guide := `<?xml version="1.0"?><tv>
+      <channel id="US NFL Carolina Panthers (HD)"><display-name>Panthers</display-name></channel>
+      <programme start="20260911050000 +0000" stop="20260911110000 +0000" channel="US NFL Carolina Panthers (HD)">
+        <title>Next game: Chicago Bears at Carolina Panthers at 09/13/2026 01:00 PM (US/Eastern)</title>
+      </programme>
+    </tv>`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasSuffix(req.URL.Path, ".xml") {
+			w.Write([]byte(guide))
+			return
+		}
+		w.Write([]byte("#EXTM3U\n" +
+			"#EXTINF:-1 group-title=\"NFL\",NFL 03: Panthers vs Bears (09.13 12:45PM ET)\nhttp://x/1\n" +
+			"#EXTINF:-1 tvg-id=\"US NFL Carolina Panthers (HD)\" group-title=\"NFL\",US NFL Carolina Panthers (HD)\nhttp://x/2\n"))
+	}))
+	t.Cleanup(srv.Close)
+	if _, err := st.CreateSource(ctx, store.NewSource{
+		Name: "p", URL: srv.URL + "/list.m3u", XMLTVURL: srv.URL + "/guide.xml"}); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, ch := range snap.Channels {
+		for _, p := range ch.Programs {
+			ev := p.Event
+			if ev.Home == nil || ev.Away == nil {
+				continue
+			}
+			found = true
+			if ev.Away.Name != "Chicago Bears" || ev.Home.Name != "Carolina Panthers" {
+				t.Errorf("%s: away %q, home %q", ch.ID, ev.Away.Name, ev.Home.Name)
+			}
+			// The name and the picture have to agree about which side is home, or the
+			// mismatch is the first thing anyone notices.
+			if ev.SubTitle != "Chicago Bears at Carolina Panthers" {
+				t.Errorf("%s: sub-title %q", ch.ID, ev.SubTitle)
+			}
+			if want := "/chicago-bears/carolina-panthers.png"; !strings.HasSuffix(ev.PlacardURL, want) {
+				t.Errorf("%s: placard %q, want it to end %q", ch.ID, ev.PlacardURL, want)
+			}
+			// One order, read by everything: the sides themselves are in it, so the team
+			// ids the guide emits cannot disagree with the name or the picture either.
+			if ev.Teams[0].Name != "Chicago Bears" || ev.Teams[1].Name != "Carolina Panthers" {
+				t.Errorf("%s: sides are %q then %q", ch.ID, ev.Teams[0].Name, ev.Teams[1].Name)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no game came out with a home side")
+	}
+}

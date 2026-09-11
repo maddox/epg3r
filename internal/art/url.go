@@ -88,6 +88,9 @@ func ForChannel(lg *catalog.League, ch *model.Channel) string {
 // Both sides are tested by index rather than through ResolvedTeams, which compacts and so
 // loses which side is which. A placard has a left and a right.
 func ForAiring(lg *catalog.League, ev *model.Event) string {
+	// The sides are held in the order the game's name uses: away first once a source has
+	// said who is home, otherwise whatever order the title gave. Reading them straight is
+	// what keeps the picture and the name from ever disagreeing.
 	if ev.Teams[0] != nil && ev.Teams[1] != nil {
 		return MatchupPlacardPath(lg.Key, ev.Teams[0].Key, ev.Teams[1].Key)
 	}
