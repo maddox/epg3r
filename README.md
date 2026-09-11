@@ -2,6 +2,8 @@
 
 Real guide data for the sports channels your provider gives you.
 
+<img src=".github/shot.png" />
+
 ## The problem
 
 Most providers carry live sports via channels that only exist for one event. The channel
