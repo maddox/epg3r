@@ -131,6 +131,31 @@ func (ix *eventIndex) finalize() {
 	}
 }
 
+// matchup finds the game between two teams, the one nearest to now when a season has them
+// meeting more than once. It answers for a channel that named the teams but not the day.
+func (ix *eventIndex) matchup(leagueKey, a, b string, now time.Time) *model.Event {
+	var best *model.Event
+	for _, ev := range ix.forTeam(leagueKey, a) {
+		if !hasTeam(ev, b) {
+			continue
+		}
+		if best == nil || ev.Kickoff.Sub(now).Abs() < best.Kickoff.Sub(now).Abs() {
+			best = ev
+		}
+	}
+	return best
+}
+
+// hasTeam reports whether one of an event's two sides is this roster team.
+func hasTeam(ev *model.Event, key string) bool {
+	for _, t := range ev.Teams {
+		if t != nil && t.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
 // forTeam returns the events in a league involving a roster team, soonest first.
 func (ix *eventIndex) forTeam(leagueKey, teamKey string) []*model.Event {
 	return ix.byTeam[leagueKey+"|"+teamKey]
