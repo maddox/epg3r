@@ -1039,3 +1039,68 @@ func TestATimeWithNoDayAndNoOtherChannelIsNotGuessed(t *testing.T) {
 		}
 	}
 }
+
+// Which side is home decides which way round the placard reads, and a channel name using
+// "vs" does not say. A provider's guide often does, and whichever source knows settles it
+// for every channel carrying the game.
+//
+// Taken from a real playlist: the slot channel says "Panthers vs Bears", the team channel's
+// filler says "Chicago Bears at Carolina Panthers".
+func TestWhoIsHomeDecidesTheMatchupOrder(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	guide := `<?xml version="1.0"?><tv>
+      <channel id="US NFL Carolina Panthers (HD)"><display-name>Panthers</display-name></channel>
+      <programme start="20260911050000 +0000" stop="20260911110000 +0000" channel="US NFL Carolina Panthers (HD)">
+        <title>Next game: Chicago Bears at Carolina Panthers at 09/13/2026 01:00 PM (US/Eastern)</title>
+      </programme>
+    </tv>`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasSuffix(req.URL.Path, ".xml") {
+			w.Write([]byte(guide))
+			return
+		}
+		w.Write([]byte("#EXTM3U\n" +
+			"#EXTINF:-1 group-title=\"NFL\",NFL 03: Panthers vs Bears (09.13 12:45PM ET)\nhttp://x/1\n" +
+			"#EXTINF:-1 tvg-id=\"US NFL Carolina Panthers (HD)\" group-title=\"NFL\",US NFL Carolina Panthers (HD)\nhttp://x/2\n"))
+	}))
+	t.Cleanup(srv.Close)
+	if _, err := st.CreateSource(ctx, store.NewSource{
+		Name: "p", URL: srv.URL + "/list.m3u", XMLTVURL: srv.URL + "/guide.xml"}); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, ch := range snap.Channels {
+		for _, p := range ch.Programs {
+			ev := p.Event
+			if ev.Home == nil || ev.Away == nil {
+				continue
+			}
+			found = true
+			if ev.Away.Name != "Chicago Bears" || ev.Home.Name != "Carolina Panthers" {
+				t.Errorf("%s: away %q, home %q", ch.ID, ev.Away.Name, ev.Home.Name)
+			}
+			// The name and the picture have to agree about which side is home, or the
+			// mismatch is the first thing anyone notices.
+			if ev.SubTitle != "Chicago Bears at Carolina Panthers" {
+				t.Errorf("%s: sub-title %q", ch.ID, ev.SubTitle)
+			}
+			if want := "/chicago-bears/carolina-panthers.png"; !strings.HasSuffix(ev.PlacardURL, want) {
+				t.Errorf("%s: placard %q, want it to end %q", ch.ID, ev.PlacardURL, want)
+			}
+			// One order, read by everything: the sides themselves are in it, so the team
+			// ids the guide emits cannot disagree with the name or the picture either.
+			if ev.Teams[0].Name != "Chicago Bears" || ev.Teams[1].Name != "Carolina Panthers" {
+				t.Errorf("%s: sides are %q then %q", ch.ID, ev.Teams[0].Name, ev.Teams[1].Name)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no game came out with a home side")
+	}
+}

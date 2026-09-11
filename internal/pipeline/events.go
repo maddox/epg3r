@@ -98,6 +98,16 @@ func (ix *eventIndex) add(ev model.Event) *model.Event {
 			cur.Teams[i] = ev.Teams[i]
 		}
 	}
+	// Orientation is a fact one source can know and another cannot. Whichever learns it
+	// settles it, and the sides are put in that order: the game has one order, and the name,
+	// the picture and the team ids all read from it.
+	if cur.Home == nil && ev.Home != nil {
+		cur.Away, cur.Home, cur.SubTitle = ev.Away, ev.Home, ev.SubTitle
+		if cur.Teams[0] != nil && cur.Teams[0].Key == ev.Home.Key {
+			cur.Teams[0], cur.Teams[1] = cur.Teams[1], cur.Teams[0]
+			cur.TeamsRaw[0], cur.TeamsRaw[1] = cur.TeamsRaw[1], cur.TeamsRaw[0]
+		}
+	}
 	cur.Network = cmp.Or(cur.Network, ev.Network)
 	cur.Description = cmp.Or(cur.Description, ev.Description)
 	cur.Confidence = max(cur.Confidence, ev.Confidence)
@@ -178,9 +188,12 @@ func eventFromTitle(lg *catalog.League, res titleparse.Result) model.Event {
 				ev.Teams[i] = &ref
 			}
 		}
+		// "@" in a channel name means the first side is visiting the second. "vs" says
+		// nothing about who is home, so nothing is claimed.
 		sep := "vs"
 		if res.Sep == "@" {
 			sep = "at"
+			ev.Away, ev.Home = ev.Teams[0], ev.Teams[1]
 		}
 		ev.SubTitle = ev.SideName(0) + " " + sep + " " + ev.SideName(1)
 	}
@@ -196,7 +209,7 @@ func eventFromTitle(lg *catalog.League, res titleparse.Result) model.Event {
 
 var (
 	reNextGame = regexp.MustCompile(`^Next game: (.+?) at (.+?) at (\d{2}/\d{2}/\d{4} \d{2}:\d{2} [AP]M) \(([^)]+)\)$`)
-	reGameAt   = regexp.MustCompile(`^(.+?) (?:at|vs\.?|@) (.+?)( possible Overtime)?$`)
+	reGameAt   = regexp.MustCompile(`^(.+?) (at|vs\.?|@) (.+?)( possible Overtime)?$`)
 )
 
 // eventsFromGuide reads a provider's programs for one channel. It understands two
@@ -228,7 +241,7 @@ func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv
 			if err != nil {
 				continue
 			}
-			if ev, ok := guideEvent(lg, teams, m[1], m[2], kick, kick.Add(-lg.StartPad), kick.Add(lg.Duration+lg.EndPad), 0.85, loc); ok {
+			if ev, ok := guideEvent(lg, teams, m[1], m[2], true, kick, kick.Add(-lg.StartPad), kick.Add(lg.Duration+lg.EndPad), 0.85, loc); ok {
 				memo[lg.Key+"\x00"+p.Title] = &ev
 				seen[p.Title] = true
 				out = append(out, ev)
@@ -241,11 +254,12 @@ func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv
 			last = nil
 			continue
 		}
-		if m[3] != "" && last != nil && strings.HasPrefix(p.Title, last.SubTitle) {
+		if m[4] != "" && last != nil && strings.HasPrefix(p.Title, last.SubTitle) {
 			last.Stop = p.Stop.UTC() // overtime block extends the game
 			continue
 		}
-		if ev, ok := guideEvent(lg, teams, m[1], m[2], p.Start, p.Start, p.Stop, 0.9, loc); ok {
+		oriented := m[2] == "at" || m[2] == "@"
+		if ev, ok := guideEvent(lg, teams, m[1], m[3], oriented, p.Start, p.Start, p.Stop, 0.9, loc); ok {
 			ev.Description = p.Desc
 			out = append(out, ev)
 			last = &out[len(out)-1]
@@ -256,16 +270,23 @@ func eventsFromGuide(lg *catalog.League, teams *catalog.TeamIndex, progs []xmltv
 	return out
 }
 
-func guideEvent(lg *catalog.League, teams *catalog.TeamIndex, away, home string, kickoff, start, stop time.Time, conf float64, loc *time.Location) (model.Event, bool) {
+// guideEvent builds a game from a provider's program title. oriented says whether the title
+// named the sides in away-at-home order, which "at" and "@" do and "vs" does not.
+func guideEvent(lg *catalog.League, teams *catalog.TeamIndex, away, home string, oriented bool, kickoff, start, stop time.Time, conf float64, loc *time.Location) (model.Event, bool) {
 	a, _, _ := teams.Match(away)
 	h, _, _ := teams.Match(home)
 	if a == nil || h == nil {
 		return model.Event{}, false
 	}
 	ev := newLeagueEvent(lg, false, model.OriginXMLTV)
-	ev.SubTitle = a.Name + " at " + h.Name
 	ra, rh := teamRef(lg, a), teamRef(lg, h)
 	ev.Teams = [2]*model.TeamRef{&ra, &rh}
+	if oriented {
+		ev.Away, ev.Home = &ra, &rh
+		ev.SubTitle = a.Name + " at " + h.Name
+	} else {
+		ev.SubTitle = a.Name + " vs " + h.Name
+	}
 	ev.TeamsRaw = [2]string{a.Name, h.Name}
 	ev.Kickoff = kickoff.In(lg.Location(loc))
 	ev.Start, ev.Stop = start.UTC(), stop.UTC()
