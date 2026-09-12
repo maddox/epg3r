@@ -137,7 +137,7 @@ func (r *Runner) Run(ctx context.Context, trigger store.Trigger) (snap *model.Sn
 
 	var (
 		entries []*entry
-		ix      = newEventIndex()
+		ix      = newEventIndex(cfg.loc)
 		nums    = &numbering{by: map[string]*entry{}}
 		guided  = map[int64]bool{} // sources whose guide is worth keeping parsed
 		anyData bool

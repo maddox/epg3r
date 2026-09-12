@@ -37,7 +37,8 @@ var (
 	reSentinelYear = regexp.MustCompile(`\b20[6-9]\d\b`) // "2098 12 31" means nothing scheduled
 	reTrailParen   = regexp.MustCompile(`\s*\(([^()]*)\)\s*$`)
 	reFeedWord     = regexp.MustCompile(`(?i)^(?:home|away|home stream|away stream|home rsn|away rsn|home [a-z]{2,6}|away [a-z]{2,6}|preview|in arena|.*in arena)$`)
-	reStartStop    = regexp.MustCompile(`(?i)^(.*?)\s*start:\s*(\d{4} \d{2} \d{2} \d{2}:\d{2}(?::\d{2})?)\s+stop:\s*(\d{4} \d{2} \d{2} \d{2}:\d{2}(?::\d{2})?)\s*$`)
+	// The stop is matched so it can be stripped, but it is not captured: see parseEvent.
+	reStartStop    = regexp.MustCompile(`(?i)^(.*?)\s*start:\s*(\d{4} \d{2} \d{2} \d{2}:\d{2}(?::\d{2})?)\s+stop:\s*(?:\d{4} \d{2} \d{2} \d{2}:\d{2}(?::\d{2})?)\s*$`)
 	reMatchupSep   = regexp.MustCompile(`(?i)\s(vs|@|x)\s`)
 	reRank         = regexp.MustCompile(`^\(?#?\d{1,2}\)?\s+`)
 	reEventPrefix  = regexp.MustCompile(`(?i)^(?:[A-Z]{2,6}\s+)?(?:summer league|preseason|pre-season|exhibition|spring training)\s+`)
@@ -79,16 +80,26 @@ func parseEvent(rest string) eventText {
 		ev.classifySegment(seg)
 	}
 
-	// "start:... stop:..." carries both ends of the airing.
+	// "start:... stop:..." states a window in no stated zone, so neither end is read.
+	//
+	// The start is a real one, but the numbers alone do not say which clock they are on,
+	// and the format carries nothing that would. One provider writing it is five hours
+	// ahead of the times other channels give for the same games; another provider using
+	// the same format need not be. Reading it as the viewer's own zone is what put these
+	// games five hours late, and any other fixed choice would be a guess that happens to
+	// suit one playlist.
+	//
+	// The stop is not a real end in any zone. Every channel in this family stamps the same
+	// span to the second — 7h13m20s on every baseball game, 4h10m on every basketball one
+	// — so it describes the provider's block rather than the game.
+	//
+	// What is left is solid: the teams, and the shape, which fingerprints the provider
+	// style and is how these channels keep the numbers they have. With no time the title
+	// is in the same position as one naming a game but no day, and the game is placed by a
+	// channel that states a real one.
 	if m := reStartStop.FindStringSubmatch(body); m != nil {
 		body = strings.TrimSpace(m[1])
-		if start, ok := parseSchedule(m[2]); ok {
-			ev.Schedule = start
-			ev.ScheduleRaw = "start:" + m[2]
-			if stop, ok := parseSchedule(m[3]); ok {
-				ev.Schedule.Stop = &stop
-			}
-		}
+		ev.ScheduleRaw = "start:" + m[2]
 	}
 
 	// Peel trailing parenthesized groups off the body: "(09.08 1:00 PM ET) (FOX)",

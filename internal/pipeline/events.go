@@ -32,13 +32,18 @@ func teamRef(lg *catalog.League, t *catalog.Team) model.TeamRef {
 	return model.TeamRef{LeagueKey: lg.Key, Key: t.Key, Name: t.Name, Abbr: t.Abbr, TMSBrandID: t.TMSBrandID}
 }
 
-// identity is what makes two events the same game: series, local date, and the sorted
-// identity of both sides (roster keys when resolved, normalized raw names otherwise,
-// so "A vs B" and "B @ A" match). Kickoff time is deliberately excluded so a provider
-// correcting 7:00 to 7:05 does not create a new game; the date is included so
+// identity is what makes two events the same game: series, the day it falls on, and the
+// sorted identity of both sides (roster keys when resolved, normalized raw names
+// otherwise, so "A vs B" and "B @ A" match). Kickoff time is deliberately excluded so a
+// provider correcting 7:00 to 7:05 does not create a new game; the day is included so
 // rematches stay distinct.
-func identity(ev *model.Event) []string {
-	parts := []string{ev.SeriesID, ev.Kickoff.Format("2006-01-02")}
+//
+// The day is read in one zone for the whole run rather than in whichever zone each title
+// happened to be written in. A provider that stamps its times in London has an evening
+// game land on tomorrow's date, and keying on that would file it as a different game from
+// the one every other channel is carrying.
+func identity(ev *model.Event, loc *time.Location) []string {
+	parts := []string{ev.SeriesID, ev.Kickoff.In(loc).Format("2006-01-02")}
 	teams := teamKeys(ev)
 	if len(teams) == 0 {
 		parts = append(parts, catalog.Normalize(ev.SubTitle))
@@ -60,12 +65,14 @@ func teamKeys(ev *model.Event) []string {
 	return keys
 }
 
-func eventKey(ev *model.Event) string { return strings.Join(identity(ev), "|") }
+func eventKey(ev *model.Event, loc *time.Location) string {
+	return strings.Join(identity(ev, loc), "|")
+}
 
 // episodeID is the identity hashed under the series id; every channel carrying the
 // game emits the same one, so Channels DVR records it once.
-func episodeID(ev *model.Event) string {
-	sum := sha1.Sum([]byte(eventKey(ev)))
+func episodeID(ev *model.Event, loc *time.Location) string {
+	sum := sha1.Sum([]byte(eventKey(ev, loc)))
 	return ev.SeriesID + "-" + hex.EncodeToString(sum[:])[:12]
 }
 
@@ -75,14 +82,17 @@ type eventIndex struct {
 	byKey  map[string]*model.Event
 	order  []string
 	byTeam map[string][]*model.Event // league|teamKey, built by finalize
+	loc    *time.Location            // the zone every event's day is read in
 }
 
-func newEventIndex() *eventIndex { return &eventIndex{byKey: map[string]*model.Event{}} }
+func newEventIndex(loc *time.Location) *eventIndex {
+	return &eventIndex{byKey: map[string]*model.Event{}, loc: loc}
+}
 
 // add merges ev into the index. A guide-sourced event overrides a title-sourced one
 // for timing, because the guide knows the real duration; everything else fills gaps.
 func (ix *eventIndex) add(ev model.Event) *model.Event {
-	key := eventKey(&ev)
+	key := eventKey(&ev, ix.loc)
 	cur, ok := ix.byKey[key]
 	if !ok {
 		e := ev
@@ -130,7 +140,7 @@ func (ix *eventIndex) finalize() {
 	ix.byTeam = map[string][]*model.Event{}
 	for _, key := range ix.order {
 		ev := ix.byKey[key]
-		ev.ID = episodeID(ev)
+		ev.ID = episodeID(ev, ix.loc)
 		for _, t := range ev.ResolvedTeams() {
 			k := ev.LeagueKey + "|" + t.Key
 			ix.byTeam[k] = append(ix.byTeam[k], ev)
