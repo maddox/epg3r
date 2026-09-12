@@ -1040,6 +1040,53 @@ func TestATimeWithNoDayAndNoOtherChannelIsNotGuessed(t *testing.T) {
 	}
 }
 
+// A source can be told which zone its titles are written in, and then an evening game is
+// already tomorrow by that clock: 7:10PM in New York is past midnight in London. The day
+// is part of what makes two events the same game, so reading it in each title's own zone
+// filed these as two games at the same moment and the guide showed the matchup twice.
+func TestAnEveningGameIsOneGameAcrossZones(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	london := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"MLB\",MLB 11: Cincinnati Reds @ Milwaukee Brewers (09.13 00:10)\nhttp://x/1\n")
+	plain := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"MLB\",MLB 21: Reds vs Brewers (Home) (09.12 7:10PM ET)\nhttp://x/2\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{
+		Name: "uk", URL: london, Timezone: "Europe/London",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "us", URL: plain}); err != nil {
+		t.Fatal(err)
+	}
+	r.Now = func() time.Time { return time.Date(2026, 9, 12, 16, 0, 0, 0, time.UTC) }
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	carrying := 0
+	for _, ch := range snap.Channels {
+		for _, pr := range ch.Programs {
+			if pr.Event.Teams[0] == nil {
+				continue
+			}
+			carrying++
+			ids[pr.Event.ID] = true
+			if got := pr.Event.Kickoff.UTC().Format("2006-01-02 15:04"); got != "2026-09-12 23:10" {
+				t.Errorf("first pitch at %s, want 2026-09-12 23:10 UTC (7:10PM ET)", got)
+			}
+		}
+	}
+	if carrying != 2 {
+		t.Fatalf("%d channels carry the game, want both", carrying)
+	}
+	if len(ids) != 1 {
+		t.Errorf("the same game was listed as %d, one per zone: %v", len(ids), ids)
+	}
+}
+
 // Which side is home decides which way round the placard reads, and a channel name using
 // "vs" does not say. A provider's guide often does, and whichever source knows settles it
 // for every channel carrying the game.
