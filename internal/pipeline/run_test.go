@@ -1040,6 +1040,84 @@ func TestATimeWithNoDayAndNoOtherChannelIsNotGuessed(t *testing.T) {
 	}
 }
 
+// One provider family names its channels with a start:/stop: window whose numbers carry no
+// zone, so the times are not read at all. The teams are, which leaves the channel in the
+// same position as one naming a game but no day: waiting for a channel that states a real
+// time to place it.
+//
+// Reading those numbers as the viewer's own zone put these games five hours late and, with
+// the window's end taken as real, stretched them over seven and a half hours.
+//
+// Taken from a real playlist. Both channels are carrying the same game.
+func TestAWindowInTheNameIsPlacedByAnotherChannel(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"MLB\",MLB 03 | Pirates x Cubs start:2026 09 12 19:20:00 stop:2026 09 13 02:33:20\nhttp://x/1\n"+
+		"#EXTINF:-1 group-title=\"MLB\",MLB 05: Pirates vs Cubs (Home) (09.12 2:20PM ET)\nhttp://x/2\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	r.Now = func() time.Time { return time.Date(2026, 9, 12, 16, 0, 0, 0, time.UTC) }
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	carrying := 0
+	ids := map[string]bool{}
+	for _, ch := range snap.Channels {
+		for _, pr := range ch.Programs {
+			if pr.Event.Teams[0] == nil {
+				continue
+			}
+			carrying++
+			ids[pr.Event.ID] = true
+			if got := pr.Event.Kickoff.UTC().Format("2006-01-02 15:04"); got != "2026-09-12 18:20" {
+				t.Errorf("first pitch at %s, want 2026-09-12 18:20 UTC (2:20PM ET)", got)
+			}
+			// 3h30m of baseball plus the 15m the league starts early. The window's own end
+			// would have made this 7h28m20s.
+			if span := pr.Event.Stop.Sub(pr.Event.Start); span != 3*time.Hour+45*time.Minute {
+				t.Errorf("airing runs %s, want 3h45m", span)
+			}
+		}
+	}
+	if carrying != 2 {
+		t.Fatalf("%d channels carry the game, want both", carrying)
+	}
+	if len(ids) != 1 {
+		t.Errorf("want one game, got %d: %v", len(ids), ids)
+	}
+}
+
+// The cost of not reading those times: with nothing else carrying the matchup there is no
+// real time to borrow, so the channel stays unscheduled rather than being listed at a time
+// nobody can vouch for.
+func TestAWindowWithNoOtherChannelIsNotGuessed(t *testing.T) {
+	ctx := context.Background()
+	r, st := newRunner(t)
+	url := serveM3U(t, "#EXTM3U\n"+
+		"#EXTINF:-1 group-title=\"MLB\",MLB 15 | Mariners x Athletics start:2026 09 13 02:40:00 stop:2026 09 13 09:53:20\nhttp://x/1\n")
+	if _, err := st.CreateSource(ctx, store.NewSource{Name: "p", URL: url}); err != nil {
+		t.Fatal(err)
+	}
+	r.Now = func() time.Time { return time.Date(2026, 9, 12, 16, 0, 0, 0, time.UTC) }
+
+	snap, _, err := r.Run(ctx, store.TriggerManual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ch := range snap.Channels {
+		for _, pr := range ch.Programs {
+			if pr.Event.Teams[0] != nil {
+				t.Errorf("a game was placed from a window with no zone: %s at %s",
+					pr.Event.SubTitle, pr.Event.Kickoff)
+			}
+		}
+	}
+}
+
 // A source can be told which zone its titles are written in, and then an evening game is
 // already tomorrow by that clock: 7:10PM in New York is past midnight in London. The day
 // is part of what makes two events the same game, so reading it in each title's own zone

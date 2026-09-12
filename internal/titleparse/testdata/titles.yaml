@@ -79,12 +79,14 @@ cases:
   - title: "US (WNBA 01) | Connecticut Sun at Atlanta Dream (2026 09 17 23:30:00)"
     group: WNBA League Pass
     expect: {kind: slot, slot: 1, team_a: Connecticut Sun, team_b: Atlanta Dream, sep: "@", kickoff: 2026-09-17T23:30:00-04:00}
+  # start:/stop: states no zone, so neither end is read: the teams carry the title and a
+  # channel that states a real time places the game.
   - title: "WNBA 04 | Dallas Wings (DAL) x Connecticut Sun (CON) start:2026 08 31 01:20:00 stop:2026 08 31 05:30:00"
     group: WNBA League Pass
-    expect: {kind: slot, slot: 4, team_a: Dallas Wings, team_b: Connecticut Sun, kickoff: 2026-08-31T01:20:00-04:00, stop: 2026-08-31T05:30:00-04:00}
+    expect: {kind: slot, slot: 4, team_a: Dallas Wings, team_b: Connecticut Sun, time_known: false}
   - title: "WNBA 01 Atlanta Dream (ATL) x Minnesota Lynx (MIN) start:2026 08 30 19:50:00 stop:2026 08 31 00:00:00"
     group: WNBA League Pass
-    expect: {kind: slot, slot: 1, team_a: Atlanta Dream, team_b: Minnesota Lynx, kickoff: 2026-08-30T19:50:00-04:00}
+    expect: {kind: slot, slot: 1, team_a: Atlanta Dream, team_b: Minnesota Lynx, time_known: false}
   - title: "WNBA 05: Las Vegas Aces vs Seattle Storm | Fri 18th Sep 10:00PM ET"
     group: WNBA League Pass
     expect: {kind: slot, slot: 5, team_a: Las Vegas Aces, team_b: Seattle Storm, kickoff: 2026-09-18T22:00:00-04:00}
