@@ -112,6 +112,9 @@ func TestWriteGolden(t *testing.T) {
 	// Structural checks that matter to Channels DVR regardless of formatting.
 	for _, must := range []string{
 		`<!DOCTYPE tv SYSTEM "xmltv.dtd">`,
+		// Channels DVR namespaces the ids of every program it re-exports with this name, so
+		// it has to be the stable one and not the build.
+		`source-info-name="epg3r"`,
 		`<channel id="NFL 04">`,
 		`<programme start="20260913164500 +0000" stop="20260913203000 +0000" channel="NFL 04">`,
 		`<series-id>191277</series-id>`,
@@ -170,5 +173,35 @@ func TestWriteBaseURL(t *testing.T) {
 				t.Errorf("base %q: missing %s in\n%s", base, want, out)
 			}
 		}
+	}
+}
+
+// The name a guide is known by has to survive an upgrade.
+//
+// Channels DVR reads it into the system attribute of the series-id and episode-num on
+// every program it exports, and into a search keyword on every airing it stores. It used
+// to arrive as generator-info-name, which carries the build, so each release renamed the
+// source and re-namespaced every id under it. Whatever else the file says about which
+// version wrote it, this name must not move.
+func TestSourceNameDoesNotCarryTheBuild(t *testing.T) {
+	var a, b bytes.Buffer
+	snap := &model.Snapshot{}
+	if err := Write(&a, snap, WriteOptions{Generator: "epg3r 2026.09.12.1456"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(&b, snap, WriteOptions{Generator: "epg3r 2027.01.30.0900"}); err != nil {
+		t.Fatal(err)
+	}
+	want := `source-info-name="epg3r"`
+	for _, got := range []string{a.String(), b.String()} {
+		if !strings.Contains(got, want) {
+			t.Errorf("no %s in:\n%s", want, got)
+		}
+	}
+	// Two builds, one source name: the <tv> line differs only in the generator.
+	la := strings.SplitN(a.String(), "\n", 4)[2]
+	lb := strings.SplitN(b.String(), "\n", 4)[2]
+	if strings.Replace(la, "2026.09.12.1456", "2027.01.30.0900", 1) != lb {
+		t.Errorf("two builds disagree on more than the generator:\n  %s\n  %s", la, lb)
 	}
 }

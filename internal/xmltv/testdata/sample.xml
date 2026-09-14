@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE tv SYSTEM "xmltv.dtd">
-<tv generator-info-name="epg3r test">
+<tv source-info-name="epg3r" generator-info-name="epg3r test">
   <channel id="NFL 04">
     <display-name>NFL 04</display-name>
     <icon src="http://epg3r.test/art/league/nfl.png"></icon>

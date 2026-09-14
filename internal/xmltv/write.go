@@ -12,9 +12,20 @@ import (
 // Stamp is the XMLTV timestamp layout. Output is always UTC.
 const Stamp = "20060102150405 -0700"
 
+// SourceName is what a consumer should call this guide, and it never changes.
+//
+// Channels DVR reads it into the name it knows a guide by, and spends that name on more
+// than a label: it becomes the system attribute on the series-id and episode-num of every
+// program it exports, and a search keyword on every airing it stores. A name that moved
+// would re-namespace every id under it and leave a trail of dead keywords behind.
+//
+// So it is a constant here rather than an option. It was the version that reached Channels
+// before, by way of generator-info-name, which meant every release renamed the source.
+const SourceName = "epg3r"
+
 // WriteOptions tune the guide output.
 type WriteOptions struct {
-	Generator string // generator-info-name
+	Generator string // generator-info-name: this build, for anyone reading the file
 
 	// BaseURL makes root-relative icon paths absolute. Empty leaves them as they are.
 	BaseURL string
@@ -42,7 +53,7 @@ func Write(w io.Writer, snap *model.Snapshot, opts WriteOptions) error {
 	buf.WriteString(xml.Header)
 	buf.WriteString(`<!DOCTYPE tv SYSTEM "xmltv.dtd">` + "\n")
 
-	doc := tvDoc{GeneratorName: opts.Generator}
+	doc := tvDoc{SourceName: SourceName, GeneratorName: opts.Generator}
 	for _, ch := range snap.Channels {
 		xc := xChannel{ID: ch.ID, DisplayName: []string{ch.Name}}
 		if ch.LogoURL != "" {
@@ -116,6 +127,7 @@ func program(ch model.Channel, p model.Program, base string) xProgram {
 
 type tvDoc struct {
 	XMLName       xml.Name   `xml:"tv"`
+	SourceName    string     `xml:"source-info-name,attr"`
 	GeneratorName string     `xml:"generator-info-name,attr"`
 	Channels      []xChannel `xml:"channel"`
 	Programs      []xProgram `xml:"programme"` // the XMLTV element name
